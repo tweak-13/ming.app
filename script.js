@@ -1066,12 +1066,14 @@ let notifications = [];
 let notificationReadIds = new Set();
 let notificationReadAt = new Map();
 let persistedReadNotifications = [];
+let expiredNotificationIds = new Set();
 const TWEAKLR_NOTIFICATION_RETENTION_MS = 24 * HOUR;
 
 async function loadNotificationReadState() {
   notificationReadIds = new Set();
   notificationReadAt = new Map();
   persistedReadNotifications = [];
+  expiredNotificationIds = new Set();
   const { data, error } = await supabaseClient
     .from('user_notification_reads')
     .select('notification_id, read_at, notification_payload')
@@ -1089,6 +1091,7 @@ async function loadNotificationReadState() {
     const readAt = new Date(row.read_at).getTime();
     if (!Number.isFinite(readAt) || readAt <= cutoff) {
       expiredIds.push(row.notification_id);
+      expiredNotificationIds.add(row.notification_id);
       return;
     }
     notificationReadIds.add(row.notification_id);
@@ -1101,10 +1104,10 @@ async function loadNotificationReadState() {
   if (expiredIds.length) {
     const { error: cleanupError } = await supabaseClient
       .from('user_notification_reads')
-      .delete()
+      .update({ notification_payload: null })
       .eq('user_id', currentUser.id)
       .in('notification_id', expiredIds);
-    if (cleanupError) console.warn('Tweaklr: expired notification read states could not be cleaned up.', cleanupError.message);
+    if (cleanupError) console.warn('Tweaklr: expired notification snapshots could not be cleaned up.', cleanupError.message);
   }
   return true;
 }
@@ -1293,6 +1296,7 @@ async function loadMingNotifications() {
     const freshIds = new Set(next.map(n => n.id));
     const retainedRead = persistedReadNotifications.filter(n => !freshIds.has(n.id));
     notifications = [...next, ...retainedRead]
+      .filter(n => !expiredNotificationIds.has(n.id))
       .filter(n => {
         const readAt = notificationReadAt.get(n.id);
         return !readAt || Date.now() - readAt < TWEAKLR_NOTIFICATION_RETENTION_MS;
