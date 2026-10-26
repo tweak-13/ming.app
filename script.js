@@ -6591,6 +6591,25 @@ function updateNotifDot() {
   const unread = notifications.some(n => !n.read);
   $('#notif-dot').hidden = !unread;
 }
+
+setInterval(() => {
+  const before = notifications.length;
+  notifications = notifications.filter(n => {
+    const readAt = notificationReadAt.get(n.id);
+    return !readAt || Date.now() - readAt < TWEAKLR_NOTIFICATION_RETENTION_MS;
+  });
+  persistedReadNotifications = persistedReadNotifications.filter(n => {
+    const readAt = notificationReadAt.get(n.id);
+    return readAt && Date.now() - readAt < TWEAKLR_NOTIFICATION_RETENTION_MS;
+  });
+  if (notifications.length !== before) {
+    renderNotifications();
+    updateNotifDot();
+  }
+  if (expiredNotificationIds.size) {
+    void supabaseClient.rpc('cleanup_tweaklr_expired_notifications');
+  }
+}, 60 * 1000);
 function updateProfileMessageUnreadBadge() {
   const badge = $('#profile-message-unread-badge');
   const unread = conversations.reduce((n, c) => n + (Number(c.unread) || 0), 0);
