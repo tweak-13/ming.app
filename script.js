@@ -1102,11 +1102,7 @@ async function loadNotificationReadState() {
   });
 
   if (expiredIds.length) {
-    const { error: cleanupError } = await supabaseClient
-      .from('user_notification_reads')
-      .update({ notification_payload: null })
-      .eq('user_id', currentUser.id)
-      .in('notification_id', expiredIds);
+    const { error: cleanupError } = await supabaseClient.rpc('cleanup_tweaklr_expired_notifications');
     if (cleanupError) console.warn('Tweaklr: expired notification snapshots could not be cleaned up.', cleanupError.message);
   }
   return true;
