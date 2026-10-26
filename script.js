@@ -5277,10 +5277,19 @@ function openMessageActions(messageId) {
     title: 'Message',
     sub: 'React or choose an action',
     body: `
-      <div class="chat-reaction-picker" role="group" aria-label="React to message">
-        ${reactionChoices.map(({ emoji, label }) => `
-          <button type="button" class="chat-reaction-choice" data-action="chat-add-reaction:${esc(messageId)}:${encodeURIComponent(emoji)}" aria-label="${label}" title="${label}">${emoji}</button>
-        `).join('')}
+      <div class="chat-celestial-reaction" aria-label="Celestial message reactions">
+        <div class="chat-orb-reactions" role="group" aria-label="Choose a message reaction">
+          ${reactionChoices.map(({ emoji, label }) => `
+            <button type="button" class="chat-reaction-choice" data-action="chat-add-reaction:${esc(messageId)}:${encodeURIComponent(emoji)}" aria-label="${label}" title="${label}">${emoji}</button>
+          `).join('')}
+        </div>
+        <button type="button" class="chat-reaction-orb" data-action="chat-toggle-reaction-orb:${esc(messageId)}" aria-expanded="false" aria-label="Open celestial reactions" title="React">
+          <span class="chat-orb-halo chat-orb-halo-one" aria-hidden="true"></span>
+          <span class="chat-orb-halo chat-orb-halo-two" aria-hidden="true"></span>
+          <span class="chat-orb-core" aria-hidden="true">✦</span>
+          <span class="chat-orb-caption">TWEAKLR REACT</span>
+        </button>
+        <p class="chat-orb-hint">Tap the orb to reveal your reactions</p>
       </div>
       <div class="chat-action-grid">
         <button data-action="chat-reply:${esc(messageId)}"><span class="tw-action-icon tw-action-reply" aria-hidden="true"></span><br>Reply</button>
@@ -8193,7 +8202,17 @@ document.addEventListener('click', async e => {
   if(verb==='chat-cancel-reply'){ clearChatReply(); }
   if(verb==='chat-copy'){ copyChatMessage(arg); }
   if(verb==='chat-forward'){ forwardChatMessage(arg); }
-  if(verb==='chat-react'){ /* emoji row already visible */ }
+  if(verb==='chat-react'){ /* legacy action retained for compatibility */ }
+  if(verb==='chat-toggle-reaction-orb'){
+    const reactionOrb = b.closest('.chat-celestial-reaction');
+    if (reactionOrb) {
+      const expanded = reactionOrb.classList.toggle('is-expanded');
+      const orbButton = reactionOrb.querySelector('.chat-reaction-orb');
+      orbButton?.setAttribute('aria-expanded', String(expanded));
+      orbButton?.setAttribute('aria-label', expanded ? 'Close celestial reactions' : 'Open celestial reactions');
+      reactionOrb.querySelector('.chat-orb-hint')?.classList.toggle('is-hidden', expanded);
+    }
+  }
   if(verb==='chat-add-reaction'){ addChatReaction(arg, decodeURIComponent(arg2||'')); }
   if(verb==='chat-delete'){ openDeleteMessageChoices(arg); }
   if(verb==='chat-delete-choice'){ confirmChatDelete(arg, arg2); }
