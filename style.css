@@ -4991,7 +4991,10 @@ html.theme-transitioning *::after {
 .chat-celestial-reaction::before { transform: scaleX(1.55) rotate(-24deg); }
 .chat-celestial-reaction::after { width: 124px; height: 124px; border-style: dashed; opacity: .65; }
 .chat-reaction-orb {
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
   z-index: 3;
   display: grid;
   place-items: center;
@@ -5010,7 +5013,7 @@ html.theme-transitioning *::after {
   -webkit-tap-highlight-color: transparent;
   transition: transform .28s ease, box-shadow .28s ease, filter .28s ease;
 }
-.chat-reaction-orb:active { transform: scale(.94); }
+.chat-reaction-orb:active { transform: translate(-50%,-50%) scale(.94); }
 .chat-orb-core {
   position: relative;
   z-index: 2;
@@ -5091,7 +5094,11 @@ html.theme-transitioning *::after {
 .chat-reaction-choice:focus-visible,
 .chat-reaction-orb:focus-visible { outline: 2px solid var(--orb-cream); outline-offset: 4px; }
 .chat-orb-hint {
-  margin: 17px 0 0;
+  position: absolute;
+  right: 8px;
+  bottom: 12px;
+  left: 8px;
+  margin: 0;
   color: rgba(241,210,174,.72);
   font-size: 10px;
   letter-spacing: .04em;
