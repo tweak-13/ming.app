@@ -1064,25 +1064,61 @@ function hasOutgoingConnectionRequest(id) {
 
 let notifications = [];
 let notificationReadIds = new Set();
+let notificationReadAt = new Map();
+const TWEAKLR_NOTIFICATION_RETENTION_MS = 24 * HOUR;
 
-function notificationReadStorageKey() {
-  return currentUser.id ? 'ming_notification_reads_' + currentUser.id : 'ming_notification_reads';
-}
+async function loadNotificationReadState() {
+  notificationReadIds = new Set();
+  notificationReadAt = new Map();
+  const { data, error } = await supabaseClient
+    .from('user_notification_reads')
+    .select('notification_id, read_at')
+    .eq('user_id', currentUser.id);
 
-function loadNotificationReadState() {
-  try {
-    const raw = localStorage.getItem(notificationReadStorageKey());
-    const ids = raw ? JSON.parse(raw) : [];
-    notificationReadIds = new Set(Array.isArray(ids) ? ids : []);
-  } catch (_) {
-    notificationReadIds = new Set();
+  if (error) {
+    console.warn('Tweaklr: notification read state could not be loaded from the backend.', error.message);
+    return false;
   }
+
+  const cutoff = Date.now() - TWEAKLR_NOTIFICATION_RETENTION_MS;
+  const expiredIds = [];
+  (data || []).forEach(row => {
+    const readAt = new Date(row.read_at).getTime();
+    if (!Number.isFinite(readAt) || readAt <= cutoff) {
+      expiredIds.push(row.notification_id);
+      return;
+    }
+    notificationReadIds.add(row.notification_id);
+    notificationReadAt.set(row.notification_id, readAt);
+  });
+
+  if (expiredIds.length) {
+    const { error: cleanupError } = await supabaseClient
+      .from('user_notification_reads')
+      .delete()
+      .eq('user_id', currentUser.id)
+      .in('notification_id', expiredIds);
+    if (cleanupError) console.warn('Tweaklr: expired notification read states could not be cleaned up.', cleanupError.message);
+  }
+  return true;
 }
 
-function saveNotificationReadState() {
-  try {
-    localStorage.setItem(notificationReadStorageKey(), JSON.stringify(Array.from(notificationReadIds).slice(-300)));
-  } catch (_) {}
+async function saveNotificationReadState(ids) {
+  const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).filter(id => typeof id === 'string' && id.length > 0))];
+  if (!currentUser.id || !uniqueIds.length) return true;
+  const { error } = await supabaseClient.rpc('mark_tweaklr_notifications_read', {
+    p_notification_ids: uniqueIds
+  });
+  if (error) {
+    console.warn('Tweaklr: notification read state could not be saved to the backend.', error.message);
+    return false;
+  }
+  const readAt = Date.now();
+  uniqueIds.forEach(id => {
+    notificationReadIds.add(id);
+    notificationReadAt.set(id, readAt);
+  });
+  return true;
 }
 
 async function loadMingNotifications() {
@@ -1090,7 +1126,8 @@ async function loadMingNotifications() {
     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
     if (sessionError || !session?.user) return false;
 
-    loadNotificationReadState();
+    currentUser.id = session.user.id;
+    await loadNotificationReadState();
     await loadMingConnections();
     await loadMingMessages();
 
@@ -1237,7 +1274,13 @@ async function loadMingNotifications() {
       console.warn('Tweaklr: post activity notifications failed.', postNotificationError);
     }
 
-    notifications = next.sort((a, b) => b.at - a.at);
+    notifications = next
+      .filter(n => {
+        const readAt = notificationReadAt.get(n.id);
+        return !readAt || Date.now() - readAt < TWEAKLR_NOTIFICATION_RETENTION_MS;
+      })
+      .map(n => ({ ...n, read: notificationReadIds.has(n.id) }))
+      .sort((a, b) => b.at - a.at);
     rememberAndPopupNewMingNotifications(notifications);
     updateNotifDot();
     return true;
@@ -4914,7 +4957,12 @@ async function openChat(personId) {
       notificationReadIds.add(n.id);
     }
   });
-  saveNotificationReadState();
+  const relatedReadIds = notifications
+    .filter(n => n.type === 'message' && n.personId === personId)
+    .map(n => n.id);
+  if (relatedReadIds.length) {
+    void saveNotificationReadState(relatedReadIds);
+  }
   renderNotifications();
   updateNotifDot();
   state.activeChat = personId;
@@ -7598,9 +7646,12 @@ document.addEventListener('click', async e => {
     case 'notif': {
       const n = notifications.find(x => x.id === arg);
       if (!n) break;
+      const saved = await saveNotificationReadState([n.id]);
+      if (!saved) {
+        toast('Could not save read status. Please try again.', 'alert');
+        break;
+      }
       n.read = true;
-      notificationReadIds.add(n.id);
-      saveNotificationReadState();
       renderNotifications();
       updateNotifDot();
 
@@ -7910,15 +7961,28 @@ if ($('#refresh-nearby')) {
 }
 
 if ($('#mark-all-read')) {
-  $('#mark-all-read').addEventListener('click', () => {
+  $('#mark-all-read').addEventListener('click', async () => {
+    const ids = notifications.map(n => n.id);
+    if (!ids.length) {
+      toast('All caught up', 'check');
+      return;
+    }
+    const button = $('#mark-all-read');
+    if (button) button.disabled = true;
+    const saved = await saveNotificationReadState(ids);
+    if (!saved) {
+      toast('Could not save read status. Please try again.', 'alert');
+      if (button) button.disabled = false;
+      return;
+    }
     notifications.forEach(n => {
       n.read = true;
       notificationReadIds.add(n.id);
     });
-    saveNotificationReadState();
     renderNotifications();
     updateNotifDot();
     toast('All caught up', 'check');
+    if (button) button.disabled = false;
   });
 }
 scrim.addEventListener('click', () => { closeSheet(); closeModal(); });
