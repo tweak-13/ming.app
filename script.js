@@ -1065,14 +1065,16 @@ function hasOutgoingConnectionRequest(id) {
 let notifications = [];
 let notificationReadIds = new Set();
 let notificationReadAt = new Map();
+let persistedReadNotifications = [];
 const TWEAKLR_NOTIFICATION_RETENTION_MS = 24 * HOUR;
 
 async function loadNotificationReadState() {
   notificationReadIds = new Set();
   notificationReadAt = new Map();
+  persistedReadNotifications = [];
   const { data, error } = await supabaseClient
     .from('user_notification_reads')
-    .select('notification_id, read_at')
+    .select('notification_id, read_at, notification_payload')
     .eq('user_id', currentUser.id);
 
   if (error) {
@@ -1083,6 +1085,7 @@ async function loadNotificationReadState() {
   const cutoff = Date.now() - TWEAKLR_NOTIFICATION_RETENTION_MS;
   const expiredIds = [];
   (data || []).forEach(row => {
+    if (!row.read_at) return;
     const readAt = new Date(row.read_at).getTime();
     if (!Number.isFinite(readAt) || readAt <= cutoff) {
       expiredIds.push(row.notification_id);
@@ -1090,6 +1093,9 @@ async function loadNotificationReadState() {
     }
     notificationReadIds.add(row.notification_id);
     notificationReadAt.set(row.notification_id, readAt);
+    if (row.notification_payload && typeof row.notification_payload === 'object') {
+      persistedReadNotifications.push({ ...row.notification_payload, read: true });
+    }
   });
 
   if (expiredIds.length) {
@@ -1274,7 +1280,19 @@ async function loadMingNotifications() {
       console.warn('Tweaklr: post activity notifications failed.', postNotificationError);
     }
 
-    notifications = next
+    const { error: syncError } = await supabaseClient.rpc('sync_tweaklr_notifications', {
+      p_notifications: next.map(n => ({
+        id: n.id, type: n.type, personId: n.personId || null,
+        updateId: n.updateId || null, text: n.text, at: n.at
+      }))
+    });
+    if (syncError) {
+      console.warn('Tweaklr: notification snapshots could not be synced to the backend.', syncError.message);
+    }
+
+    const freshIds = new Set(next.map(n => n.id));
+    const retainedRead = persistedReadNotifications.filter(n => !freshIds.has(n.id));
+    notifications = [...next, ...retainedRead]
       .filter(n => {
         const readAt = notificationReadAt.get(n.id);
         return !readAt || Date.now() - readAt < TWEAKLR_NOTIFICATION_RETENTION_MS;
