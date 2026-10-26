@@ -6607,6 +6607,7 @@ setInterval(() => {
     updateNotifDot();
   }
   if (expiredNotificationIds.size) {
+    expiredNotificationIds.clear();
     void supabaseClient.rpc('cleanup_tweaklr_expired_notifications');
   }
 }, 60 * 1000);
