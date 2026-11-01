@@ -5707,3 +5707,42 @@ html.theme-transitioning *::after {
 /* Tweaklr private blocking control */
 #screen-chat .chat-call-actions [data-action="block-current-chat"] { color:var(--coffee,#8b3543); }
 #screen-chat .chat-call-actions [data-action="block-current-chat"] svg { width:19px;height:19px; }
+
+/* Subtle creator ownership credit — visible on phones, tablets and desktop */
+.desk-mark {
+  display: block !important;
+  position: fixed;
+  z-index: 100;
+  left: auto;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(var(--nav-h, 64px) + var(--safe-b, 0px) + 8px);
+  transform: none;
+  max-width: calc(100vw - 24px);
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg, #17120f) 76%, transparent);
+  color: var(--muted, #9b8d82);
+  font-size: 10px;
+  line-height: 1.3;
+  letter-spacing: .015em;
+  text-align: right;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: .78;
+}
+
+@media (min-width: 1100px) {
+  .desk-mark {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    right: max(16px, env(safe-area-inset-right));
+  }
+}
+
+@media (max-width: 360px) {
+  .desk-mark {
+    right: 8px;
+    bottom: calc(var(--nav-h, 64px) + var(--safe-b, 0px) + 5px);
+    font-size: 9px;
+  }
+}
+
