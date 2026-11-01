@@ -9045,7 +9045,7 @@ const Server = (() => {
       case 'space.post': {
         if (!can(p.spaceId, 'space.post')) return deny('You cannot post in this Space.');
         const targetSpace = db.spaces.find(x => x.id === p.spaceId);
-        if (targetSpace?.nature === 'business' && targetSpace.features?.businessMessaging === 'admins' && !['owner','admin'].includes(roleOf(p.spaceId))) return deny('Only the creator and admins can publish in this Business Space.');
+        if (targetSpace?.nature === 'business' && targetSpace.features?.businessMessaging === 'owner' && roleOf(p.spaceId) !== 'owner') return deny('Only the creator can publish in this Business Space.');
         const { data: created, error } = await supabaseClient.rpc('create_ming_space_content', {
           p_space_id: p.spaceId,
           p_kind: p.kind,
@@ -9783,7 +9783,7 @@ const WZ_RENDER = {
         <span class="tx"><span class="t" style="display:block">${f.t}</span><span class="s" style="display:block">${f.s}</span></span>
         <span class="sw"></span>
       </button>`).join('')}
-    ${w.nature === 'business' ? `<div class="biz-post-policy"><div class="biz-post-policy__title">Who can publish to the Home feed?</div><p>Choose who can create posts in this Business Space. The creator always keeps full admin control.</p><button type="button" class="choice" aria-pressed="${(w.features.businessMessaging || 'everyone') === 'everyone'}" data-sp="wz-business-messaging:everyone"><span class="radio"></span><span class="tx"><span class="t">All members</span><span class="s">Everyone can publish and join discussions.</span></span></button><button type="button" class="choice" aria-pressed="${w.features.businessMessaging === 'admins'}" data-sp="wz-business-messaging:admins"><span class="radio"></span><span class="tx"><span class="t">Admins only</span><span class="s">Only the creator and admins can publish.</span></span></button></div>` : ''}
+    ${w.nature === 'business' ? `<div class="biz-post-policy"><div class="biz-post-policy__title">Who can publish to the Home feed?</div><p>Choose who can create posts in this Business Space. The creator always keeps full admin control.</p><button type="button" class="choice" aria-pressed="${(w.features.businessMessaging || 'everyone') === 'everyone'}" data-sp="wz-business-messaging:everyone"><span class="radio"></span><span class="tx"><span class="t">All members</span><span class="s">Everyone can publish and join discussions.</span></span></button><button type="button" class="choice" aria-pressed="${w.features.businessMessaging === 'owner'}" data-sp="wz-business-messaging:owner"><span class="radio"></span><span class="tx"><span class="t">Creator only</span><span class="s">Only the creator and admins can publish.</span></span></button></div>` : ''}
     ${w.nature === 'marketplace' ? `<div class="ephemeral-note" style="margin-top:16px">${icon('shield')}<span>Payments in this Space are held in escrow until the buyer confirms delivery. Tweaklr Wallet is in development mode — no real funds move.</span></div>` : ''}`;
   },
 
@@ -9801,7 +9801,7 @@ const WZ_RENDER = {
         ['Member limit', w.maxMembers ? w.maxMembers + ' people' : 'No limit'],
         ['Code expires', w.inviteTtlHours ? w.inviteTtlHours + ' hours' : 'Never'],
         ['Code uses', w.inviteMaxUses ? w.inviteMaxUses : 'Unlimited'],
-        ['Post permissions', w.nature === 'business' ? (w.features.businessMessaging === 'admins' ? 'Admins only' : 'All members') : 'Space defaults'],
+        ['Post permissions', w.nature === 'business' ? (w.features.businessMessaging === 'owner' ? 'Creator only' : 'All members') : 'Space defaults'],
         ['Your role', 'Owner']
       ].map(([k, v]) => `<div class="review-row"><span class="k">${k}</span><span class="v">${esc(String(v))}</span></div>`).join('')}
     </div>`
@@ -10251,7 +10251,7 @@ async function setOpenRoleStatus(roleId, status) {
 
 VIEWS.business.home = s => {
   const posts = contentOf(s.id, 'business_post').sort((a,b) => Number(b.at||0)-Number(a.at||0));
-  const canPost = Server.can(s.id, 'space.post') && (s.features?.businessMessaging !== 'admins' || ['owner','admin'].includes(Server.roleOf(s.id)));
+  const canPost = Server.can(s.id, 'space.post') && (s.features?.businessMessaging !== 'owner' || Server.roleOf(s.id) === 'owner');
   const role = Server.roleOf(s.id);
   const admin = ['owner','admin'].includes(role);
   return '<div class="biz-home">' +
@@ -11169,7 +11169,7 @@ function membersView(s, note) {
           ${canRole && m.role !== 'owner'
             ? `<button class="role" data-sp="role:${s.id}:${m.userId}">${esc(m.role)}</button>`
             : `<span class="role">${esc(m.role)}</span>`}
-          ${s.nature === 'business' && ['owner','admin'].includes(Server.roleOf(s.id)) && m.role !== 'owner' && m.userId !== currentUser.id ? `<button class="biz-member-remove" data-sp="biz-remove-member:${m.userId}" aria-label="Remove ${esc(p.short||p.name||'member')}">Remove</button>` : ''}
+          ${s.nature === 'business' && Server.roleOf(s.id) === 'owner' && m.role !== 'owner' && m.userId !== currentUser.id ? `<button class="biz-member-remove" data-sp="biz-remove-member:${m.userId}" aria-label="Remove ${esc(p.short||p.name||'member')}">Remove</button>` : ''}
         </div>`;
       }).join('')}
     </div>
@@ -11430,7 +11430,7 @@ document.addEventListener('click', async e => {
     case 'biz-message': closeSheet(); if(a && a!==currentUser.id) setTimeout(()=>openChat(a),180); else toast('You cannot message yourself.','x'); break;
     case 'biz-remove-member': {
       const member=Server.db.members.find(m=>m.spaceId===sp.activeId&&m.userId===a);
-      if(!member||!['owner','admin'].includes(Server.roleOf(sp.activeId))||member.role==='owner'){toast('This member cannot be removed.','x');break;}
+      if(!member||Server.roleOf(sp.activeId) !== 'owner'||member.role==='owner'){toast('This member cannot be removed.','x');break;}
       openModal({title:'Remove this member?',lede:'They will lose access to this Business Space. The creator cannot be removed.',actions:[{t:'Keep member',cls:'btn--soft',a:'close-modal'},{t:'Remove member',cls:'btn--danger',a:'biz-remove-confirm'}]});
       $('#modal').querySelector('[data-action="biz-remove-confirm"]').addEventListener('click',async()=>{const result=await Server.submit('space.member.remove',{spaceId:sp.activeId,userId:a});closeModal();if(!result.ok){toast(result.error,'x');return;}renderSpace();toast('Member removed','check');});break;
     }
@@ -11456,7 +11456,7 @@ document.addEventListener('click', async e => {
       if(a==='task'){const title=$('#cx-title')?.value.trim()||'';if(!title){toast('Add a task name first.','x');return;}const assigneeId=$('#cx-assignee')?.value||null,m=Server.db.members.find(x=>x.spaceId===sp.activeId&&x.userId===assigneeId&&x.approved!==false),p=assigneeId?personOf(assigneeId):null;payload.title=title;payload.description=$('#cx-description')?.value.trim()||'';payload.assigneeId=m?assigneeId:null;payload.owner=m?(p.short||p.name||p.username||'Space member'):'Unassigned';payload.due=$('#cx-due')?.value||'';payload.priority=$('#cx-priority')?.value||'medium';payload.status=$('#cx-status')?.value||'todo';payload.done=payload.status==='completed';payload.subtasks=[];payload.comments=[];payload.createdBy=currentUser.id;}else c.fields.forEach(([k])=>{payload[k]=($('#cx-'+k)||{}).value||'';});
       if (!payload[c.fields[0][0]].trim()) { toast(a === 'loveletter' ? 'Give your letter a title first.' : 'Say something first', 'x'); return; }
       if (a === 'business_post' && spaceById(sp.activeId)?.nature !== 'business') { toast('This post type is only available in Business Spaces.','x'); return; }
-      if (a === 'business_post' && spaceById(sp.activeId)?.features?.businessMessaging === 'admins' && !['owner','admin'].includes(Server.roleOf(sp.activeId))) { toast('Only the creator and admins can publish here.','x'); return; }
+      if (a === 'business_post' && spaceById(sp.activeId)?.features?.businessMessaging === 'owner' && Server.roleOf(sp.activeId) !== 'owner') { toast('Only the creator can publish here.','x'); return; }
       if (a === 'loveletter') {
         payload.title = payload.title.trim();
         payload.body = (payload.body || '').trim();
