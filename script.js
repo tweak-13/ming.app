@@ -10331,12 +10331,15 @@ async function createBusinessSpaceUpdate(spaceId, kind, title, body, files) {
   if (cleanBody.length > 280) { toast('Keep the update under 280 characters.', 'alert'); return false; }
   if (files.length > 4) { toast('You can attach up to 4 photos or videos.', 'alert'); return false; }
 
+  for (const file of files) {
+    const isImage=file.type.startsWith('image/'),isVideo=file.type.startsWith('video/');
+    if(!isImage&&!isVideo){toast('Only photos and videos can be attached.','alert');return false;}
+    const maxBytes=isVideo?50*1024*1024:15*1024*1024;
+    if(file.size>maxBytes){toast(isVideo?'Videos must be 50 MB or smaller.':'Photos must be 15 MB or smaller.','alert');return false;}
+  }
   const uploaded = [];
   for (const file of files) {
-    const isImage = file.type.startsWith('image/'), isVideo = file.type.startsWith('video/');
-    if (!isImage && !isVideo) { toast('Only photos and videos can be attached.', 'alert'); return false; }
-    const maxBytes = isVideo ? 50 * 1024 * 1024 : 15 * 1024 * 1024;
-    if (file.size > maxBytes) { toast(isVideo ? 'Videos must be 50 MB or smaller.' : 'Photos must be 15 MB or smaller.', 'alert'); return false; }
+    const isVideo = file.type.startsWith('video/');
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 90) || (isVideo ? 'video' : 'photo');
     const path = currentUser.id + '/business-' + spaceId + '/' + crypto.randomUUID() + '-' + safeName;
     const { error } = await supabaseClient.storage.from('ming-post-media').upload(path, file, { contentType:file.type, cacheControl:'3600', upsert:false });
