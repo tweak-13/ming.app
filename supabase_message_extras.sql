@@ -19,9 +19,20 @@ alter table public.messages
 alter table public.messages
   add constraint messages_body_type_check
   check (
-    (message_type = 'text' and char_length(trim(body)) between 1 and 2000)
+    (
+      message_type = 'text'
+      and char_length(trim(body)) between 1 and 2000
+    )
     or
-    (message_type = 'voice' and char_length(body) = 0)
+    (
+      message_type = 'voice'
+      and char_length(body) = 0
+    )
+    or
+    (
+      message_type = 'image'
+      and char_length(body) = 0
+    )
   );
 
 create index if not exists messages_reply_to_idx
