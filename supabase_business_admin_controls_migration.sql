@@ -221,7 +221,7 @@ begin
   ) then raise exception 'Approved Business Space membership required'; end if;
 
   v_liked_by := v_payload->'likedBy';
-  if jsonb_typeof(v_liked_by) <> 'array' then v_liked_by := '[]'::jsonb; end if;
+  if v_liked_by is null or jsonb_typeof(v_liked_by) <> 'array' then v_liked_by := '[]'::jsonb; end if;
 
   if exists (select 1 from jsonb_array_elements_text(v_liked_by) as liked(user_id) where liked.user_id=v_user::text) then
     select coalesce(jsonb_agg(to_jsonb(liked.user_id)), '[]'::jsonb)
