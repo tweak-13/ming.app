@@ -1512,7 +1512,7 @@ async function loadTweakTikTokData(showToast = false) {
     const displayName = data.profile?.display_name || 'your TikTok account';
     statusEl.textContent = 'Connected as ' + displayName + '.';
     const connectButton = $('#screen-tweak [data-action="tweak-connect"]');
-    if (connectButton) connectButton.textContent = 'Reconnect';
+    if (connectButton) { const actionLabel = connectButton.querySelector('.pulse-connect-action'); if (actionLabel) actionLabel.textContent = 'Reconnect'; }
 
     const videos = Array.isArray(data.videos) ? data.videos : [];
     if (!videos.length) {
