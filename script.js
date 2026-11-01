@@ -10420,7 +10420,11 @@ async function getBusinessPostShareData(postId) {
 
 async function getBusinessPostMediaFiles(post) {
   const media=Array.isArray(post?.media)?post.media:[];
-  const cached=businessPostMediaUrlCache.get(post.id)||[];
+  let cached=businessPostMediaUrlCache.get(post.id)||[];
+  if(media.some(item=>item?.path) && (!cached.expiresAt || cached.expiresAt<Date.now()+60000)){
+    await hydrateBusinessHomeMedia(post.spaceId);
+    cached=businessPostMediaUrlCache.get(post.id)||[];
+  }
   const files=[];
   for(let index=0;index<media.length;index++){
     const item=media[index];const url=item.url||cached[index];if(!url)continue;
