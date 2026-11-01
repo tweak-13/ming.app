@@ -115,9 +115,9 @@ begin
   where m.space_id = new.space_id and m.user_id = auth.uid() and m.approved = true;
   if v_role is null then raise exception 'Approved Business Space membership required'; end if;
 
-  if coalesce(v_features->>'businessMessaging', 'everyone') = 'admins'
-     and v_role not in ('owner','admin') then
-    raise exception 'Only the creator and admins can publish in this Business Space';
+  if coalesce(v_features->>'businessMessaging', 'everyone') = 'owner'
+     and v_role <> 'owner' then
+    raise exception 'Only the creator can publish in this Business Space';
   end if;
   return new;
 end;
