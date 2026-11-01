@@ -1972,3 +1972,8 @@
 #screen-createspace .biz-post-policy__title{font-size:13px;font-weight:750;color:var(--text);}
 #screen-createspace .biz-post-policy>p{font-size:11px;line-height:1.5;color:var(--muted);margin:5px 0 10px;}
 #screen-createspace .biz-post-policy .choice{margin-top:7px;}
+
+#screen-space[data-nature="business"] .biz-post-head{position:relative;}
+#screen-space[data-nature="business"] .biz-post-delete{border:0;background:transparent;color:var(--muted);font-size:19px;letter-spacing:2px;padding:4px 7px;border-radius:9px;}
+#screen-space[data-nature="business"] .biz-post-delete:active{background:var(--surface-2);}
+#screen-space[data-nature="business"] .biz-member-remove{border:1px solid rgba(139,53,67,.25);background:rgba(139,53,67,.07);color:#9b4350;border-radius:9px;padding:6px 8px;font-size:10px;font-weight:700;}
