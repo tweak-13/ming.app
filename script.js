@@ -5172,7 +5172,13 @@ function tweaklrReactionSvg(id) {
     tw_wow: '😮',
     tw_sad: '😢',
     tw_angry: '😡',
-    tw_like: '👍'
+    tw_like: '👍',
+    '😀': '😀',
+    '😂': '😂',
+    '😢': '😢',
+    '❤️': '❤️',
+    '😡': '😡',
+    '👍': '👍'
   };
   return '<span class="tweaklr-emoji" aria-hidden="true">' + (emojis[id] || emojis.tw_like) + '</span>';
 }
@@ -5548,14 +5554,15 @@ async function addChatReaction(messageId, emoji) {
     // has a unique (message_id, user_id) constraint. This avoids a delete/insert
     // race and works when RLS silently returns zero deleted rows.
     if (myReactions.length) {
+      // Update the existing reaction row directly. This works whether or not
+      // the table has a unique (message_id, user_id) constraint.
       const replacement = await supabaseClient
         .from('message_reactions')
-        .upsert(
-          { message_id: messageId, user_id: session.user.id, emoji },
-          { onConflict: 'message_id,user_id' }
-        )
+        .update({ emoji })
+        .eq('message_id', messageId)
+        .eq('user_id', session.user.id)
         .select('message_id,user_id,emoji')
-        .single();
+        .maybeSingle();
 
       if (!replacement.error && replacement.data) {
         m.reactions = [
@@ -5567,8 +5574,8 @@ async function addChatReaction(messageId, emoji) {
         return;
       }
 
-      // Some deployments permit multiple emoji rows per user instead of
-      // enforcing one row per message/user. Retain the existing compatible path.
+      // Retain compatibility with deployments where direct updates are not
+      // available but the existing delete-and-insert policy is permitted.
       ({ error } = await supabaseClient
         .from('message_reactions')
         .delete()
