@@ -118,7 +118,7 @@ for delete
 to authenticated
 using ((select auth.uid()) = author_id);
 
-
+drop function if exists public.get_daily_updates(integer);
 create or replace function public.get_daily_updates(
   p_limit integer default 50
 )
