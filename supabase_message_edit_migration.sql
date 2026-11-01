@@ -82,7 +82,7 @@ returns table(id uuid, body text)
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   if auth.uid() is null then
     raise exception 'Not authenticated';
