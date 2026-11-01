@@ -10281,8 +10281,8 @@ function businessUpdateCard(post, space) {
   const pct = Math.max(2, Math.round((hours / 24) * 100));
   const kind = KINDS[post.postKind] ? post.postKind : 'general';
   const comments = Array.isArray(post.comments) ? post.comments : [];
-  const likes = Math.max(0, Number(post.reacts?.like || 0));
-  const liked = !!post.mine?.like;
+  const likes = Math.max(0, Number(post.likeCount ?? post.reacts?.like ?? 0));
+  const liked = Array.isArray(post.likedBy) ? post.likedBy.includes(currentUser.id) : !!post.mine?.like;
   return '<article class="upd" id="biz-upd-' + esc(post.id) + '">' +
     '<div class="upd-top">' + avatar(author,36) + '<div class="who"><div class="n">' + esc(author.short || author.name || author.username || 'Space member') + '</div><div class="m">' + esc(mine ? 'You' : 'Business Space member') + ' · ' + esc(timeAgo(createdAt)) + '</div></div>' + kindPill(kind) + '</div>' +
     '<h3>' + esc(post.title || 'Daily Update') + '</h3><p>' + esc(post.body || '') + '</p>' +
@@ -10347,7 +10347,7 @@ async function createBusinessSpaceUpdate(spaceId, kind, title, body, files) {
 
   const result = await Server.submit('space.post', {
     spaceId, kind:'business_post',
-    payload:{ title:cleanTitle, body:cleanBody, postKind:KINDS[kind]?kind:'general', media:uploaded, comments:[], reacts:{}, mine:{}, expiresAt:Date.now()+24*HOUR }
+    payload:{ title:cleanTitle, body:cleanBody, postKind:KINDS[kind]?kind:'general', media:uploaded, comments:[], likedBy:[], likeCount:0, expiresAt:Date.now()+24*HOUR }
   });
   if (!result.ok) {
     if (uploaded.length) await supabaseClient.storage.from('ming-post-media').remove(uploaded.map(x=>x.path)).catch(()=>{});
@@ -11589,8 +11589,9 @@ document.addEventListener('click', async e => {
     case 'biz-like': {
       const post=Server.db.content.find(x=>x.id===a&&x.spaceId===sp.activeId&&x.kind==='business_post');
       if(!post)break;
-      const result=await Server.submit('content.mutate',{id:a,op:'react',key:'like'});
-      if(!result.ok){toast(result.error||'Reaction could not be saved.','x');break;}
+      const {data,error}=await supabaseClient.rpc('toggle_ming_business_space_post_like',{p_content_id:a});
+      if(error){toast(error.message||'Reaction could not be saved. Run the Business Space migration first.','x');break;}
+      post.likeCount=Number(data?.like_count||0);post.likedBy=Array.isArray(data?.liked_by)?data.liked_by:post.likedBy;
       refreshSpace();break;
     }
     case 'biz-comments': await openBusinessPostComments(a); break;
