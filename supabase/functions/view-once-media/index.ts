@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     if (!body?.message_id) return Response.json({ error: 'message_id is required' }, { status: 400, headers: corsHeaders });
 
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data: claimed, error: claimError } = await admin.rpc('ming_claim_view_once_media', { p_message_id: body.message_id });
+    const { data: claimed, error: claimError } = await userClient.rpc('ming_claim_view_once_media', { p_message_id: body.message_id });
     if (claimError || !claimed?.length || !claimed[0].object_path) {
       return Response.json({ error: claimError?.message || 'Media has already been opened or is unavailable' }, { status: 410, headers: corsHeaders });
     }
