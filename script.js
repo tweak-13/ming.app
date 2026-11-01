@@ -9019,6 +9019,15 @@ const Server = (() => {
         return { ok: true, data: { space: spaceById(joined.id) || joined } };
       }
 
+      case 'space.member.remove': {
+        if (!can(p.spaceId, 'space.member.role')) return deny('Only the creator or an admin can remove members.');
+        const { data, error } = await supabaseClient.rpc('remove_ming_business_space_member', { p_space_id:p.spaceId, p_user_id:p.userId });
+        if (error) return deny(error.message || 'Member could not be removed.');
+        db.members = db.members.filter(m => !(m.spaceId === p.spaceId && m.userId === p.userId));
+        audit(p.spaceId, 'member.removed', { userId:p.userId });
+        return { ok:true, data:data || {} };
+      }
+
       case 'space.member.role': {
         if (!can(p.spaceId, 'space.member.role')) return deny('You cannot change roles here.');
         const target = db.members.find(m => m.spaceId === p.spaceId && m.userId === p.userId);
@@ -10248,7 +10257,7 @@ VIEWS.business.home = s => {
   return '<div class="biz-home">' +
     '<section class="biz-home-hero"><div class="biz-home-kicker">TWEAKLR BUSINESS · HOME</div><h2>' + esc(s.name) + '</h2><p>' + esc(s.description || 'Your team’s shared space for updates, ideas and decisions.') + '</p><div class="biz-home-stats"><span><b>' + Server.memberCount(s.id) + '</b> members</span><span><b>' + posts.length + '</b> updates</span><span><b>' + esc(role || 'member') + '</b> access</span></div></section>' +
     (canPost ? '<button class="biz-compose" data-sp="biz-compose"><span class="biz-compose-avatar">' + esc((nameOf(currentUser.id)||'Y').slice(0,1).toUpperCase()) + '</span><span>Share an update with your Space…</span><b>＋</b></button>' : '<div class="biz-post-locked">Posting is limited to the Space creator and admins.</div>') +
-    (posts.length ? posts.map(p => { const author = personOf(p.authorId); const comments = Array.isArray(p.comments)?p.comments:[]; return '<article class="biz-post"><div class="biz-post-head">' + avatar(author,38) + '<div class="biz-post-author"><b>' + esc(author.short||author.name||author.username||'Member') + '</b><small>' + esc(timeAgo(p.at)) + '</small></div>' + (admin ? '<span class="biz-admin-tag">ADMIN SPACE</span>' : '') + '</div><div class="biz-post-copy">' + esc(p.text||'') + '</div>' + (p.attachmentUrl ? '<a class="biz-post-attachment" href="' + esc(p.attachmentUrl) + '" target="_blank" rel="noopener">View attachment</a>' : '') + '<div class="biz-post-actions"><button data-sp="biz-comment:' + p.id + '">Comment · ' + comments.length + '</button><button data-sp="biz-message:' + p.authorId + '">Message author</button></div>' + (comments.length ? '<div class="biz-comments">' + comments.slice(-3).map(c=>'<div><b>'+esc(c.authorName||nameOf(c.authorId)||'Member')+'</b> '+esc(c.text||'')+'</div>').join('') + '</div>' : '') + '</article>'; }).join('') : '<div class="biz-home-empty"><div class="biz-home-empty-icon">✦</div><h3>Your team’s feed starts here</h3><p>Share the first update, announcement or question with everyone in this Business Space.</p></div>') +
+    (posts.length ? posts.map(p => { const author = personOf(p.authorId); const comments = Array.isArray(p.comments)?p.comments:[]; return '<article class="biz-post"><div class="biz-post-head">' + avatar(author,38) + '<div class="biz-post-author"><b>' + esc(author.short||author.name||author.username||'Member') + '</b><small>' + esc(timeAgo(p.at)) + '</small></div>' + (admin ? '<span class="biz-admin-tag">ADMIN SPACE</span>' : '') + ((admin || p.authorId===currentUser.id) ? '<button class="biz-post-delete" data-sp="biz-delete:'+p.id+'" aria-label="Remove post">···</button>' : '') + '</div><div class="biz-post-copy">' + esc(p.text||'') + '</div>' + (p.attachmentUrl ? '<a class="biz-post-attachment" href="' + esc(p.attachmentUrl) + '" target="_blank" rel="noopener">View attachment</a>' : '') + '<div class="biz-post-actions"><button data-sp="biz-comment:' + p.id + '">Comment · ' + comments.length + '</button><button data-sp="biz-message:' + p.authorId + '">Message author</button></div>' + (comments.length ? '<div class="biz-comments">' + comments.slice(-3).map(c=>'<div><b>'+esc(c.authorName||nameOf(c.authorId)||'Member')+'</b> '+esc(c.text||'')+'</div>').join('') + '</div>' : '') + '</article>'; }).join('') : '<div class="biz-home-empty"><div class="biz-home-empty-icon">✦</div><h3>Your team’s feed starts here</h3><p>Share the first update, announcement or question with everyone in this Business Space.</p></div>') +
     '<div class="biz-home-footer">A shared home for your team · Tweaklr</div></div>';
 };
 
@@ -11160,6 +11169,7 @@ function membersView(s, note) {
           ${canRole && m.role !== 'owner'
             ? `<button class="role" data-sp="role:${s.id}:${m.userId}">${esc(m.role)}</button>`
             : `<span class="role">${esc(m.role)}</span>`}
+          ${s.nature === 'business' && ['owner','admin'].includes(Server.roleOf(s.id)) && m.role !== 'owner' && m.userId !== currentUser.id ? `<button class="biz-member-remove" data-sp="biz-remove-member:${m.userId}" aria-label="Remove ${esc(p.short||p.name||'member')}">Remove</button>` : ''}
         </div>`;
       }).join('')}
     </div>
@@ -11418,6 +11428,17 @@ document.addEventListener('click', async e => {
       const saved=await Server.submit('content.mutate',{id:post.id,op:'comment'}); if(!saved.ok){post.comments=comments;toast(saved.error||'Comment could not be saved.','x');break;} closeSheet();renderSpace();toast('Comment posted','check');break;
     }
     case 'biz-message': closeSheet(); if(a && a!==currentUser.id) setTimeout(()=>openChat(a),180); else toast('You cannot message yourself.','x'); break;
+    case 'biz-remove-member': {
+      const member=Server.db.members.find(m=>m.spaceId===sp.activeId&&m.userId===a);
+      if(!member||!['owner','admin'].includes(Server.roleOf(sp.activeId))||member.role==='owner'){toast('This member cannot be removed.','x');break;}
+      openModal({title:'Remove this member?',lede:'They will lose access to this Business Space. The creator cannot be removed.',actions:[{t:'Keep member',cls:'btn--soft',a:'close-modal'},{t:'Remove member',cls:'btn--danger',a:'biz-remove-confirm'}]});
+      $('#modal').querySelector('[data-action="biz-remove-confirm"]').addEventListener('click',async()=>{const result=await Server.submit('space.member.remove',{spaceId:sp.activeId,userId:a});closeModal();if(!result.ok){toast(result.error,'x');return;}renderSpace();toast('Member removed','check');});break;
+    }
+    case 'biz-delete': {
+      const post=Server.db.content.find(x=>x.id===a&&x.spaceId===sp.activeId&&x.kind==='business_post');if(!post)break;
+      openModal({title:'Remove this post?',lede:'The post and its discussion will be removed from this Business Space.',actions:[{t:'Cancel',cls:'btn--soft',a:'close-modal'},{t:'Remove post',cls:'btn--danger',a:'biz-delete-confirm'}]});
+      $('#modal').querySelector('[data-action="biz-delete-confirm"]').addEventListener('click',async()=>{const {error}=await supabaseClient.rpc('delete_ming_business_space_post',{p_content_id:a});closeModal();if(error){toast(error.message||'Post could not be removed.','x');return;}Server.db.content=Server.db.content.filter(x=>x.id!==a);renderSpace();toast('Post removed','check');});break;
+    }
     case 'new': a === 'product' ? openProductComposer() : (a === 'task' ? openTaskComposer() : openComposerFor(a)); break;
     case 'task-cancel': closeSheet(); break;
     case 'task-view-toggle': sp.taskBoard=!sp.taskBoard; renderSpace(); break;
