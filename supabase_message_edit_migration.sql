@@ -110,7 +110,7 @@ begin
     raise exception 'Message is not yours, is not editable text, or is outside the 1-hour limit';
   end if;
 end;
-$;
+$$;
 
 revoke all on function public.ming_edit_message(uuid, text) from public, anon;
 grant execute on function public.ming_edit_message(uuid, text) to authenticated;
