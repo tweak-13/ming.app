@@ -1416,33 +1416,40 @@ function renderTweak() {
   const host = $('#tweak-body');
   if (!host) return;
 
-  host.innerHTML = `
-    <section class="tweak-welcome">
-      <div class="tweak-eyebrow"><span>✦</span> YOUR PERSONAL VIDEO SPACE</div>
-      <h2>Your videos. Your <em>space.</em></h2>
-      <p>Pulse brings eligible videos from creators who connect TikTok, while likes, comments, follows, connections and messages stay native to Tweaklr.</p>
-      <div class="tweak-source-card">
-        <div class="tweak-source-icon">♪</div>
-        <div class="tweak-source-copy"><b>Connect TikTok</b><span>Securely link your TikTok account to bring your public videos into Pulse.</span></div>
-        <button type="button" class="tweak-connect-btn" data-action="tweak-connect">Connect</button>
-      </div>
-      <p id="tweak-account-status" class="tweak-account-status" aria-live="polite">Checking TikTok connection…</p>
-      <section class="tweak-video-section">
-        <div class="tweak-feed-head">
-          <div><div class="tweak-eyebrow">FROM YOUR CONNECTED ACCOUNT</div><h2>Your TikTok videos</h2></div>
-          <button type="button" class="tweak-outline-btn" data-action="tweak-refresh">Refresh</button>
-        </div>
-        <div id="tweak-video-feed" class="tweak-video-feed" aria-live="polite">
-          <div class="tweak-video-message">Your connected videos will appear here.</div>
-        </div>
-      </section>
-      <p class="tweak-privacy-note">TikTok access tokens stay on the server. Tweaklr social actions are separate from TikTok likes, comments and follows.</p>
-    </section>`;
+  host.innerHTML = [
+    '<section class="pulse-hero" aria-label="Pulse creator discovery">',
+      '<div class="pulse-hero-copy">',
+        '<div class="pulse-eyebrow"><span class="pulse-live-dot"></span> THE CREATOR UNIVERSE</div>',
+        '<h1>Find your<br>frequency.</h1>',
+        '<p>A living space for the videos, voices and creators that move you.</p>',
+      '</div>',
+      '<div class="pulse-planet-system" aria-hidden="true">',
+        '<div class="pulse-orbit"></div>',
+        '<div class="pulse-orbit pulse-orbit-two"></div>',
+        '<div class="pulse-planet"></div>',
+      '</div>',
+    '</section>',
+    '<button type="button" class="pulse-glass pulse-connect" data-action="tweak-connect">',
+      '<span class="pulse-connect-icon" aria-hidden="true">♪</span>',
+      '<span class="pulse-connect-copy"><b>Connect your TikTok</b><span>Bring your eligible public videos into your Pulse space.</span></span>',
+      '<span class="pulse-connect-action">Connect</span>',
+    '</button>',
+    '<p id="tweak-account-status" class="pulse-account-status" aria-live="polite">Checking TikTok connection…</p>',
+    '<div class="pulse-grid" aria-label="About Pulse">',
+      '<div class="pulse-glass pulse-tile"><span class="pulse-tile-icon" aria-hidden="true">✧</span><b>Your creator orbit</b><span>Discover videos from accounts you connect.</span></div>',
+      '<div class="pulse-glass pulse-tile"><span class="pulse-tile-icon" aria-hidden="true">◌</span><b>Native to Tweaklr</b><span>Your connections and conversations stay here.</span></div>',
+    '</div>',
+    '<section class="pulse-video-section">',
+      '<div class="pulse-section-head"><div><div class="pulse-eyebrow">YOUR CONNECTED UNIVERSE</div><h2>Your videos</h2><p>Public videos shared by your linked creator account.</p></div>',
+      '<button type="button" class="pulse-refresh" data-action="tweak-refresh">Refresh ↻</button></div>',
+      '<div id="tweak-video-feed" class="pulse-video-feed" aria-live="polite"><div class="tweak-video-message">Your connected videos will appear here.</div></div>',
+    '</section>',
+    '<p class="pulse-footnote">TikTok access tokens stay on the server. Likes, comments, follows, connections and messages remain native to Tweaklr and are separate from TikTok actions.</p>'
+  ].join('');
 
   handleTweakTikTokReturn();
   loadTweakTikTokData();
 }
-
 function handleTweakTikTokReturn() {
   if (tweakTikTokReturnHandled) return;
   const url = new URL(window.location.href);
