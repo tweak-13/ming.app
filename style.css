@@ -4398,7 +4398,7 @@ html.theme-transitioning *::after {
   --p-ink2-rgb:35,91,58; --p-light:#4E9B68; --p-silver:#9BC6A5;
   --p-oncolor:#F4FFF5; --p-text:#263D2D; --p-muted:#7E8E7F;
   --p-border:rgba(var(--p-ink-rgb),.16);
-  position:relative; isolation:isolate; overflow:hidden;
+  position:absolute; inset:0; isolation:isolate; overflow:hidden;
   background:var(--p-space)!important; color:var(--p-text);
 }
 [data-theme="dark"] #screen-tweak {
