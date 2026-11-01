@@ -5129,10 +5129,12 @@ function renderVoiceMessage(m) {
   if (!m.voicePath) {
     return `<div class="chat-voice-note"><span>🎙️</span><span>Voice note</span><span class="chat-voice-duration">${seconds}s</span></div>`;
   }
-  return `<div class="chat-voice-note">
-    <button type="button" data-voice-path="${esc(m.voicePath)}" aria-label="Play voice note">▶</button>
-    <span>Voice note</span>
-    <span class="chat-voice-duration">${seconds}s</span>
+  return `<div class="chat-voice-note chat-voice-player" data-voice-player>
+    <button type="button" class="chat-voice-play" data-voice-path="${esc(m.voicePath)}" aria-label="Play voice note">▶</button>
+    <div class="chat-voice-track">
+      <input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />
+      <div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>${seconds}s</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>
+    </div>
   </div>`;
 }
 
@@ -5793,6 +5795,8 @@ async function uploadVoiceNote(blob, duration) {
   renderThread();
   const t=$('#chat-thread'); if(t) t.scrollTop=t.scrollHeight;
 }
+
+document.addEventListener('input',e=>{const seek=e.target.closest('[data-voice-seek]');if(!seek)return;const player=seek.closest('[data-voice-player]');const audio=player?.querySelector('[data-voice-path]')?._audio;if(audio&&Number.isFinite(audio.duration))audio.currentTime=(Number(seek.value)/Number(seek.max))*audio.duration;});
 
 /* ------------------------------------------------------------
    MOONFLOWER
@@ -8210,57 +8214,29 @@ document.addEventListener('click', async e => {
   }
   const attachmentBtn=e.target.closest('[data-chat-attachment]');
   if(attachmentBtn){e.stopPropagation();if(attachmentBtn.querySelector('[data-chat-attachment-video]'))return;const path=attachmentBtn.dataset.chatAttachment;if(!path)return;let url=attachmentBtn.dataset.chatAttachmentUrl;if(!url){const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,3600);if(error||!data?.signedUrl){toast('Could not open attachment.','alert');return;}url=data.signedUrl;}window.open(url,'_blank','noopener');return;}
+  const speedBtn=e.target.closest('[data-voice-speed]');
+  if(speedBtn){e.stopPropagation();const player=speedBtn.closest('[data-voice-player]');const play=player?.querySelector('[data-voice-path]');const audio=play?._audio;if(!audio)return;const rates=[1,1.5,2];const next=rates[(rates.indexOf(audio.playbackRate)+1)%rates.length];audio.playbackRate=next;speedBtn.textContent=next+'×';return;}
   const voiceBtn=e.target.closest('[data-voice-path]');
   if (voiceBtn) {
     e.stopPropagation();
-
-    const path = voiceBtn.dataset.voicePath;
-    if (!path) return;
-
+    const path=voiceBtn.dataset.voicePath;if(!path)return;
     try {
-      let audio = voiceBtn._audio;
-
-      if (!audio) {
-        const { data, error } = await supabaseClient
-          .storage
-          .from('ming-voice')
-          .createSignedUrl(path, 3600);
-
-        if (error || !data?.signedUrl) {
-          console.error('Tweaklr: could not create voice playback URL:', error?.message || 'No signed URL returned.');
-          toast('Could not load this voice note.', 'alert');
-          return;
-        }
-
-        audio = new Audio();
-        audio.preload = 'auto';
-        audio.src = data.signedUrl;
-        voiceBtn._audio = audio;
-
-        audio.addEventListener('ended', () => {
-          voiceBtn.textContent = '▶';
-        });
-
-        audio.addEventListener('error', () => {
-          console.error('Tweaklr: voice playback failed.', audio.error?.message || audio.error?.code || 'Unknown audio error');
-          voiceBtn.textContent = '▶';
-          toast('This voice note could not be played.', 'alert');
-        });
+      let audio=voiceBtn._audio;
+      if(!audio){
+        const {data,error}=await supabaseClient.storage.from('ming-voice').createSignedUrl(path,3600);
+        if(error||!data?.signedUrl){toast('Could not load this voice note.','alert');return;}
+        audio=new Audio();audio.preload='metadata';audio.src=data.signedUrl;voiceBtn._audio=audio;
+        const player=voiceBtn.closest('[data-voice-player]');const seek=player?.querySelector('[data-voice-seek]');const time=player?.querySelector('[data-voice-time]');
+        const fmt=v=>{v=Math.max(0,Math.floor(v||0));return Math.floor(v/60)+':'+String(v%60).padStart(2,'0');};
+        audio.addEventListener('loadedmetadata',()=>{if(seek)seek.max=Math.max(1,Math.floor(audio.duration*1000));if(time)time.textContent=fmt(audio.duration);});
+        audio.addEventListener('timeupdate',()=>{if(seek&&!seek.matches(':active'))seek.value=Math.floor(audio.currentTime*1000);if(time)time.textContent=fmt(audio.currentTime)+' / '+fmt(audio.duration);});
+        audio.addEventListener('play',()=>{voiceBtn.textContent='⏸';});
+        audio.addEventListener('pause',()=>{voiceBtn.textContent='▶';});
+        audio.addEventListener('ended',()=>{voiceBtn.textContent='▶';if(seek)seek.value=0;if(time)time.textContent=fmt(audio.duration);});
+        audio.addEventListener('error',()=>{voiceBtn.textContent='▶';toast('This voice note could not be played.','alert');});
       }
-
-      if (audio.paused) {
-        voiceBtn.textContent = '…';
-        await audio.play();
-        voiceBtn.textContent = '⏸';
-      } else {
-        audio.pause();
-        voiceBtn.textContent = '▶';
-      }
-    } catch (error) {
-      console.error('Tweaklr: voice playback failed:', error);
-      voiceBtn.textContent = '▶';
-      toast('This voice note could not be played.', 'alert');
-    }
+      if(audio.paused){voiceBtn.textContent='…';await audio.play();voiceBtn.textContent='⏸';}else{audio.pause();}
+    }catch(error){console.error('Tweaklr voice playback failed:',error);voiceBtn.textContent='▶';toast('This voice note could not be played.','alert');}
     return;
   }
   const b=e.target.closest('[data-action^="chat-"]');
