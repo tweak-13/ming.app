@@ -7730,6 +7730,7 @@ document.addEventListener('click', async e => {
     case 'enable-location': closeSheet(); requestLocation(() => { if (state.tab !== 'nearby') return; }); break;
     case 'expand-radius': state.radius = 50; renderNearby(); toast('Discovery area expanded to 50 km', 'pin'); break;
 
+    case 'biz-compose': openBusinessUpdateComposer(); break;
     case 'create':
       closeSheet();
       /* Spaces have their own creation flow (spaces.js) */
@@ -10427,8 +10428,7 @@ VIEWS.business.home = s => {
   const posts=contentOf(s.id,'business_post').filter(p=>hoursLeft({createdAt:Number(p.at||p.createdAt||0)})>0).sort((a,b)=>Number(b.at||0)-Number(a.at||0));
   const canPost=Server.can(s.id,'space.post')&&(s.features?.businessMessaging!=='owner'||Server.roleOf(s.id)==='owner');
   return '<div class="biz-home-feed">' +
-    sectionHead('Daily Updates','Gone in 24 hours') +
-    (canPost ? '<button type="button" class="biz-compose" data-sp="biz-compose"><span class="biz-compose-avatar">'+esc((nameOf(currentUser.id)||'Y').slice(0,1).toUpperCase())+'</span><span>Share an update…</span><b>＋</b></button>' : '') +
+    sectionHead('Daily Updates','Gone in 24 hours',canPost?{t:'Share update',a:'biz-compose'}:null) +
     (posts.length ? posts.map(p=>businessUpdateCard(p,s)).join('') : emptyState('Nothing shared yet today','Daily Updates disappear after 24 hours. Be the first to say what you are up to.',canPost?{t:'Share an update',a:'biz-compose'}:null)) +
   '</div>';
 };
