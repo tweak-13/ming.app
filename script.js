@@ -11169,7 +11169,7 @@ function membersView(s, note) {
           ${canRole && m.role !== 'owner'
             ? `<button class="role" data-sp="role:${s.id}:${m.userId}">${esc(m.role)}</button>`
             : `<span class="role">${esc(m.role)}</span>`}
-          ${s.nature === 'business' && Server.roleOf(s.id) === 'owner' && m.role !== 'owner' && m.userId !== currentUser.id ? `<button class="biz-member-remove" data-sp="biz-remove-member:${m.userId}" aria-label="Remove ${esc(p.short||p.name||'member')}">Remove</button>` : ''}
+          ${s.nature === 'business' && ['owner','admin'].includes(Server.roleOf(s.id)) && m.role !== 'owner' && m.userId !== currentUser.id ? `<button class="biz-member-remove" data-sp="biz-remove-member:${m.userId}" aria-label="Remove ${esc(p.short||p.name||'member')}">Remove</button>` : ''}
         </div>`;
       }).join('')}
     </div>
