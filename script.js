@@ -9035,6 +9035,8 @@ const Server = (() => {
 
       case 'space.post': {
         if (!can(p.spaceId, 'space.post')) return deny('You cannot post in this Space.');
+        const targetSpace = db.spaces.find(x => x.id === p.spaceId);
+        if (targetSpace?.nature === 'business' && targetSpace.features?.businessMessaging === 'admins' && !['owner','admin'].includes(roleOf(p.spaceId))) return deny('Only the creator and admins can publish in this Business Space.');
         const { data: created, error } = await supabaseClient.rpc('create_ming_space_content', {
           p_space_id: p.spaceId,
           p_kind: p.kind,
