@@ -3447,7 +3447,7 @@ async function loadMingMessages() {  try {
 
     const { data: rows, error } = await supabaseClient
       .from('messages')
-      .select('id, sender_id, recipient_id, body, created_at, read_at, message_type, voice_path, voice_duration, reply_to_id, attachment_path, attachment_name, attachment_mime, attachment_size')
+      .select('id, sender_id, recipient_id, body, created_at, read_at, message_type, voice_path, voice_duration, reply_to_id, attachment_path, attachment_name, attachment_mime, attachment_size, view_once, viewed_at')
       .or(`sender_id.eq.${session.user.id},recipient_id.eq.${session.user.id}`)
       .order('created_at', { ascending: true });
 
@@ -3498,7 +3498,9 @@ async function loadMingMessages() {  try {
         attachmentPath: row.attachment_path || '',
         attachmentName: row.attachment_name || '',
         attachmentMime: row.attachment_mime || '',
-        attachmentSize: Number(row.attachment_size || 0)
+        attachmentSize: Number(row.attachment_size || 0),
+        viewOnce: !!row.view_once,
+        viewedAt: row.viewed_at || null
       });
 
       if (row.recipient_id === session.user.id && !row.read_at) c.unread += 1;
@@ -3627,7 +3629,7 @@ let pendingChatAttachment=null;
 function clearChatAttachment(){pendingChatAttachment=null;const i=$('#chat-attachment-input');if(i)i.value='';const h=$('#chat-attachment-preview');if(h){h.hidden=true;h.innerHTML='';}}
 function showChatAttachmentPreview(file){const h=$('#chat-attachment-preview');if(!h)return;h.hidden=false;h.innerHTML='<div class="chat-attachment-preview__inner"><span class="chat-attachment-preview__icon">'+icon(file.type.startsWith('image/')?'spark':'note')+'</span><span class="chat-attachment-preview__copy"><strong>'+esc(file.name)+'</strong><small>'+esc(formatChatFileSize(file.size))+' · Ready to send</small></span><button type="button" class="chat-attachment-preview__remove" id="chat-attachment-remove" aria-label="Remove attachment">'+icon('x')+'</button></div>';$('#chat-attachment-remove')?.addEventListener('click',clearChatAttachment);}
 async function chooseChatAttachment(file){if(!file)return;const ext=(file.name||'').toLowerCase().split('.').pop();const mimeOk=MING_CHAT_ALLOWED_MIME.has(file.type);const extOk=['jpg','jpeg','png','webp','gif','heic','heif','mp4','webm','mov','m4v','pdf','txt','doc','docx','xls','xlsx','ppt','pptx'].includes(ext);if(!mimeOk&&!extOk){toast('That file type is not supported in Ming chat.','alert');return;}if(file.size>MING_CHAT_MAX_FILE_BYTES){toast('Attachments must be 50 MB or smaller.','alert');return;}pendingChatAttachment=file;showChatAttachmentPreview(file);}
-async function sendStoredChatAttachment(file,options={}){const p=byId(state.activeChat);if(!p||!isUuidPerson(state.activeChat))return false;const {data:{session}}=await supabaseClient.auth.getSession();if(!session?.user){toast('Please sign in again','alert');return false;}const ext=(file.name||'').toLowerCase().split('.').pop();const isImage=file.type.startsWith('image/')||['jpg','jpeg','png','webp','gif','heic','heif'].includes(ext);const isVideo=file.type.startsWith('video/')||['mp4','webm','mov','m4v'].includes(ext);const type=(isImage||isVideo)?'image':'file';const safeName=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,90)||'attachment';const path=session.user.id+'/'+crypto.randomUUID()+'-'+safeName;const {error:uploadError}=await supabaseClient.storage.from('ming-message-files').upload(path,file,{contentType:file.type||'application/octet-stream',cacheControl:'3600',upsert:false});if(uploadError){toast('Could not upload attachment. Run supabase_daily_update_share_media_migration.sql first.','alert');return false;}const replyToId=options.replyToId||chatReplyTarget?.id||null;let row=null,error=null;const direct=await supabaseClient.from('messages').insert({sender_id:session.user.id,recipient_id:state.activeChat,body:'',message_type:type,attachment_path:path,attachment_name:file.name,attachment_mime:file.type||'application/octet-stream',attachment_size:file.size,reply_to_id:replyToId}).select('id,sender_id,recipient_id,body,created_at,read_at,message_type,voice_path,voice_duration,reply_to_id,attachment_path,attachment_name,attachment_mime,attachment_size').single();row=direct.data;error=direct.error;if(error){const rpc=await supabaseClient.rpc('ming_send_message_v3',{p_recipient_id:state.activeChat,p_body:'',p_message_type:type,p_voice_path:null,p_voice_duration:null,p_reply_to_id:replyToId,p_attachment_path:path,p_attachment_name:file.name,p_attachment_mime:file.type||'application/octet-stream',p_attachment_size:file.size});row=Array.isArray(rpc.data)?rpc.data[0]:rpc.data;error=rpc.error;}if(error||!row){await supabaseClient.storage.from('ming-message-files').remove([path]).catch(()=>{});toast(error?.message||'Could not send attachment.','alert');return false;}const c=convoFor(state.activeChat);c.messages.push({id:row.id,me:true,text:'',at:new Date(row.created_at).getTime(),read:!!row.read_at,type,voicePath:'',voiceDuration:0,replyToId:row.reply_to_id||null,attachmentPath:path,attachmentName:file.name,attachmentMime:file.type||'',attachmentSize:file.size,reactions:[]});clearChatAttachment();clearChatReply();renderThread();const t=$('#chat-thread');if(t)t.scrollTop=t.scrollHeight;return true;}
+async function sendStoredChatAttachment(file,options={}){const p=byId(state.activeChat);if(!p||!isUuidPerson(state.activeChat))return false;const {data:{session}}=await supabaseClient.auth.getSession();if(!session?.user){toast('Please sign in again','alert');return false;}const ext=(file.name||'').toLowerCase().split('.').pop();const isImage=file.type.startsWith('image/')||['jpg','jpeg','png','webp','gif','heic','heif'].includes(ext);const isVideo=file.type.startsWith('video/')||['mp4','webm','mov','m4v'].includes(ext);const type=(isImage||isVideo)?'image':'file';const safeName=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,90)||'attachment';const path=session.user.id+'/'+crypto.randomUUID()+'-'+safeName;const {error:uploadError}=await supabaseClient.storage.from('ming-message-files').upload(path,file,{contentType:file.type||'application/octet-stream',cacheControl:'3600',upsert:false});if(uploadError){toast('Could not upload attachment. Run supabase_daily_update_share_media_migration.sql first.','alert');return false;}const replyToId=options.replyToId||chatReplyTarget?.id||null;let row=null,error=null;const direct=await supabaseClient.from('messages').insert({sender_id:session.user.id,recipient_id:state.activeChat,body:'',message_type:type,attachment_path:path,attachment_name:file.name,attachment_mime:file.type||'application/octet-stream',attachment_size:file.size,reply_to_id:replyToId,view_once:!!$('#chat-view-once')?.checked}).select('id,sender_id,recipient_id,body,created_at,read_at,message_type,voice_path,voice_duration,reply_to_id,attachment_path,attachment_name,attachment_mime,attachment_size,view_once,viewed_at').single();row=direct.data;error=direct.error;if(error){const rpc=await supabaseClient.rpc('ming_send_message_v3',{p_recipient_id:state.activeChat,p_body:'',p_message_type:type,p_voice_path:null,p_voice_duration:null,p_reply_to_id:replyToId,p_attachment_path:path,p_attachment_name:file.name,p_attachment_mime:file.type||'application/octet-stream',p_attachment_size:file.size});row=Array.isArray(rpc.data)?rpc.data[0]:rpc.data;error=rpc.error;}if(error||!row){await supabaseClient.storage.from('ming-message-files').remove([path]).catch(()=>{});toast(error?.message||'Could not send attachment.','alert');return false;}const c=convoFor(state.activeChat);c.messages.push({id:row.id,me:true,text:'',at:new Date(row.created_at).getTime(),read:!!row.read_at,type,voicePath:'',voiceDuration:0,replyToId:row.reply_to_id||null,attachmentPath:path,attachmentName:file.name,attachmentMime:file.type||'',attachmentSize:file.size,viewOnce:!!row.view_once,viewedAt:row.viewed_at||null,reactions:[]});const viewOnceToggle=$('#chat-view-once');if(viewOnceToggle)viewOnceToggle.checked=false;clearChatAttachment();clearChatReply();renderThread();const t=$('#chat-thread');if(t)t.scrollTop=t.scrollHeight;return true;}
 
 
 function chatTopicFor(a, b) {
@@ -4813,6 +4815,21 @@ async function subscribeMingMessages() {
     .on(
       'postgres_changes',
       {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: 'sender_id=eq.' + session.user.id
+      },
+      payload => {
+        const row=payload.new;
+        const conversation=conversations.find(c=>c.personId===row.recipient_id);
+        const message=conversation?.messages.find(m=>String(m.id)===String(row.id));
+        if(message){message.viewedAt=row.viewed_at||null;renderThread();}
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
         event: 'INSERT',
         schema: 'public',
         table: 'messages',
@@ -4845,6 +4862,8 @@ async function subscribeMingMessages() {
           attachmentName: row.attachment_name || '',
           attachmentMime: row.attachment_mime || '',
           attachmentSize: Number(row.attachment_size || 0),
+          viewOnce: !!row.view_once,
+          viewedAt: row.viewed_at || null,
           reactions: []
         });
 
@@ -5085,6 +5104,11 @@ async function loadChatReactions(c) {
 function renderChatAttachment(m) {
   const path=m.attachmentPath||''; const name=m.attachmentName||'Attachment'; const mime=(m.attachmentMime||'').toLowerCase(); const ext=(name||'').toLowerCase().split('.').pop();
   if(!path)return '';
+  if(m.viewOnce){
+    if(!m.me && m.viewedAt) return '<div class="chat-view-once-state">Opened · No longer available</div>';
+    if(m.me && m.viewedAt) return '<div class="chat-view-once-state">Opened by recipient</div>';
+    if(!m.me) return '<button type="button" class="chat-view-once-button" data-view-once="attachment" data-message-id="'+esc(m.id)+'">◉ View once · Tap to open</button>';
+  }
   const isVideo=mime.startsWith('video/')||['mp4','webm','mov','m4v'].includes(ext);
   const isImage=!isVideo&&(m.type==='image'||mime.startsWith('image/')||['jpg','jpeg','png','webp','gif','heic','heif'].includes(ext));
   if(isImage)return '<button type="button" class="chat-attachment chat-attachment--image" data-chat-attachment="'+esc(path)+'" aria-label="Open image"><span class="chat-attachment-loading">Loading image…</span><img alt="" data-chat-attachment-image hidden /></button>';
@@ -5097,6 +5121,11 @@ async function hydrateChatAttachments(){for(const node of $('[data-chat-attachme
 
 function renderVoiceMessage(m) {
   const seconds = Math.max(0, Number(m.voiceDuration || 0));
+  if(m.viewOnce){
+    if(!m.me && m.viewedAt) return '<div class="chat-view-once-state">Opened · No longer available</div>';
+    if(m.me && m.viewedAt) return '<div class="chat-view-once-state">Opened by recipient</div>';
+    if(!m.me) return '<div class="chat-voice-note"><button type="button" class="chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'">◉ Play once</button><span>Voice note · '+seconds+'s</span></div>';
+  }
   if (!m.voicePath) {
     return `<div class="chat-voice-note"><span>🎙️</span><span>Voice note</span><span class="chat-voice-duration">${seconds}s</span></div>`;
   }
@@ -5132,7 +5161,7 @@ function renderThread() {
       <div class="chat-bubble" data-message-id="${esc(m.id)}">
         ${reply ? `<button type="button" class="chat-bubble__reply" data-action="chat-jump-reply:${esc(reply.id)}" aria-label="Jump to replied message"><strong>${reply.me ? 'You' : esc(byId(state.activeChat)?.short || 'Them')}</strong>${reply.type === 'voice' ? '🎙️ Voice note' : esc((reply.text || '').slice(0, 110))}</button>` : ''}
         ${m.type === 'voice' ? renderVoiceMessage(m) : (m.attachmentPath ? renderChatAttachment(m) : `<span class="chat-bubble__text">${esc(m.text)}</span>`)}
-        <span class="chat-bubble__time">${clockTime(m.at)}${m.me ? ` · ${m.read ? 'Read' : 'Sent'}` : ''}</span>
+        <span class="chat-bubble__time">${clockTime(m.at)}${m.me ? ` · ${m.viewOnce ? (m.viewedAt ? 'Opened' : 'View once') : (m.read ? 'Read' : 'Sent')}` : ''}</span>
         ${Object.entries(reactions).length ? `<span class="chat-reactions">${Object.entries(reactions).map(([emoji,count]) => tweaklrReactionMarkup(emoji,count)).join('')}</span>` : ''}
       </div>
     </div>`;
@@ -5740,8 +5769,8 @@ async function uploadVoiceNote(blob, duration) {
   const replyToId = chatReplyTarget?.id || null;
   const direct = await supabaseClient.from('messages').insert({
     sender_id:session.user.id, recipient_id:state.activeChat, body:'',
-    message_type:'voice', voice_path:path, voice_duration:duration, reply_to_id:replyToId
-  }).select('id,sender_id,recipient_id,body,created_at,read_at,message_type,voice_path,voice_duration,reply_to_id,attachment_path,attachment_name,attachment_mime,attachment_size').single();
+    message_type:'voice', voice_path:path, voice_duration:duration, reply_to_id:replyToId, view_once:!!$('#chat-view-once')?.checked
+  }).select('id,sender_id,recipient_id,body,created_at,read_at,message_type,voice_path,voice_duration,reply_to_id,attachment_path,attachment_name,attachment_mime,attachment_size,view_once,viewed_at').single();
 
   let row=direct.data, error=direct.error;
   if(error) {
@@ -5758,7 +5787,8 @@ async function uploadVoiceNote(blob, duration) {
   }
 
   const c=convoFor(state.activeChat);
-  c.messages.push({id:row.id,me:true,text:'',at:new Date(row.created_at).getTime(),read:false,type:'voice',voicePath:path,voiceDuration:duration,replyToId:row.reply_to_id||null,attachmentPath:row.attachment_path||'',attachmentName:row.attachment_name||'',attachmentMime:row.attachment_mime||'',attachmentSize:Number(row.attachment_size||0),reactions:[]});
+  c.messages.push({id:row.id,me:true,text:'',at:new Date(row.created_at).getTime(),read:false,type:'voice',voicePath:path,voiceDuration:duration,replyToId:row.reply_to_id||null,attachmentPath:row.attachment_path||'',attachmentName:row.attachment_name||'',attachmentMime:row.attachment_mime||'',attachmentSize:Number(row.attachment_size||0),viewOnce:!!row.view_once,viewedAt:row.viewed_at||null,reactions:[]});
+  const viewOnceToggle=$('#chat-view-once');if(viewOnceToggle)viewOnceToggle.checked=false;
   clearChatReply();
   renderThread();
   const t=$('#chat-thread'); if(t) t.scrollTop=t.scrollHeight;
@@ -8151,6 +8181,33 @@ document.addEventListener('pointercancel', () => {
 });
 
 document.addEventListener('click', async e => {
+  const onceBtn=e.target.closest('[data-view-once]');
+  if(onceBtn){
+    e.stopPropagation();
+    const messageId=onceBtn.dataset.messageId;
+    const conversation=convoFor(state.activeChat);
+    const message=conversation.messages.find(item=>String(item.id)===String(messageId));
+    if(!message||message.me||!message.viewOnce||message.viewedAt)return;
+    onceBtn.disabled=true;onceBtn.textContent='Opening…';
+    try{
+      const {data,error}=await supabaseClient.functions.invoke('view-once-media',{body:{message_id:messageId}});
+      if(error||!data?.signed_url)throw error||new Error('Media is no longer available.');
+      message.viewedAt=data.viewed_at||new Date().toISOString();
+      renderThread();
+      if(onceBtn.dataset.viewOnce==='voice'){
+        const audio=new Audio(data.signed_url);audio.preload='auto';
+        audio.addEventListener('ended',()=>{});
+        await audio.play();
+      }else{
+        const opened=window.open(data.signed_url,'_blank','noopener');
+        if(!opened)toast('Allow pop-ups to view this media once.','alert');
+      }
+    }catch(err){
+      onceBtn.disabled=false;onceBtn.textContent=onceBtn.dataset.viewOnce==='voice'?'◉ Play once':'◉ View once · Tap to open';
+      toast(err?.message||'This media has already been opened or is unavailable.','alert');
+    }
+    return;
+  }
   const attachmentBtn=e.target.closest('[data-chat-attachment]');
   if(attachmentBtn){e.stopPropagation();if(attachmentBtn.querySelector('[data-chat-attachment-video]'))return;const path=attachmentBtn.dataset.chatAttachment;if(!path)return;let url=attachmentBtn.dataset.chatAttachmentUrl;if(!url){const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,3600);if(error||!data?.signedUrl){toast('Could not open attachment.','alert');return;}url=data.signedUrl;}window.open(url,'_blank','noopener');return;}
   const voiceBtn=e.target.closest('[data-voice-path]');
