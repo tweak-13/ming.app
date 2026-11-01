@@ -1,3 +1,4 @@
+
 -- Ming Spaces Workspace v2
 -- Run AFTER supabase_spaces_migration.sql.
 -- Adds persistent workspace content, marketplace listings, themes, media metadata,
@@ -139,23 +140,47 @@ using (
   )
 );
 
+-- Corrected update policy: approved members of the Space can update its media.
 drop policy if exists "Space members update own media" on storage.objects;
 create policy "Space members update own media"
 on storage.objects for update to authenticated
 using (
   bucket_id = 'ming-space-media'
-owner_id = (select auth.uid()::text)
+  and exists (
+    select 1
+    from public.ming_space_members m
+    where m.space_id = split_part(name, '/', 1)::uuid
+      and m.user_id = (select auth.uid())
+      and m.approved = true
+  )
+)
 with check (
   bucket_id = 'ming-space-media'
- owner_id = (select auth.uid()::text)
+  and exists (
+    select 1
+    from public.ming_space_members m
+    where m.space_id = split_part(name, '/', 1)::uuid
+      and m.user_id = (select auth.uid())
+      and m.approved = true
+  )
+);
 
+-- Corrected delete policy: approved members of the Space can delete its media.
 drop policy if exists "Space members delete own media" on storage.objects;
 create policy "Space members delete own media"
 on storage.objects for delete to authenticated
 using (
   bucket_id = 'ming-space-media'
-owner_id = (select auth.uid()::text)
+  and exists (
+    select 1
+    from public.ming_space_members m
+    where m.space_id = split_part(name, '/', 1)::uuid
+      and m.user_id = (select auth.uid())
+      and m.approved = true
+  )
+);
 
+drop function if exists public.get_my_ming_space_content();
 create or replace function public.get_my_ming_space_content()
 returns table (
   id uuid,
@@ -182,6 +207,7 @@ as $$
   order by c.created_at desc;
 $$;
 
+DROP FUNCTION IF EXISTS public.create_ming_space_content(uuid, text, jsonb);
 create or replace function public.create_ming_space_content(
   p_space_id uuid,
   p_kind text,
@@ -428,7 +454,6 @@ grant execute on function public.record_ming_space_file(uuid,text,text,text,bigi
 grant execute on function public.rotate_ming_space_invite(uuid,integer,integer) to authenticated;
 grant execute on function public.leave_ming_space(uuid) to authenticated;
 
-
 create or replace function public.get_my_ming_space_files()
 returns setof public.ming_space_files
 language sql
@@ -449,7 +474,6 @@ $$;
 
 revoke execute on function public.get_my_ming_space_files() from public, anon;
 grant execute on function public.get_my_ming_space_files() to authenticated;
-
 
 -- Keep the dedicated theme column synchronized with the theme selected during creation.
 create or replace function public.create_ming_space(
@@ -539,7 +563,6 @@ $$;
 
 revoke execute on function public.create_ming_space(text,text,text,text,boolean,integer,integer,boolean,timestamptz,jsonb,integer,integer) from public, anon;
 grant execute on function public.create_ming_space(text,text,text,text,boolean,integer,integer,boolean,timestamptz,jsonb,integer,integer) to authenticated;
-
 
 create table if not exists public.ming_space_product_bids (
   id uuid primary key default gen_random_uuid(),
@@ -636,7 +659,6 @@ revoke execute on function public.get_my_ming_space_product_bids() from public, 
 revoke execute on function public.place_ming_space_product_bid(uuid,numeric) from public, anon;
 grant execute on function public.get_my_ming_space_product_bids() to authenticated;
 grant execute on function public.place_ming_space_product_bid(uuid,numeric) to authenticated;
-
 
 create or replace function public.set_ming_space_member_role(
   p_space_id uuid,
