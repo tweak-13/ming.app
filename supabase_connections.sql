@@ -248,9 +248,8 @@ begin
 end;
 $$;
 
-revoke all on function public.set_my_discovery_location(double precision, double precision) from public;
-revoke all on function public.set_my_discovery_location(double precision, double precision, double precision) from public;
 revoke all on function public.set_my_discovery_location(double precision, double precision, double precision, text) from public;
+
 grant execute on function public.set_my_discovery_location(double precision, double precision, double precision, text) to authenticated;
 
 create or replace function public.get_discoverable_profiles(
