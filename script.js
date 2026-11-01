@@ -9971,6 +9971,7 @@ function renderSpace() {
     <button class="${sp.tab === k ? 'on' : ''}" data-sp="tab:${k}" aria-current="${sp.tab === k}">
       ${icon(ic)}<span>${label}</span></button>`).join('');
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
+  if (s.nature === 'business' && sp.tab === 'home') void hydrateBusinessHomeMedia(s.id);
   $('#sp-scroll').scrollTop = 0;
 }
 function refreshSpace() {
@@ -11584,7 +11585,17 @@ document.addEventListener('click', async e => {
       if (!res.ok) { toast(res.error || 'Could not send your reminder.', 'x'); break; }
       refreshSpace(); toast('A little love has been sent ♡', 'check'); break;
     }
-    case 'biz-compose': openComposerFor('business_post'); break;
+    case 'biz-compose': openBusinessUpdateComposer(); break;
+    case 'biz-like': {
+      const post=Server.db.content.find(x=>x.id===a&&x.spaceId===sp.activeId&&x.kind==='business_post');
+      if(!post)break;
+      const result=await Server.submit('content.mutate',{id:a,op:'react',key:'like'});
+      if(!result.ok){toast(result.error||'Reaction could not be saved.','x');break;}
+      refreshSpace();break;
+    }
+    case 'biz-comments': await openBusinessPostComments(a); break;
+    case 'biz-share': await shareBusinessPost(a); break;
+    case 'biz-media': await openBusinessPostMedia(a,Number(b)||0); break;
     case 'biz-comment': {
       const post = Server.db.content.find(x=>x.id===a && x.spaceId===sp.activeId && x.kind==='business_post');
       if(!post) { toast('This post is no longer available.','x'); break; }
@@ -11608,7 +11619,7 @@ document.addEventListener('click', async e => {
     case 'biz-delete': {
       const post=Server.db.content.find(x=>x.id===a&&x.spaceId===sp.activeId&&x.kind==='business_post');if(!post)break;
       openModal({title:'Remove this post?',lede:'The post and its discussion will be removed from this Business Space.',actions:[{t:'Cancel',cls:'btn--soft',a:'close-modal'},{t:'Remove post',cls:'btn--danger',a:'biz-delete-confirm'}]});
-      $('#modal').querySelector('[data-action="biz-delete-confirm"]').addEventListener('click',async()=>{const {error}=await supabaseClient.rpc('delete_ming_business_space_post',{p_content_id:a});closeModal();if(error){toast(error.message||'Post could not be removed.','x');return;}Server.db.content=Server.db.content.filter(x=>x.id!==a);renderSpace();toast('Post removed','check');});break;
+      $('#modal').querySelector('[data-action="biz-delete-confirm"]').addEventListener('click',async()=>{const {error}=await supabaseClient.rpc('delete_ming_business_space_post',{p_content_id:a});closeModal();if(error){toast(error.message||'Post could not be removed.','x');return;}Server.db.content=Server.db.content.filter(x=>x.id!==a);businessPostMediaUrlCache.delete(a);renderSpace();toast('Post removed','check');});break;
     }
     case 'new': a === 'product' ? openProductComposer() : (a === 'task' ? openTaskComposer() : openComposerFor(a)); break;
     case 'task-cancel': closeSheet(); break;
