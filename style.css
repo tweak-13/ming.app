@@ -4426,7 +4426,17 @@ html.theme-transitioning *::after {
 }
 #screen-tweak .topbar-title,#screen-tweak .icon-btn {color:var(--p-text)}
 #screen-tweak .topbar-sub {color:var(--p-muted)}
-#screen-tweak .scroll {background:transparent;overflow-x:hidden}
+#screen-tweak .scroll {
+  background:transparent;
+  flex:1 1 0%;
+  min-height:0;
+  min-width:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+  touch-action:pan-y;
+}
 #screen-tweak #tweak-body {width:min(100%,980px);margin:0 auto;padding:8px 18px 34px;position:relative;z-index:1}
 
 /* Hero: Moonflower editorial typography with an emerald planetary body. */
