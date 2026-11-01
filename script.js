@@ -10497,6 +10497,13 @@ async function searchBusinessPostUsers(query,postId) {
 }
 
 
+document.addEventListener('input',e=>{
+  if(e.target?.id!=='biz-share-user-search')return;
+  const postId=document.querySelector('[data-biz-share-post-id]')?.dataset.bizSharePostId||'';
+  clearTimeout(businessPostShareSearchTimer);
+  businessPostShareSearchTimer=setTimeout(()=>searchBusinessPostUsers(e.target.value,postId),280);
+});
+
 async function openBusinessPostMedia(postId,index=0) {
   const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
   if(!post)return;
@@ -11678,7 +11685,10 @@ document.addEventListener('click', async e => {
       refreshSpace();break;
     }
     case 'biz-comments': await openBusinessPostComments(a); break;
-    case 'biz-share': await shareBusinessPost(a); break;
+    case 'biz-share': await openBusinessPostShareSheet(a); break;
+    case 'biz-share-external': await shareBusinessPostExternal(a); break;
+    case 'biz-download': await downloadBusinessPostMedia(a); break;
+    case 'biz-send-post': await sendBusinessPostToUser(a,b); break;
     case 'biz-media': await openBusinessPostMedia(a,Number(b)||0); break;
     case 'biz-comment': {
       const post = Server.db.content.find(x=>x.id===a && x.spaceId===sp.activeId && x.kind==='business_post');
