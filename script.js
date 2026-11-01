@@ -9068,6 +9068,7 @@ const Server = (() => {
           row.status = row.done ? 'completed' : 'todo';
           audit(row.spaceId, 'task.toggled', { id: row.id, done: row.done });
         }
+        if (p.op === 'comment') { /* comments were added to the row payload by the caller */ }
         if (p.op === 'listadd') row.items.push({ t: p.text, done: false });
         if (p.op === 'listtoggle') row.items[p.index].done = !row.items[p.index].done;
         const payload = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','spaceId','authorId','kind','at','updatedAt'].includes(k)));
@@ -9231,7 +9232,7 @@ const NATURES = {
       { name:'Ledger', colors:['#17211F','#31524A','#B9D0C5'] },
       { name:'Studio', colors:['#1B1A20','#4A3F52','#D6B4C7'] }
     ],
-    tabs: [['brief', 'Brief', 'sp-doc'], ['work', 'Work', 'sp-list'], ['files', 'Files', 'sp-box'], ['people', 'People', 'users'], ['log', 'Log', 'clock']]
+    tabs: [['home', 'Home', 'home'], ['brief', 'Brief', 'sp-doc'], ['work', 'Work', 'sp-list'], ['files', 'Files', 'sp-box'], ['people', 'People', 'users'], ['log', 'Log', 'clock']]
   },
   friendly: {
     label: 'Friendly', eyebrow: 'Keep your people close', icon: 'users', hue: 24,
@@ -9636,7 +9637,7 @@ function openWizard(nature = null) {
     hue: null, maxMembers: null,
     inviteTtlHours: 24, inviteMaxUses: null,
     locationLinked: false, ttlDays: null,
-    features: {}, theme: null
+    features: { businessMessaging: 'everyone' }, theme: null
   };
   if (nature === 'business') sp.wizard.maxMembers = 100;
   if (nature === 'friendly') sp.wizard.maxMembers = 50;
@@ -9771,6 +9772,7 @@ const WZ_RENDER = {
         <span class="tx"><span class="t" style="display:block">${f.t}</span><span class="s" style="display:block">${f.s}</span></span>
         <span class="sw"></span>
       </button>`).join('')}
+    ${w.nature === 'business' ? `<div class="biz-post-policy"><div class="biz-post-policy__title">Who can publish to the Home feed?</div><p>Choose who can create posts in this Business Space. The creator always keeps full admin control.</p><button type="button" class="choice" aria-pressed="${(w.features.businessMessaging || 'everyone') === 'everyone'}" data-sp="wz-business-messaging:everyone"><span class="radio"></span><span class="tx"><span class="t">All members</span><span class="s">Everyone can publish and join discussions.</span></span></button><button type="button" class="choice" aria-pressed="${w.features.businessMessaging === 'admins'}" data-sp="wz-business-messaging:admins"><span class="radio"></span><span class="tx"><span class="t">Admins only</span><span class="s">Only the creator and admins can publish.</span></span></button></div>` : ''}
     ${w.nature === 'marketplace' ? `<div class="ephemeral-note" style="margin-top:16px">${icon('shield')}<span>Payments in this Space are held in escrow until the buyer confirms delivery. Tweaklr Wallet is in development mode — no real funds move.</span></div>` : ''}`;
   },
 
@@ -9788,6 +9790,7 @@ const WZ_RENDER = {
         ['Member limit', w.maxMembers ? w.maxMembers + ' people' : 'No limit'],
         ['Code expires', w.inviteTtlHours ? w.inviteTtlHours + ' hours' : 'Never'],
         ['Code uses', w.inviteMaxUses ? w.inviteMaxUses : 'Unlimited'],
+        ['Post permissions', w.nature === 'business' ? (w.features.businessMessaging === 'admins' ? 'Admins only' : 'All members') : 'Space defaults'],
         ['Your role', 'Owner']
       ].map(([k, v]) => `<div class="review-row"><span class="k">${k}</span><span class="v">${esc(String(v))}</span></div>`).join('')}
     </div>`
@@ -10234,6 +10237,18 @@ async function setOpenRoleStatus(roleId, status) {
   await refreshOpenRoles(role.spaceId);
   toast(status === 'closed' ? 'Role closed' : 'Role reopened', 'check');
 }
+
+VIEWS.business.home = s => {
+  const posts = contentOf(s.id, 'business_post').sort((a,b) => Number(b.at||0)-Number(a.at||0));
+  const canPost = Server.can(s.id, 'space.post') && (s.features?.businessMessaging !== 'admins' || ['owner','admin'].includes(Server.roleOf(s.id)));
+  const role = Server.roleOf(s.id);
+  const admin = ['owner','admin'].includes(role);
+  return '<div class="biz-home">' +
+    '<section class="biz-home-hero"><div class="biz-home-kicker">TWEAKLR BUSINESS · HOME</div><h2>' + esc(s.name) + '</h2><p>' + esc(s.description || 'Your team’s shared space for updates, ideas and decisions.') + '</p><div class="biz-home-stats"><span><b>' + Server.memberCount(s.id) + '</b> members</span><span><b>' + posts.length + '</b> updates</span><span><b>' + esc(role || 'member') + '</b> access</span></div></section>' +
+    (canPost ? '<button class="biz-compose" data-sp="biz-compose"><span class="biz-compose-avatar">' + esc((nameOf(currentUser.id)||'Y').slice(0,1).toUpperCase()) + '</span><span>Share an update with your Space…</span><b>＋</b></button>' : '<div class="biz-post-locked">Posting is limited to the Space creator and admins.</div>') +
+    (posts.length ? posts.map(p => { const author = personOf(p.authorId); const comments = Array.isArray(p.comments)?p.comments:[]; return '<article class="biz-post"><div class="biz-post-head">' + avatar(author,38) + '<div class="biz-post-author"><b>' + esc(author.short||author.name||author.username||'Member') + '</b><small>' + esc(timeAgo(p.at)) + '</small></div>' + (admin ? '<span class="biz-admin-tag">ADMIN SPACE</span>' : '') + '</div><div class="biz-post-copy">' + esc(p.text||'') + '</div>' + (p.attachmentUrl ? '<a class="biz-post-attachment" href="' + esc(p.attachmentUrl) + '" target="_blank" rel="noopener">View attachment</a>' : '') + '<div class="biz-post-actions"><button data-sp="biz-comment:' + p.id + '">Comment · ' + comments.length + '</button><button data-sp="biz-message:' + p.authorId + '">Message author</button></div>' + (comments.length ? '<div class="biz-comments">' + comments.slice(-3).map(c=>'<div><b>'+esc(c.authorName||nameOf(c.authorId)||'Member')+'</b> '+esc(c.text||'')+'</div>').join('') + '</div>' : '') + '</article>'; }).join('') : '<div class="biz-home-empty"><div class="biz-home-empty-icon">✦</div><h3>Your team’s feed starts here</h3><p>Share the first update, announcement or question with everyone in this Business Space.</p></div>') +
+    '<div class="biz-home-footer">A shared home for your team · Tweaklr</div></div>';
+};
 
 VIEWS.business.brief = s => {
   const notes = contentOf(s.id, 'announcement');
@@ -10951,6 +10966,7 @@ function renderWallet() {
    COMPOSERS (space-native content)
 ============================================================ */
 const COMPOSERS = {
+  business_post: { title: 'Share an update', fields: [['text', 'What would you like to share?', 'textarea']], kind: 'business_post' },
   file: { title: 'Add a file', fields: [['title', 'Description', 'input']], kind: 'doc', accepts: '*/*' },
   announcement: { title: 'Post an announcement', fields: [['title', 'Headline', 'input'], ['body', 'Details', 'textarea']], kind: 'announcement' },
   task: { title: 'Add a task', fields: [['title', 'Task', 'input'], ['owner', 'Owner', 'input'], ['due', 'Due', 'input']], kind: 'task' },
@@ -11174,6 +11190,7 @@ document.addEventListener('click', async e => {
 
   switch (verb) {
     case 'create': openWizard(); break;
+    case 'wz-business-messaging': sp.wizard.features.businessMessaging = a; renderWizard(); break;
     case 'create-type': openWizard(a); break;
     case 'spaces': closeSheet(); openSpaces(); break;
     case 'join': openJoinSheet(); break;
@@ -11385,6 +11402,20 @@ document.addEventListener('click', async e => {
       if (!res.ok) { toast(res.error || 'Could not send your reminder.', 'x'); break; }
       refreshSpace(); toast('A little love has been sent ♡', 'check'); break;
     }
+    case 'biz-compose': openComposerFor('business_post'); break;
+    case 'biz-comment': {
+      const post = Server.db.content.find(x=>x.id===a && x.spaceId===sp.activeId && x.kind==='business_post');
+      if(!post) { toast('This post is no longer available.','x'); break; }
+      openSheet({title:'Join the discussion',sub:'Your reply is visible to members of this Business Space.',body:'<div class="field"><label for="biz-comment-text">Your comment</label><textarea id="biz-comment-text" maxlength="1000" placeholder="Write a thoughtful reply…"></textarea></div>',foot:'<button class="btn btn--primary btn--block" data-sp="biz-comment-save:'+a+'">Post comment</button>'}); break;
+    }
+    case 'biz-comment-save': {
+      const post=Server.db.content.find(x=>x.id===a && x.spaceId===sp.activeId); const value=$('#biz-comment-text')?.value.trim()||'';
+      if(!post||!value){toast('Write a comment first.','x');break;}
+      const comments=Array.isArray(post.comments)?post.comments:[]; if(comments.length>=100){toast('This discussion has reached its limit.','x');break;}
+      const person=personOf(currentUser.id); post.comments=[...comments,{id:'bc_'+Date.now(),authorId:currentUser.id,authorName:person.short||person.name||'You',text:value,at:Date.now()}];
+      const saved=await Server.submit('content.mutate',{id:post.id,op:'comment'}); if(!saved.ok){post.comments=comments;toast(saved.error||'Comment could not be saved.','x');break;} closeSheet();renderSpace();toast('Comment posted','check');break;
+    }
+    case 'biz-message': closeSheet(); if(a && a!==currentUser.id) setTimeout(()=>openChat(a),180); else toast('You cannot message yourself.','x'); break;
     case 'new': a === 'product' ? openProductComposer() : (a === 'task' ? openTaskComposer() : openComposerFor(a)); break;
     case 'task-cancel': closeSheet(); break;
     case 'task-view-toggle': sp.taskBoard=!sp.taskBoard; renderSpace(); break;
@@ -11401,6 +11432,8 @@ document.addEventListener('click', async e => {
       const payload = {};
       if(a==='task'){const title=$('#cx-title')?.value.trim()||'';if(!title){toast('Add a task name first.','x');return;}const assigneeId=$('#cx-assignee')?.value||null,m=Server.db.members.find(x=>x.spaceId===sp.activeId&&x.userId===assigneeId&&x.approved!==false),p=assigneeId?personOf(assigneeId):null;payload.title=title;payload.description=$('#cx-description')?.value.trim()||'';payload.assigneeId=m?assigneeId:null;payload.owner=m?(p.short||p.name||p.username||'Space member'):'Unassigned';payload.due=$('#cx-due')?.value||'';payload.priority=$('#cx-priority')?.value||'medium';payload.status=$('#cx-status')?.value||'todo';payload.done=payload.status==='completed';payload.subtasks=[];payload.comments=[];payload.createdBy=currentUser.id;}else c.fields.forEach(([k])=>{payload[k]=($('#cx-'+k)||{}).value||'';});
       if (!payload[c.fields[0][0]].trim()) { toast(a === 'loveletter' ? 'Give your letter a title first.' : 'Say something first', 'x'); return; }
+      if (a === 'business_post' && spaceById(sp.activeId)?.nature !== 'business') { toast('This post type is only available in Business Spaces.','x'); return; }
+      if (a === 'business_post' && spaceById(sp.activeId)?.features?.businessMessaging === 'admins' && !['owner','admin'].includes(Server.roleOf(sp.activeId))) { toast('Only the creator and admins can publish here.','x'); return; }
       if (a === 'loveletter') {
         payload.title = payload.title.trim();
         payload.body = (payload.body || '').trim();
