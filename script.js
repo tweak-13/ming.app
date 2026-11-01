@@ -10256,15 +10256,15 @@ function businessPostMediaMarkup(post) {
   const media = Array.isArray(post.media) ? post.media : [];
   if (!media.length) return '';
   const cached = businessPostMediaUrlCache.get(post.id) || [];
-  const ready = media.map((item, index) => ({ item, url: item.url || cached[index] || '' })).filter(x => x.url);
+  const ready = media.map((item, index) => ({ item, url: item.url || cached[index] || '', index })).filter(x => x.url);
   if (!ready.length) return '';
   if (ready.length === 1) {
     const { item, url } = ready[0];
-    return '<div class="upd-media upd-media--single"><button type="button" class="biz-update-media-open" data-sp="biz-media:' + post.id + ':0" aria-label="Open post media">' +
+    return '<div class="upd-media upd-media--single"><button type="button" class="biz-update-media-open" data-sp="biz-media:' + post.id + ':' + ready[0].index + '" aria-label="Open post media">' +
       (String(item.mime || '').startsWith('video/') ? '<video src="' + esc(url) + '" muted playsinline preload="metadata"></video>' : '<img src="' + esc(url) + '" alt="' + esc(item.name || 'Post image') + '" loading="lazy" />') +
       '</button></div>';
   }
-  return '<div class="upd-media upd-media--collage upd-media--count-' + ready.length + '">' + ready.map(({item,url},index) =>
+  return '<div class="upd-media upd-media--collage upd-media--count-' + ready.length + '">' + ready.map(({item,url,index}) =>
     '<button type="button" class="upd-media__tile" data-sp="biz-media:' + post.id + ':' + index + '" aria-label="Open media ' + (index+1) + '">' +
     (String(item.mime || '').startsWith('video/') ? '<video src="' + esc(url) + '" muted playsinline preload="metadata"></video>' : '<img src="' + esc(url) + '" alt="' + esc(item.name || 'Post image') + '" loading="lazy" />') +
     '</button>').join('') + '</div>';
@@ -10298,6 +10298,7 @@ function businessUpdateCard(post, space) {
 }
 
 async function hydrateBusinessHomeMedia(spaceId) {
+  let changed = false;
   const posts = contentOf(spaceId, 'business_post');
   for (const post of posts) {
     const media = Array.isArray(post.media) ? post.media : [];
@@ -10311,8 +10312,9 @@ async function hydrateBusinessHomeMedia(spaceId) {
       return error ? '' : (data?.signedUrl || '');
     }));
     businessPostMediaUrlCache.set(post.id, Object.assign(urls, { expiresAt: Date.now() + 3500000 }));
+    changed = true;
   }
-  if (sp.activeId === spaceId && sp.tab === 'home') refreshSpace();
+  if (changed && sp.activeId === spaceId && sp.tab === 'home') refreshSpace();
 }
 
 async function createBusinessSpaceUpdate(spaceId, kind, title, body, files) {
