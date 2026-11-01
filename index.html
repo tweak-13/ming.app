@@ -8,6 +8,7 @@
 <title>Tweaklr</title>
 
 <script>
+document.documentElement.classList.add('tweaklr-auth-intro-pending');
 (function () {
   try {
     var t = localStorage.getItem('ming-theme');
@@ -28,6 +29,23 @@
 </head>
 
 <body>
+
+<!-- ============================================================
+     TWEAKLR AUTHENTICATION INTRO
+============================================================ -->
+<div id="auth-intro-loader" class="auth-intro-loader" role="status" aria-live="polite" aria-label="Preparing Tweaklr">
+  <div class="auth-intro-orbit auth-intro-orbit-a"></div>
+  <div class="auth-intro-orbit auth-intro-orbit-b"></div>
+  <div class="auth-intro-mark" aria-hidden="true">
+    <span class="auth-intro-t">T</span>
+    <i class="auth-intro-star auth-intro-star-a"></i>
+    <i class="auth-intro-star auth-intro-star-b"></i>
+  </div>
+  <div class="auth-intro-wordmark">TWEAKLR</div>
+  <div class="auth-intro-motto">NEARBY IS EVERYTHING</div>
+  <div class="auth-intro-progress"><span></span></div>
+  <div class="auth-intro-caption">Bringing your world closer</div>
+</div>
 
 <!-- ============================================================
      TWEAKLR AUTHENTICATION
@@ -53,8 +71,10 @@
           <circle cx="45.5" cy="39.5" r="2" fill="#7c3341" opacity=".82"/>
         </svg>
       </div>
+      <span class="auth-kicker">PEOPLE · MOMENTS · POSSIBILITIES</span>
       <h1>Welcome to Tweaklr</h1>
-      <p>Find your people. Share your world.</p>
+      <p>Your world is closer than you think.</p>
+      <div class="auth-trust-mark"><span class="auth-live-dot"></span> A more intentional way to connect</div>
     </div>
 
 
@@ -62,11 +82,11 @@
 
     <form id="login-form" class="auth-form">
 
-      <h2>Welcome back</h2>
-
-      <p class="auth-subtitle">
-        Sign in to continue to Tweaklr.
-      </p>
+      <div class="auth-form-heading">
+        <span class="auth-form-eyebrow">YOUR SPACE AWAITS</span>
+        <h2>Welcome back</h2>
+        <p class="auth-subtitle">Sign in securely to continue your Tweaklr journey.</p>
+      </div>
 
       <div class="field">
 
@@ -140,11 +160,11 @@
       hidden
     >
 
-      <h2>Create your account</h2>
-
-      <p class="auth-subtitle">
-        Your space in the Tweaklr universe.
-      </p>
+      <div class="auth-form-heading">
+        <span class="auth-form-eyebrow">FIND YOUR PLACE IN THE ORBIT</span>
+        <h2>Create your account</h2>
+        <p class="auth-subtitle">Build your space. Find your people. Stay close to what matters.</p>
+      </div>
 
 
       <div class="field">
@@ -156,6 +176,7 @@
         <input
           id="signup-name"
           type="text"
+          maxlength="60"
           placeholder="Your name"
           autocomplete="name"
           required
@@ -173,6 +194,9 @@
         <input
           id="signup-username"
           type="text"
+          minlength="3"
+          maxlength="30"
+          spellcheck="false"
           placeholder="yourusername"
           autocomplete="username"
           required
@@ -190,6 +214,7 @@
         <input
           id="signup-email"
           type="email"
+          maxlength="254"
           placeholder="you@example.com"
           autocomplete="email"
           required
@@ -207,9 +232,11 @@
         <input
           id="signup-password"
           type="password"
-          placeholder="At least 6 characters"
+          maxlength="128"
+          placeholder="12–128 characters"
           autocomplete="new-password"
-          minlength="6"
+          minlength="12"
+          maxlength="128"
           required
         />
 
@@ -249,6 +276,22 @@
 
 </section>
 
+<script>
+(function () {
+  var loader = document.getElementById('auth-intro-loader');
+  var finish = function () {
+    document.documentElement.classList.remove('tweaklr-auth-intro-pending');
+    if (loader) {
+      loader.classList.add('is-leaving');
+      window.setTimeout(function () { loader.remove(); }, 420);
+    }
+  };
+  window.setTimeout(finish, 1750);
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) finish();
+  }, { once: true });
+})();
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js?v=20261017-share-username-1"></script>
