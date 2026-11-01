@@ -10244,17 +10244,194 @@ async function setOpenRoleStatus(roleId, status) {
   toast(status === 'closed' ? 'Role closed' : 'Role reopened', 'check');
 }
 
+
+/* Business Home deliberately reuses Tweaklr Home's Daily Update card
+   language and 24-hour interaction pattern, while keeping its data private
+   to the Business Space. */
+const businessPostMediaUrlCache = new Map();
+
+function businessPostMediaMarkup(post) {
+  const media = Array.isArray(post.media) ? post.media : [];
+  if (!media.length) return '';
+  const cached = businessPostMediaUrlCache.get(post.id) || [];
+  const ready = media.map((item, index) => ({ item, url: item.url || cached[index] || '' })).filter(x => x.url);
+  if (!ready.length) return '';
+  if (ready.length === 1) {
+    const { item, url } = ready[0];
+    return '<div class="upd-media upd-media--single"><button type="button" class="biz-update-media-open" data-sp="biz-media:' + post.id + ':0" aria-label="Open post media">' +
+      (String(item.mime || '').startsWith('video/') ? '<video src="' + esc(url) + '" muted playsinline preload="metadata"></video>' : '<img src="' + esc(url) + '" alt="' + esc(item.name || 'Post image') + '" loading="lazy" />') +
+      '</button></div>';
+  }
+  return '<div class="upd-media upd-media--collage upd-media--count-' + ready.length + '">' + ready.map(({item,url},index) =>
+    '<button type="button" class="upd-media__tile" data-sp="biz-media:' + post.id + ':' + index + '" aria-label="Open media ' + (index+1) + '">' +
+    (String(item.mime || '').startsWith('video/') ? '<video src="' + esc(url) + '" muted playsinline preload="metadata"></video>' : '<img src="' + esc(url) + '" alt="' + esc(item.name || 'Post image') + '" loading="lazy" />') +
+    '</button>').join('') + '</div>';
+}
+
+function businessUpdateCard(post, space) {
+  const author = personOf(post.authorId);
+  const mine = post.authorId === currentUser.id;
+  const role = Server.roleOf(space.id);
+  const canModerate = ['owner','admin','manager'].includes(role);
+  const createdAt = Number(post.at || post.createdAt || Date.now());
+  const timing = { createdAt };
+  const hours = hoursLeft(timing);
+  const pct = Math.max(2, Math.round((hours / 24) * 100));
+  const kind = KINDS[post.postKind] ? post.postKind : 'general';
+  const comments = Array.isArray(post.comments) ? post.comments : [];
+  const likes = Math.max(0, Number(post.reacts?.like || 0));
+  const liked = !!post.mine?.like;
+  return '<article class="upd" id="biz-upd-' + esc(post.id) + '">' +
+    '<div class="upd-top">' + avatar(author,36) + '<div class="who"><div class="n">' + esc(author.short || author.name || author.username || 'Space member') + '</div><div class="m">' + esc(mine ? 'You' : 'Business Space member') + ' · ' + esc(timeAgo(createdAt)) + '</div></div>' + kindPill(kind) + '</div>' +
+    '<h3>' + esc(post.title || 'Daily Update') + '</h3><p>' + esc(post.body || '') + '</p>' +
+    businessPostMediaMarkup(post) +
+    '<div class="upd-foot">' +
+      '<button class="act ' + (liked ? 'is-on' : '') + '" data-sp="biz-like:' + post.id + '" aria-pressed="' + liked + '" aria-label="React to this update">' + icon('heart') + '<span>' + likes + '</span></button>' +
+      '<button class="act" data-sp="biz-comments:' + post.id + '" aria-label="Open replies">' + icon('chat') + '<span>' + comments.length + '</span></button>' +
+      '<button class="act" data-sp="biz-share:' + post.id + '" aria-label="Share this update"><span aria-hidden="true">↗</span><span>Share</span></button>' +
+      '<button class="act" data-sp="biz-message:' + post.authorId + '" aria-label="Message author">' + icon('send') + '</button>' +
+      ((mine || canModerate) ? '<button class="act" data-sp="biz-delete:' + post.id + '" aria-label="Delete update">' + icon('trash') + '</button>' : '') +
+      '<span class="expiry"><span class="life ' + (hours < 4 ? 'low' : '') + '"><i style="width:' + pct + '%"></i></span>' + esc(lifeLabel(timing)) + '</span>' +
+    '</div></article>';
+}
+
+async function hydrateBusinessHomeMedia(spaceId) {
+  const posts = contentOf(spaceId, 'business_post');
+  for (const post of posts) {
+    const media = Array.isArray(post.media) ? post.media : [];
+    if (!media.length) continue;
+    const cached = businessPostMediaUrlCache.get(post.id);
+    if (cached && cached.expiresAt > Date.now() + 60000) continue;
+    const urls = await Promise.all(media.map(async item => {
+      if (item.url) return item.url;
+      if (!item.path) return '';
+      const { data, error } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path, 3600);
+      return error ? '' : (data?.signedUrl || '');
+    }));
+    businessPostMediaUrlCache.set(post.id, Object.assign(urls, { expiresAt: Date.now() + 3500000 }));
+  }
+  if (sp.activeId === spaceId && sp.tab === 'home') refreshSpace();
+}
+
+async function createBusinessSpaceUpdate(spaceId, kind, title, body, files) {
+  const space = spaceById(spaceId);
+  if (!space || space.nature !== 'business' || !Server.can(spaceId, 'space.post')) {
+    toast('You cannot post in this Business Space.', 'x'); return false;
+  }
+  if (space.features?.businessMessaging === 'owner' && Server.roleOf(spaceId) !== 'owner') {
+    toast('Only the creator can publish here.', 'x'); return false;
+  }
+  if (!isUuidPerson(currentUser.id)) { toast('Please sign in again.', 'alert'); return false; }
+  const cleanTitle = String(title || '').trim(), cleanBody = String(body || '').trim();
+  if (cleanTitle.length < 3) { toast('Add a headline of at least 3 characters.', 'alert'); return false; }
+  if (cleanBody.length > 280) { toast('Keep the update under 280 characters.', 'alert'); return false; }
+  if (files.length > 4) { toast('You can attach up to 4 photos or videos.', 'alert'); return false; }
+
+  const uploaded = [];
+  for (const file of files) {
+    const isImage = file.type.startsWith('image/'), isVideo = file.type.startsWith('video/');
+    if (!isImage && !isVideo) { toast('Only photos and videos can be attached.', 'alert'); return false; }
+    const maxBytes = isVideo ? 50 * 1024 * 1024 : 15 * 1024 * 1024;
+    if (file.size > maxBytes) { toast(isVideo ? 'Videos must be 50 MB or smaller.' : 'Photos must be 15 MB or smaller.', 'alert'); return false; }
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 90) || (isVideo ? 'video' : 'photo');
+    const path = currentUser.id + '/business-' + spaceId + '/' + crypto.randomUUID() + '-' + safeName;
+    const { error } = await supabaseClient.storage.from('ming-post-media').upload(path, file, { contentType:file.type, cacheControl:'3600', upsert:false });
+    if (error) {
+      if (uploaded.length) await supabaseClient.storage.from('ming-post-media').remove(uploaded.map(x=>x.path)).catch(()=>{});
+      toast('Could not upload the photo or video.', 'alert'); return false;
+    }
+    uploaded.push({ path, name:file.name, mime:file.type });
+  }
+
+  const result = await Server.submit('space.post', {
+    spaceId, kind:'business_post',
+    payload:{ title:cleanTitle, body:cleanBody, postKind:KINDS[kind]?kind:'general', media:uploaded, comments:[], reacts:{}, mine:{}, expiresAt:Date.now()+24*HOUR }
+  });
+  if (!result.ok) {
+    if (uploaded.length) await supabaseClient.storage.from('ming-post-media').remove(uploaded.map(x=>x.path)).catch(()=>{});
+    toast(result.error || 'Could not share the update.', 'x'); return false;
+  }
+  const row = result.data.row;
+  const urls = await Promise.all(uploaded.map(async item => {
+    const { data, error } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path,3600);
+    return error ? '' : (data?.signedUrl || '');
+  }));
+  businessPostMediaUrlCache.set(row.id, Object.assign(urls,{expiresAt:Date.now()+3500000}));
+  closeSheet(); refreshSpace(); toast('Update shared','check'); return true;
+}
+
+function openBusinessUpdateComposer() {
+  const kinds = ['general','service','sale','talk','alert'];
+  let selectedKind = 'general', selectedMedia = [];
+  openSheet({
+    title:'Daily Update',
+    sub:'Share something with the people in this Business Space.',
+    body:'<div class="field"><label for="biz-update-title">Headline</label><input id="biz-update-title" type="text" maxlength="70" placeholder="What is happening right now?" /></div>' +
+      '<div class="field"><label for="biz-update-body">Details</label><textarea id="biz-update-body" maxlength="280" placeholder="A couple of lines is plenty."></textarea><div class="count"><span id="biz-update-count">0</span>/280</div></div>' +
+      '<div class="field"><label>Photos &amp; videos</label><input id="biz-update-media" type="file" accept="image/*,video/*" multiple hidden /><button type="button" class="btn btn--soft btn--block" id="biz-update-media-pick">' + icon('spark') + ' Add photos or videos</button><div id="biz-update-preview" style="display:grid;gap:8px;margin-top:9px"></div><div class="count">Up to 4 files · photos 15 MB each · videos 50 MB each</div></div>' +
+      '<div class="field"><label>Category</label><div class="pick" id="biz-update-kinds">' + kinds.map(k=>'<button type="button" data-kind="'+k+'" aria-pressed="'+(k==='general')+'">'+esc(KINDS[k].label)+'</button>').join('') + '</div></div>' +
+      '<div class="ephemeral-note">' + icon('clock') + '<span>This update disappears from the Business Home feed after 24 hours.</span></div>',
+    foot:'<button class="btn btn--primary btn--block" id="biz-update-submit" disabled>Share update</button>'
+  });
+  const title=$('#biz-update-title'), body=$('#biz-update-body'), input=$('#biz-update-media'), preview=$('#biz-update-preview'), submit=$('#biz-update-submit');
+  const draw=()=>{if(!preview)return;preview.innerHTML=selectedMedia.map((file,index)=>{const url=URL.createObjectURL(file);const visual=file.type.startsWith('video/')?'<video src="'+esc(url)+'" muted playsinline preload="metadata" style="width:100%;height:110px;object-fit:cover;border-radius:12px;background:#000"></video>':'<img src="'+esc(url)+'" alt="'+esc(file.name)+'" style="width:100%;height:110px;object-fit:cover;border-radius:12px" />';return '<div style="position:relative">'+visual+'<button type="button" data-biz-remove-media="'+index+'" aria-label="Remove attachment" style="position:absolute;top:6px;right:6px;width:28px;height:28px;border:0;border-radius:50%;background:rgba(0,0,0,.68);color:#fff">×</button></div>';}).join('');};
+  const validate=()=>{if(submit)submit.disabled=title.value.trim().length<3;};
+  $('#biz-update-media-pick')?.addEventListener('click',()=>input?.click());
+  input?.addEventListener('change',()=>{const next=[...selectedMedia,...Array.from(input.files||[])];if(next.length>4)toast('You can attach up to 4 photos or videos.','alert');selectedMedia=next.slice(0,4);input.value='';draw();});
+  preview?.addEventListener('click',e=>{const btn=e.target.closest('[data-biz-remove-media]');if(!btn)return;selectedMedia.splice(Number(btn.dataset.bizRemoveMedia),1);draw();});
+  $('#biz-update-kinds')?.addEventListener('click',e=>{const btn=e.target.closest('[data-kind]');if(!btn)return;selectedKind=btn.dataset.kind;$('#biz-update-kinds').querySelectorAll('[data-kind]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.kind===selectedKind)));});
+  title?.addEventListener('input',validate);
+  body?.addEventListener('input',()=>{$('#biz-update-count').textContent=body.value.length;});
+  submit?.addEventListener('click',()=>createBusinessSpaceUpdate(sp.activeId,selectedKind,title.value,body.value,selectedMedia));
+}
+
+async function openBusinessPostComments(postId) {
+  const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
+  if(!post)return;
+  const comments=Array.isArray(post.comments)?post.comments:[];
+  const body=comments.length?comments.map(c=>{const person=personOf(c.authorId);return '<div style="display:flex;gap:11px;padding:11px 0;border-top:1px solid var(--border)">'+avatar(person,36)+'<div><div style="font-size:13.5px;font-weight:560">'+esc(person.short||person.name||person.username||'Space member')+' <span style="color:var(--muted);font-weight:400">· '+esc(timeAgo(Number(c.at)||Date.now()))+'</span></div><div style="font-size:14px;margin-top:3px;line-height:1.45;white-space:pre-wrap">'+esc(c.text||'')+'</div></div></div>';}).join(''):'<p style="padding:18px 0;color:var(--muted);font-size:13.5px;text-align:center">No replies yet. Say something useful.</p>';
+  openSheet({title:post.title||'Daily Update',sub:comments.length+' '+(comments.length===1?'reply':'replies'),body,foot:'<form id="biz-comment-form" style="display:flex;gap:9px;align-items:flex-end"><textarea id="biz-comment-input" rows="1" maxlength="1000" placeholder="Write a reply" aria-label="Write a reply" style="flex:1;min-height:44px;max-height:100px;padding:11px 15px;border-radius:22px;border:1px solid var(--border);background:var(--bg);font-size:15px;resize:none;outline:none"></textarea><button class="send" type="submit" aria-label="Post reply">'+icon('send')+'</button></form>'});
+  $('#biz-comment-form')?.addEventListener('submit',async e=>{
+    e.preventDefault();const input=$('#biz-comment-input'),textValue=input?.value.trim()||'';if(!textValue)return;
+    const {data:comment,error}=await supabaseClient.rpc('add_ming_business_space_post_comment',{p_content_id:post.id,p_text:textValue});
+    if(error){toast(error.message||'Could not post reply.','alert');return;}
+    post.comments=Array.isArray(post.comments)?post.comments:[];post.comments.push(comment||{authorId:currentUser.id,text:textValue,at:Date.now()});
+    refreshSpace();openBusinessPostComments(postId);toast('Reply posted','check');
+  });
+}
+
+async function shareBusinessPost(postId) {
+  const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
+  if(!post)return;
+  const space=spaceById(post.spaceId),author=personOf(post.authorId);
+  const text=[(author.short||author.name||'A Tweaklr member')+' · '+space.name,post.title,post.body].filter(Boolean).join('\n');
+  const url=new URL(window.location.href);url.hash='';url.searchParams.set('space',space.id);url.searchParams.set('post',post.id);
+  try {
+    if(navigator.share){await navigator.share({title:post.title||'Tweaklr update',text,url:url.toString()});}
+    else {await navigator.clipboard.writeText(text+'\n'+url.toString());toast('Update copied','check');}
+  } catch(error) { if(error?.name!=='AbortError')toast('Could not share this update.','alert'); }
+}
+
+async function openBusinessPostMedia(postId,index=0) {
+  const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
+  if(!post)return;
+  if(!businessPostMediaUrlCache.has(postId)) await hydrateBusinessHomeMedia(sp.activeId);
+  const media=Array.isArray(post.media)?post.media:[];
+  const urls=businessPostMediaUrlCache.get(postId)||[];
+  const item=media[index],url=item?.url||urls[index];if(!item||!url)return;
+  openSheet({title:'Post media',sub:(item.mime||'').startsWith('video/')?'Video':'Photo',body:(item.mime||'').startsWith('video/')?'<video src="'+esc(url)+'" controls autoplay playsinline style="width:100%;max-height:65vh;border-radius:16px;background:#000"></video>':'<img src="'+esc(url)+'" alt="'+esc(item.name||'Post image')+'" style="display:block;width:100%;max-height:65vh;object-fit:contain;border-radius:16px" />'});
+}
+
 VIEWS.business.home = s => {
-  const posts = contentOf(s.id, 'business_post').sort((a,b) => Number(b.at||0)-Number(a.at||0));
-  const canPost = Server.can(s.id, 'space.post') && (s.features?.businessMessaging !== 'owner' || Server.roleOf(s.id) === 'owner');
-  const role = Server.roleOf(s.id);
-  const admin = ['owner','admin'].includes(role);
-  return '<div class="biz-home">' +
-    '<section class="biz-home-hero"><div class="biz-home-kicker">TWEAKLR BUSINESS · HOME</div><h2>' + esc(s.name) + '</h2><p>' + esc(s.description || 'Your team’s shared space for updates, ideas and decisions.') + '</p><div class="biz-home-stats"><span><b>' + Server.memberCount(s.id) + '</b> members</span><span><b>' + posts.length + '</b> updates</span><span><b>' + esc(role || 'member') + '</b> access</span></div></section>' +
-    (canPost ? '<button class="biz-compose" data-sp="biz-compose"><span class="biz-compose-avatar">' + esc((nameOf(currentUser.id)||'Y').slice(0,1).toUpperCase()) + '</span><span>Share an update with your Space…</span><b>＋</b></button>' : '<div class="biz-post-locked">Posting is limited to the Space creator and admins.</div>') +
-    (posts.length ? posts.map(p => { const author = personOf(p.authorId); const comments = Array.isArray(p.comments)?p.comments:[]; return '<article class="biz-post"><div class="biz-post-head">' + avatar(author,38) + '<div class="biz-post-author"><b>' + esc(author.short||author.name||author.username||'Member') + '</b><small>' + esc(timeAgo(p.at)) + '</small></div>' + (admin ? '<span class="biz-admin-tag">ADMIN SPACE</span>' : '') + ((admin || p.authorId===currentUser.id) ? '<button class="biz-post-delete" data-sp="biz-delete:'+p.id+'" aria-label="Remove post">···</button>' : '') + '</div><div class="biz-post-copy">' + esc(p.text||'') + '</div>' + (p.attachmentUrl ? '<a class="biz-post-attachment" href="' + esc(p.attachmentUrl) + '" target="_blank" rel="noopener">View attachment</a>' : '') + '<div class="biz-post-actions"><button data-sp="biz-comment:' + p.id + '">Comment · ' + comments.length + '</button><button data-sp="biz-message:' + p.authorId + '">Message author</button></div>' + (comments.length ? '<div class="biz-comments">' + comments.slice(-3).map(c=>'<div><b>'+esc(c.authorName||nameOf(c.authorId)||'Member')+'</b> '+esc(c.text||'')+'</div>').join('') + '</div>' : '') + '</article>'; }).join('') : '<div class="biz-home-empty"><div class="biz-home-empty-icon">✦</div><h3>Your team’s feed starts here</h3><p>Share the first update, announcement or question with everyone in this Business Space.</p></div>') +
-    '<div class="biz-home-footer">A shared home for your team · Tweaklr</div></div>';
+  const posts=contentOf(s.id,'business_post').filter(p=>hoursLeft({createdAt:Number(p.at||p.createdAt||0)})>0).sort((a,b)=>Number(b.at||0)-Number(a.at||0));
+  const canPost=Server.can(s.id,'space.post')&&(s.features?.businessMessaging!=='owner'||Server.roleOf(s.id)==='owner');
+  return '<div class="biz-home-feed">' +
+    sectionHead('Daily Updates','Gone in 24 hours') +
+    (canPost ? '<button type="button" class="biz-compose" data-sp="biz-compose"><span class="biz-compose-avatar">'+esc((nameOf(currentUser.id)||'Y').slice(0,1).toUpperCase())+'</span><span>Share an update…</span><b>＋</b></button>' : '') +
+    (posts.length ? posts.map(p=>businessUpdateCard(p,s)).join('') : emptyState('Nothing shared yet today','Daily Updates disappear after 24 hours. Be the first to say what you are up to.',canPost?{t:'Share an update',a:'biz-compose'}:null)) +
+  '</div>';
 };
+
 
 VIEWS.business.brief = s => {
   const notes = contentOf(s.id, 'announcement');
