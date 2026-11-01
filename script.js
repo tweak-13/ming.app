@@ -11423,9 +11423,10 @@ document.addEventListener('click', async e => {
     case 'biz-comment-save': {
       const post=Server.db.content.find(x=>x.id===a && x.spaceId===sp.activeId); const value=$('#biz-comment-text')?.value.trim()||'';
       if(!post||!value){toast('Write a comment first.','x');break;}
-      const comments=Array.isArray(post.comments)?post.comments:[]; if(comments.length>=100){toast('This discussion has reached its limit.','x');break;}
-      const person=personOf(currentUser.id); post.comments=[...comments,{id:'bc_'+Date.now(),authorId:currentUser.id,authorName:person.short||person.name||'You',text:value,at:Date.now()}];
-      const saved=await Server.submit('content.mutate',{id:post.id,op:'comment'}); if(!saved.ok){post.comments=comments;toast(saved.error||'Comment could not be saved.','x');break;} closeSheet();renderSpace();toast('Comment posted','check');break;
+      const {data:comment,error}=await supabaseClient.rpc('add_ming_business_space_post_comment',{p_content_id:post.id,p_text:value});
+      if(error){toast(error.message||'Comment could not be saved.','x');break;}
+      post.comments=Array.isArray(post.comments)?post.comments:[];post.comments.push(comment||{authorId:currentUser.id,text:value,at:Date.now()});
+      closeSheet();renderSpace();toast('Comment posted','check');break;
     }
     case 'biz-message': closeSheet(); if(a && a!==currentUser.id) setTimeout(()=>openChat(a),180); else toast('You cannot message yourself.','x'); break;
     case 'biz-remove-member': {
