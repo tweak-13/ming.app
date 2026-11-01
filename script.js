@@ -10402,17 +10402,100 @@ async function openBusinessPostComments(postId) {
   });
 }
 
-async function shareBusinessPost(postId) {
+
+async function getBusinessPostShareData(postId) {
   const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
-  if(!post)return;
+  if(!post)return null;
   const space=spaceById(post.spaceId),author=personOf(post.authorId);
-  const text=[(author.short||author.name||'A Tweaklr member')+' · '+space.name,post.title,post.body].filter(Boolean).join('\n');
+  const title=post.title||'Tweaklr Daily Update';
+  const text=[(author.short||author.name||'A Tweaklr member')+' · '+space.name,title,post.body||''].filter(Boolean).join(' — ');
   const url=new URL(window.location.href);url.hash='';url.searchParams.set('space',space.id);url.searchParams.set('post',post.id);
-  try {
-    if(navigator.share){await navigator.share({title:post.title||'Tweaklr update',text,url:url.toString()});}
-    else {await navigator.clipboard.writeText(text+'\n'+url.toString());toast('Update copied','check');}
-  } catch(error) { if(error?.name!=='AbortError')toast('Could not share this update.','alert'); }
+  return {post,space,title,text,url:url.toString()};
 }
+
+async function getBusinessPostMediaFiles(post) {
+  const media=Array.isArray(post?.media)?post.media:[];
+  const cached=businessPostMediaUrlCache.get(post.id)||[];
+  const files=[];
+  for(let index=0;index<media.length;index++){
+    const item=media[index];const url=item.url||cached[index];if(!url)continue;
+    try{
+      const response=await fetch(url);if(!response.ok)throw new Error('Media request failed');
+      const blob=await response.blob();const name=(item.name||'tweaklr-business-update-'+post.id+'-'+(index+1)+(String(item.mime||'').startsWith('video/')?'.mp4':'.jpg')).replace(/[^a-zA-Z0-9._-]/g,'_');
+      files.push(new File([blob],name,{type:item.mime||blob.type||'application/octet-stream'}));
+    }catch(error){console.warn('Tweaklr: Business post media could not be prepared for sharing.',error);}
+  }
+  return files;
+}
+
+async function openBusinessPostShareSheet(postId) {
+  const data=await getBusinessPostShareData(postId);if(!data)return;
+  const connected=connections.filter(c=>c.personId&&isConnected(c.personId)).map(c=>byId(c.personId)).filter(Boolean);
+  openSheet({
+    title:'Share update',
+    sub:'Send the update text or its actual photo/video to a connection, another app, or save the media.',
+    body:'<div class="chat-action-grid" style="margin-bottom:12px"><button data-sp="biz-share-external:'+postId+'"><span style="font-size:24px">↗</span><br>Other apps</button><button data-sp="biz-download:'+postId+'"><span style="font-size:24px">↓</span><br>Download</button></div>' +
+      '<div class="section share-update-recipients" data-biz-share-post-id="'+esc(postId)+'" style="padding:0"><div class="section-head"><div><h2>Find a Tweaklr user</h2><p>Search by username to share with any member</p></div></div>' +
+      '<div class="field" style="padding:0 12px 10px"><input id="biz-share-user-search" type="search" maxlength="40" placeholder="Search @username…" autocomplete="off" aria-label="Search Tweaklr users by username" /></div>' +
+      '<div id="biz-share-search-results" aria-live="polite"><p class="center-note">Enter a username to find someone.</p></div>' +
+      '<div class="section-head" style="margin-top:12px"><div><h2>Your connections</h2><p>The update text or its media will be sent</p></div></div>' +
+      (connected.length?connected.map(person=>'<button class="opt" data-sp="biz-send-post:'+postId+':'+esc(person.id)+'">'+avatar(person,42)+'<span class="tx"><span class="t">'+esc(person.short||person.name)+'</span><span class="s">'+esc(person.username||'Connected')+'</span></span><span class="go">'+icon('send')+'</span></button>').join(''):'<p class="center-note">Your connections will appear here.</p>')+'</div>'
+  });
+}
+
+async function shareBusinessPostExternal(postId) {
+  const data=await getBusinessPostShareData(postId);if(!data)return;
+  try{
+    const files=await getBusinessPostMediaFiles(data.post);
+    if(files.length&&navigator.share){
+      const shareData={title:data.title,text:data.text};
+      if(!navigator.canShare||navigator.canShare({files})){shareData.files=files;await navigator.share(shareData);closeSheet();return;}
+    }
+    if(navigator.share){await navigator.share({title:data.title,text:data.text,url:data.url});closeSheet();return;}
+    if(files.length){closeSheet();for(const file of files){const objectUrl=URL.createObjectURL(file),link=document.createElement('a');link.href=objectUrl;link.download=file.name;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(objectUrl),1500);await sleep(180);}toast('Media ready to share','check');return;}
+    await navigator.clipboard.writeText(data.text+'\\n\\n'+data.url);closeSheet();toast('Update link copied','check');
+  }catch(error){if(error?.name!=='AbortError')toast('Could not share this update.','alert');}
+}
+
+async function downloadBusinessPostMedia(postId) {
+  const data=await getBusinessPostShareData(postId);if(!data)return;
+  const files=await getBusinessPostMediaFiles(data.post);
+  if(!files.length){toast('This update has no photo or video to download.','alert');return;}
+  closeSheet();let completed=0;
+  for(const file of files){try{const objectUrl=URL.createObjectURL(file),link=document.createElement('a');link.href=objectUrl;link.download=file.name;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(objectUrl),1500);completed++;await sleep(180);}catch(error){console.warn('Tweaklr: Business post download failed.',error);}}
+  toast(completed?'Media downloaded':'Could not download the media.',completed?'check':'alert');
+}
+
+async function sendBusinessPostToUser(postId,personId) {
+  const data=await getBusinessPostShareData(postId);
+  if(!data||!isUuidPerson(personId)||personId===currentUser.id){toast('Choose another Tweaklr user to share this update with.','alert');return;}
+  const files=await getBusinessPostMediaFiles(data.post);
+  closeSheet();await openChat(personId);
+  if(!files.length){await sendMessage([data.text,data.url].filter(Boolean).join('\\n\\n'),{replyToId:null});return;}
+  let completed=0;for(const file of files)if(await sendStoredChatAttachment(file,{replyToId:null}))completed++;
+  toast(completed?(completed===files.length?'Media sent':completed+' media file(s) sent'):'Could not send the media.',completed?'check':'alert');
+}
+
+let businessPostShareSearchTimer=null,businessPostShareSearchRequest=0;
+async function searchBusinessPostUsers(query,postId) {
+  const host=document.getElementById('biz-share-search-results');if(!host)return;
+  const q=String(query||'').trim().replace(/^@+/,'').replace(/\\s+/g,'');
+  const requestId=++businessPostShareSearchRequest;
+  if(!q){host.innerHTML='<p class="center-note">Enter a username to find someone.</p>';return;}
+  if(q.length<2){host.innerHTML='<p class="center-note">Type at least 2 characters.</p>';return;}
+  host.innerHTML='<p class="center-note">Searching Tweaklr…</p>';
+  const {data:{session},error:sessionError}=await supabaseClient.auth.getSession();
+  if(sessionError||!session?.user){if(requestId===businessPostShareSearchRequest)host.innerHTML='<p class="center-note">Please sign in again to search users.</p>';return;}
+  const {data,error}=await supabaseClient.from('profiles').select('id,username,display_name,avatar_url').ilike('username','%'+q+'%').neq('id',session.user.id).limit(12);
+  if(requestId!==businessPostShareSearchRequest||!document.getElementById('biz-share-search-results'))return;
+  if(error){host.innerHTML='<p class="center-note">Could not search users right now. Try again.</p>';return;}
+  host.innerHTML=(data||[]).map(profile=>{
+    const person={id:profile.id,name:profile.display_name||profile.username||'Tweaklr user',short:profile.display_name||profile.username||'Tweaklr user',username:profile.username?'@'+profile.username.replace(/^@/,''):'@user',avatarUrl:profile.avatar_url||'',hue:26};
+    mingConnectionProfiles.set(profile.id,person);
+    return '<button class="opt" data-sp="biz-send-post:'+postId+':'+esc(profile.id)+'">'+avatar(person,42)+'<span class="tx"><span class="t">'+esc(person.short)+'</span><span class="s">'+esc(person.username)+'</span></span><span class="go">'+icon('send')+'</span></button>';
+  }).join('')||'<p class="center-note">No matching Tweaklr users found.</p>';
+}
+
 
 async function openBusinessPostMedia(postId,index=0) {
   const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
