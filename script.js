@@ -10285,7 +10285,7 @@ function businessUpdateCard(post, space) {
   const liked = Array.isArray(post.likedBy) ? post.likedBy.includes(currentUser.id) : !!post.mine?.like;
   return '<article class="upd" id="biz-upd-' + esc(post.id) + '">' +
     '<div class="upd-top">' + avatar(author,36) + '<div class="who"><div class="n">' + esc(author.short || author.name || author.username || 'Space member') + '</div><div class="m">' + esc(mine ? 'You' : 'Business Space member') + ' · ' + esc(timeAgo(createdAt)) + '</div></div>' + kindPill(kind) + '</div>' +
-    '<h3>' + esc(post.title || 'Daily Update') + '</h3><p>' + esc(post.body || '') + '</p>' +
+    '<h3>' + esc(post.title || (post.text ? 'Daily Update' : 'Daily Update')) + '</h3><p>' + esc(post.body || post.text || '') + '</p>' +
     businessPostMediaMarkup(post) +
     '<div class="upd-foot">' +
       '<button class="act ' + (liked ? 'is-on' : '') + '" data-sp="biz-like:' + post.id + '" aria-pressed="' + liked + '" aria-label="React to this update">' + icon('heart') + '<span>' + likes + '</span></button>' +
@@ -10413,7 +10413,7 @@ async function getBusinessPostShareData(postId) {
   if(!post)return null;
   const space=spaceById(post.spaceId),author=personOf(post.authorId);
   const title=post.title||'Tweaklr Daily Update';
-  const text=[(author.short||author.name||'A Tweaklr member')+' · '+space.name,title,post.body||''].filter(Boolean).join(' — ');
+  const text=[(author.short||author.name||'A Tweaklr member')+' · '+space.name,title,post.body||post.text||''].filter(Boolean).join(' — ');
   const url=new URL(window.location.href);url.hash='';url.searchParams.set('space',space.id);url.searchParams.set('post',post.id);
   return {post,space,title,text,url:url.toString()};
 }
@@ -11711,7 +11711,7 @@ document.addEventListener('click', async e => {
     case 'biz-message': closeSheet(); if(a && a!==currentUser.id) setTimeout(()=>openChat(a),180); else toast('You cannot message yourself.','x'); break;
     case 'biz-remove-member': {
       const member=Server.db.members.find(m=>m.spaceId===sp.activeId&&m.userId===a);
-      if(!member||Server.roleOf(sp.activeId) !== 'owner'||member.role==='owner'){toast('This member cannot be removed.','x');break;}
+      if(!member||!['owner','admin'].includes(Server.roleOf(sp.activeId))||member.role==='owner'){toast('This member cannot be removed.','x');break;}
       openModal({title:'Remove this member?',lede:'They will lose access to this Business Space. The creator cannot be removed.',actions:[{t:'Keep member',cls:'btn--soft',a:'close-modal'},{t:'Remove member',cls:'btn--danger',a:'biz-remove-confirm'}]});
       $('#modal').querySelector('[data-action="biz-remove-confirm"]').addEventListener('click',async()=>{const result=await Server.submit('space.member.remove',{spaceId:sp.activeId,userId:a});closeModal();if(!result.ok){toast(result.error,'x');return;}renderSpace();toast('Member removed','check');});break;
     }
