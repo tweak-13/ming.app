@@ -144,20 +144,17 @@ create policy "Space members update own media"
 on storage.objects for update to authenticated
 using (
   bucket_id = 'ming-space-media'
-  and owner_id = (select auth.uid())
-)
+owner_id = (select auth.uid()::text)
 with check (
   bucket_id = 'ming-space-media'
-  and owner_id = (select auth.uid())
-);
+ owner_id = (select auth.uid()::text)
 
 drop policy if exists "Space members delete own media" on storage.objects;
 create policy "Space members delete own media"
 on storage.objects for delete to authenticated
 using (
   bucket_id = 'ming-space-media'
-  and owner_id = (select auth.uid())
-);
+owner_id = (select auth.uid()::text)
 
 create or replace function public.get_my_ming_space_content()
 returns table (
