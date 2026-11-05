@@ -8752,15 +8752,32 @@ const Server = (() => {
 
     let data;
     try {
-      const result = await supabaseClient.rpc('get_my_ming_spaces_v2');
-      data = result.data;
+      // Prefer the expanded RPC that exposes other members to Space admins.
+      // Fall back to the established RPC so Spaces remain visible if the
+      // optional v2 migration has not yet been applied in Supabase.
+      let result = await supabaseClient.rpc('get_my_ming_spaces_v2');
+      if (result.error) {
+        console.warn('Tweaklr: Expanded Spaces loader unavailable; using the compatible loader.', result.error.message);
+        result = await supabaseClient.rpc('get_my_ming_spaces');
+      }
       if (result.error) {
         console.warn('Tweaklr: Spaces database load failed.', result.error.message);
         return false;
       }
+      data = result.data;
     } catch (error) {
-      console.warn('Tweaklr: Spaces database load request failed.', error);
-      return false;
+      console.warn('Tweaklr: Expanded Spaces loader request failed; trying the compatible loader.', error);
+      try {
+        const fallback = await supabaseClient.rpc('get_my_ming_spaces');
+        if (fallback.error) {
+          console.warn('Tweaklr: Spaces database load failed.', fallback.error.message);
+          return false;
+        }
+        data = fallback.data;
+      } catch (fallbackError) {
+        console.warn('Tweaklr: Spaces database load request failed.', fallbackError);
+        return false;
+      }
     }
 
     db.spaces = [];
