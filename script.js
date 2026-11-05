@@ -10922,7 +10922,7 @@ function friendlyPostCard(post) {
     '<footer class="friend-post-actions"><button class="'+(liked?'is-liked':'')+'" data-sp="friend-like:'+post.id+'" aria-pressed="'+liked+'">♥ <span>'+likes+'</span></button>'+
     '<button data-sp="friend-comments:'+post.id+'">Comments · '+(Array.isArray(post.comments)?post.comments.length:0)+'</button>'+
     '<button data-sp="friend-message:'+post.authorId+'">Message</button>'+
-    (!mine && isUuidPerson(post.authorId) ? '<button data-sp="friend-connect:'+post.authorId+'">Connect ↗</button>' : '')+
+    (!mine && isUuidPerson(post.authorId) && !isConnected(post.authorId) ? '<button data-sp="friend-connect:'+post.authorId+'">Connect ↗</button>' : '')+
     (mine ? '<span class="friend-post-yours">Your post</span>' : '')+'</footer></article>';
 }
 function friendlyStoryTray(space) {
@@ -11554,7 +11554,7 @@ function openFriendlyPostComposer(format='post') {
     title: story ? 'Add to your story' : 'Create a friendship post',
     sub: story ? 'A little glimpse of your day. Stories disappear after 24 hours.' : 'Show people who you are and the kind of friendship you would love to find.',
     body:'<div class="friend-composer">'+
-      '<div class="friend-composer-upload"><label for="friend-post-files"><span>＋</span><b>Add photos or videos</b><small>Up to 4 items · images 15 MB · videos 50 MB</small></label><input id="friend-post-files" type="file" accept="image/*,video/*" multiple hidden/><div id="friend-post-preview"></div></div>'+
+      '<div class="friend-composer-upload"><label for="friend-post-files"><span>＋</span><b>Add photos or videos</b><small>Up to 4 items · images 15 MB · videos 50 MB</small></label><input id="friend-post-files" type="file" accept="image/*,video/*" capture="user" multiple hidden/><div id="friend-post-preview"></div></div>'+
       '<div class="field"><label for="friend-post-caption">Caption</label><textarea id="friend-post-caption" maxlength="300" rows="3" placeholder="What is happening in your world?"></textarea></div>'+
       (story ? '' : '<div class="field"><label for="friend-post-looking">A little note — who are you hoping to meet?</label><textarea id="friend-post-looking" maxlength="220" rows="3" placeholder="I would love to meet curious people who enjoy photography, exploring new places and spontaneous weekend plans…"></textarea></div>'+
       '<div class="field"><label for="friend-post-type">The friendship I am looking for</label><select id="friend-post-type">'+FRIENDSHIP_TYPES.map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('')+'</select></div>'+
