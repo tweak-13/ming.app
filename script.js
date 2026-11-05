@@ -5016,7 +5016,9 @@ async function openChat(personId) {
   chatOnline = false;
   renderChatPresenceStatus();
   await startMingChatRealtime(personId);
-  void ensureMingPushReady({ prompt: true });
+  // Opening a conversation must not interrupt navigation with a browser permission prompt.
+  // Push setup may proceed silently only when notification permission is already granted.
+  void ensureMingPushReady();
   await loadChatReactions(c);
   renderThread();
   pushStack('chat');
