@@ -10304,7 +10304,7 @@ function businessPostLifeLabel(post) {
   if (h < 1) return 'Disappears in ' + Math.max(1, Math.round(h * 60)) + 'm';
   if (h < 48) return 'Disappears in ' + Math.round(h) + 'h';
   const days = h / 24;
-  return 'Disappears in ' + (days < 10 ? days.toFixed(1).replace(/\\.0$/, '') : Math.round(days)) + 'd';
+  return 'Disappears in ' + (days < 10 ? days.toFixed(1).replace('.0', '') : Math.round(days)) + 'd';
 }
 
 function businessPostLifePercent(post) {
