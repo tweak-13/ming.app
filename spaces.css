@@ -2427,3 +2427,15 @@
 #screen-space.sp[data-nature] .sp-card {
   background-image: none !important;
 }
+
+
+/* Business Spaces use the native Tweaklr Home layout and have no secondary tab bar. */
+#screen-space[data-nature="business"] .sp-tabs {
+  display: none !important;
+}
+#screen-space[data-nature="business"] .sp-scroll {
+  padding-bottom: calc(var(--safe-b, 0px) + 24px);
+}
+#screen-space[data-nature="business"] .business-home {
+  width: 100%;
+}
