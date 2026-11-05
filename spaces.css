@@ -3190,3 +3190,13 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
  #sheet .sp-task-detail-overview b{font-size:9px}
  #sheet .sp-task-form-row{grid-template-columns:minmax(0,1fr)}
 }
+
+
+#sheet .sp-task-priority{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid var(--border);border-radius:99px;background:var(--surface-2);color:var(--muted);font-size:9px;font-weight:800}
+#sheet .sp-task-priority i{width:6px;height:6px;border-radius:50%;background:var(--coffee)}
+#sheet .sp-task-priority.p-urgent{color:#c76c67;background:rgba(199,108,103,.09);border-color:rgba(199,108,103,.22)}
+#sheet .sp-task-priority.p-urgent i{background:#c76c67}
+#sheet .sp-task-priority.p-high{color:#b78351;background:rgba(183,131,81,.09);border-color:rgba(183,131,81,.22)}
+#sheet .sp-task-priority.p-high i{background:#b78351}
+#sheet .sp-task-priority.p-low{color:#71977f;background:rgba(113,151,127,.09);border-color:rgba(113,151,127,.22)}
+#sheet .sp-task-priority.p-low i{background:#71977f}
