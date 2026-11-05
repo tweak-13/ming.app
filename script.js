@@ -9254,11 +9254,11 @@ const NATURES = {
     tabs: [['home', 'Home', 'home']]
   },
   friendly: {
-    label: 'Friendly', eyebrow: 'Keep your people close', icon: 'users', hue: 24,
-    blurb: 'Your people, moments, plans and running jokes — without the noise of a public feed.',
-    signature: 'The circle',
-    promise: 'A warm private room for the people you already choose.',
-    features: ['Shared moments', 'Polls & decisions', 'Events & plans', 'Member-first home'],
+    label: 'Friendly', eyebrow: 'Find your kind of people', icon: 'users', hue: 24,
+    blurb: 'A social space for photo and video posts, 24-hour stories and discovering people who share your interests.',
+    signature: 'The social circle',
+    promise: 'Share your world, describe the friendship you want and meet people who genuinely fit.',
+    features: ['Photo & video friendship feed', '24-hour stories', 'Intent-based friend suggestions', 'Reactions, comments & connections'],
     swatch: 'linear-gradient(135deg,#F5E5D6,#D19A72 62%,#875137)',
     palettes: [
       { name:'Sunroom', colors:['#FFF4E8','#E8B58E','#9A5C43'] },
@@ -10947,7 +10947,7 @@ function friendlySuggestions(space) {
   mingDiscoverPeople.forEach(p=>candidates.set(p.id,p));
   mingConnectionProfiles.forEach(p=>candidates.set(p.id,p));
   Server.db.members.filter(m=>m.spaceId===space.id&&m.approved!==false).forEach(m=>{const p=personOf(m.userId);if(p?.id)candidates.set(p.id,p);});
-  const matches = [...candidates.values()].filter(p=>p?.id && p.id!==currentUser.id && isUuidPerson(p.id) && !tweaklrBlockedUserIds.has(p.id) && !isConnected(p.id));
+  const matches = [...candidates.values()].filter(p=>p?.id && p.id!==currentUser.id && (p.name||p.short||p.username) && isUuidPerson(p.id) && !tweaklrBlockedUserIds.has(p.id) && !isConnected(p.id));
   return matches.map(p=>{
     const text = [p.name,p.tag,p.bio,p.activity,...(p.interests||[]),...(p.tags||[])].join(' ').toLowerCase();
     const hits = tokens.filter(t=>text.includes(t));
