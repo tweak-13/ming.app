@@ -9080,7 +9080,14 @@ const Server = (() => {
           row.status = row.done ? 'completed' : 'todo';
           audit(row.spaceId, 'task.toggled', { id: row.id, done: row.done });
         }
-        if (p.op === 'comment') { /* comments were added to the row payload by the caller */ }
+        if (p.op === 'comment') {
+          if (row.kind !== 'friend_post') return deny('Comments are only enabled on Friendly posts.');
+          const text = String(p.text || '').trim();
+          if (!text || text.length > 400) return deny('Write a comment of 1–400 characters.');
+          row.comments = Array.isArray(row.comments) ? row.comments : [];
+          if (row.comments.length >= 100) return deny('This post has reached its comment limit.');
+          row.comments.push({ id: 'fc_' + crypto.randomUUID(), authorId: session.userId, text, at: Date.now() });
+        }
         if (p.op === 'listadd') row.items.push({ t: p.text, done: false });
         if (p.op === 'listtoggle') row.items[p.index].done = !row.items[p.index].done;
         const payload = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','spaceId','authorId','kind','at','updatedAt'].includes(k)));
@@ -10913,6 +10920,7 @@ function friendlyPostCard(post) {
     (post.lookingFor ? '<div class="friend-looking"><span>✧ LOOKING TO MEET</span><p>'+esc(post.lookingFor)+'</p><small>'+esc(FRIENDSHIP_TYPES.find(x=>x[0]===post.friendshipType)?.[1]||'Open to friendship')+'</small></div>' : '')+
     (interests.length ? '<div class="friend-interest-tags">'+interests.map(t=>'<span>#'+esc(t)+'</span>').join('')+'</div>' : '')+
     '<footer class="friend-post-actions"><button class="'+(liked?'is-liked':'')+'" data-sp="friend-like:'+post.id+'" aria-pressed="'+liked+'">♥ <span>'+likes+'</span></button>'+
+    '<button data-sp="friend-comments:'+post.id+'">Comments · '+(Array.isArray(post.comments)?post.comments.length:0)+'</button>'+
     '<button data-sp="friend-message:'+post.authorId+'">Message</button>'+
     (!mine && isUuidPerson(post.authorId) ? '<button data-sp="friend-connect:'+post.authorId+'">Connect ↗</button>' : '')+
     (mine ? '<span class="friend-post-yours">Your post</span>' : '')+'</footer></article>';
@@ -11583,7 +11591,7 @@ async function publishFriendlyPost(format='post') {
     if(error){if(uploaded.length)await supabaseClient.storage.from('ming-post-media').remove(uploaded.map(x=>x.path)).catch(()=>{});toast('Your media could not be uploaded.','x');return;}
     uploaded.push({path,name:file.name,mime:file.type});
   }
-  const payload={caption,lookingFor:format==='story'?'':lookingFor,friendshipType:format==='story'?'open':friendshipType,interests:format==='story'?[]:interests,postFormat:format==='story'?'story':'post',media:uploaded,reacts:{},mine:{}};
+  const payload={caption,lookingFor:format==='story'?'':lookingFor,friendshipType:format==='story'?'open':friendshipType,interests:format==='story'?[]:interests,postFormat:format==='story'?'story':'post',media:uploaded,reacts:{},mine:{},comments:[]};
   if(format==='story')payload.expiresAt=Date.now()+24*HOUR;
   const result=await Server.submit('space.post',{spaceId:space.id,kind:'friend_post',payload});
   if(!result.ok){if(uploaded.length)await supabaseClient.storage.from('ming-post-media').remove(uploaded.map(x=>x.path)).catch(()=>{});toast(result.error||'Your post could not be shared.','x');return;}
@@ -12028,6 +12036,17 @@ document.addEventListener('click', async e => {
     case 'friend-like': { const res=await Server.submit('content.mutate',{id:a,op:'react',key:'like'}); if(!res.ok){toast(res.error||'Could not react.','x');break;} refreshSpace(); break; }
     case 'friend-connect': connectWith(a); break;
     case 'friend-message': if(a && a!==currentUser.id) openChat(a); break;
+    case 'friend-comments': {
+      const post=Server.db.content.find(x=>x.id===a&&x.kind==='friend_post');if(!post)break;
+      const comments=Array.isArray(post.comments)?post.comments:[];
+      openSheet({title:'The conversation',sub:'Keep it kind. Make a connection.',body:'<div class="friend-comment-list">'+(comments.length?comments.map(c=>{const p=personOf(c.authorId);return '<article><b>'+esc(p.short||p.name||'Friend')+'</b><p>'+esc(c.text)+'</p><small>'+esc(timeAgo(Number(c.at||Date.now())))+'</small></article>';}).join(''):'<p class="friend-comment-empty">Be the first to say something.</p>')+'</div><div class="field"><label for="friend-comment-text">Add a comment</label><textarea id="friend-comment-text" maxlength="400" rows="3" placeholder="Say something thoughtful…"></textarea></div>',foot:'<button type="button" class="btn btn--soft" data-action="close-sheet">Close</button><button type="button" class="btn btn--primary" data-sp="friend-comment-submit:'+a+'">Comment</button>'});
+      break;
+    }
+    case 'friend-comment-submit': {
+      const textValue=$('#friend-comment-text')?.value.trim()||'';if(!textValue){toast('Write a comment first.','x');break;}
+      const result=await Server.submit('content.mutate',{id:a,op:'comment',text:textValue});if(!result.ok){toast(result.error||'Comment could not be saved.','x');break;}
+      closeSheet();refreshSpace();toast('Comment added','check');break;
+    }
     case 'friend-media': { const post=Server.db.content.find(x=>x.id===a&&x.kind==='friend_post'); const item=post?.media?.[Number(b)]; const cached=friendlyMediaUrlCache.get(a)||[]; const url=item?.url||cached[Number(b)]||''; if(url)window.open(url,'_blank','noopener'); break; }
     case 'new': a === 'product' ? openProductComposer() : (a === 'task' ? openTaskComposer() : openComposerFor(a)); break;
     case 'task-cancel': closeSheet(); break;
