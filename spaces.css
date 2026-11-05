@@ -2057,3 +2057,186 @@
     transition: none;
   }
 }
+
+
+/* ============================================================
+   TWEAKLR HOME DNA — unified Space interiors
+   Visual-only layer. Keeps every existing Space module, control,
+   permission, event handler and content structure in place.
+============================================================ */
+#screen-space.sp {
+  color: var(--text);
+  background: var(--bg);
+}
+#screen-space.sp .sp-head {
+  position: relative;
+  isolation: isolate;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(220px 145px at 100% 0%, color-mix(in srgb, var(--coffee) 15%, transparent), transparent 72%),
+    linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface) 82%, var(--bg)));
+}
+#screen-space.sp .sp-head::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: -56px;
+  top: -76px;
+  width: 190px;
+  height: 190px;
+  border: 1px solid color-mix(in srgb, var(--coffee) 13%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 13px color-mix(in srgb, var(--coffee) 3%, transparent), 0 0 0 29px color-mix(in srgb, var(--coffee) 2%, transparent);
+  pointer-events: none;
+}
+#screen-space.sp .sp-bar {
+  min-height: 54px;
+}
+#screen-space.sp .sp-bar .back,
+#screen-space.sp .sp-bar .ic {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+}
+#screen-space.sp .sp-title,
+#screen-space.sp .sp-head h1,
+#screen-space.sp .sp-head h2 {
+  color: var(--text);
+  letter-spacing: -.035em;
+}
+#screen-space.sp .sp-tabs {
+  gap: 7px;
+  padding: 10px 14px 11px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  scrollbar-width: none;
+}
+#screen-space.sp .sp-tabs button {
+  min-height: 37px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  font-weight: 650;
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+#screen-space.sp .sp-tabs button.on {
+  border-color: color-mix(in srgb, var(--coffee) 20%, var(--border));
+  color: var(--coffee);
+  background: color-mix(in srgb, var(--coffee) 10%, var(--surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent);
+}
+#screen-space.sp .sp-body {
+  color: var(--text);
+  background-color: var(--bg);
+  background-image: radial-gradient(color-mix(in srgb, var(--coffee) 5%, transparent) .7px, transparent .7px);
+  background-size: 21px 21px;
+}
+#screen-space.sp .sp-card,
+#screen-space.sp .sp-body .card,
+#screen-space.sp .sp-body .panel {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+#screen-space.sp .sp-card:active {
+  transform: translateY(0);
+}
+#screen-space.sp .sp-card h1,
+#screen-space.sp .sp-card h2,
+#screen-space.sp .sp-card h3,
+#screen-space.sp .sp-card h4,
+#screen-space.sp .sp-body h1,
+#screen-space.sp .sp-body h2,
+#screen-space.sp .sp-body h3 {
+  color: var(--text);
+  letter-spacing: -.025em;
+}
+#screen-space.sp .sp-card p,
+#screen-space.sp .sp-body .muted,
+#screen-space.sp .sp-body small {
+  color: var(--muted);
+}
+#screen-space.sp .sp-body .btn,
+#screen-space.sp .sp-body button:not(.sp-tabs button):not(.biz-update-media-open) {
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+#screen-space.sp .sp-body .btn--primary {
+  color: #fff;
+  box-shadow: 0 8px 20px -13px color-mix(in srgb, var(--coffee) 65%, transparent);
+}
+#screen-space.sp .sp-body input,
+#screen-space.sp .sp-body textarea,
+#screen-space.sp .sp-body select {
+  border-color: var(--border);
+  border-radius: 13px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+#screen-space.sp .sp-body input::placeholder,
+#screen-space.sp .sp-body textarea::placeholder {
+  color: var(--muted);
+  opacity: .78;
+}
+#screen-space.sp .sp-body input:focus,
+#screen-space.sp .sp-body textarea:focus,
+#screen-space.sp .sp-body select:focus {
+  outline: 2px solid color-mix(in srgb, var(--coffee) 40%, transparent);
+  outline-offset: 1px;
+}
+#screen-space.sp .sp-body .chip,
+#screen-space.sp .sp-body .pill,
+#screen-space.sp .sp-body .badge {
+  border-color: var(--border);
+  border-radius: 999px;
+}
+#screen-space.sp .sp-body .section-head {
+  color: var(--text);
+}
+#screen-space.sp .sp-body .divider,
+#screen-space.sp .sp-body hr {
+  border-color: var(--border);
+}
+#screen-space.sp .sp-body .empty {
+  border-color: var(--border);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+}
+#screen-space.sp .sp-body .privacy-seal {
+  border-radius: 14px;
+}
+#screen-space.sp .sp-body .mrow,
+#screen-space.sp .sp-body .friend-strip,
+#screen-space.sp .sp-body .member-row {
+  border-color: var(--border);
+}
+#screen-space.sp .sp-body .biz-update-media-open {
+  border-radius: 16px;
+}
+#screen-space.sp .sp-body button:focus-visible,
+#screen-space.sp .sp-bar button:focus-visible,
+#screen-space.sp .sp-tabs button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--coffee) 72%, transparent);
+  outline-offset: 3px;
+}
+@media (hover:hover) {
+  #screen-space.sp .sp-card:hover {
+    border-color: color-mix(in srgb, var(--coffee) 27%, var(--border));
+    box-shadow: var(--shadow-md);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #screen-space.sp *,
+  #screen-space.sp *::before,
+  #screen-space.sp *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
