@@ -9966,15 +9966,23 @@ function openSpace(id, tab) {
   const screen = $('#screen-space');
   screen.dataset.nature = s.nature;
   screen.dataset.spaceId = s.id;
-  // Resolve the saved palette from either the dedicated field or the
-  // existing features JSON (older Space records may use either location).
-  const theme = spaceTheme(s);
+  // Resolve the persisted palette, including records where the palette is
+  // represented by its name rather than the full three-color object.
+  const savedTheme = s?.theme || s?.features?.theme;
+  const namedTheme = typeof savedTheme === 'string'
+    ? (NATURES[s.nature]?.palettes || []).find(p => p.name.toLowerCase() === savedTheme.toLowerCase())
+    : null;
+  const theme = namedTheme || spaceTheme(s);
   const cover = `linear-gradient(140deg, ${theme.colors[0]}, ${theme.colors[1]} 58%, ${theme.colors[2]})`;
   screen.style.setProperty('--sp-accent', theme.colors[0]);
   screen.style.setProperty('--sp-accent-2', theme.colors[1]);
   screen.style.setProperty('--sp-accent-3', theme.colors[2]);
   screen.style.setProperty('--sp-cover', cover);
   screen.style.setProperty('--sp-theme-name', JSON.stringify(theme.name || 'Tweaklr'));
+  // Set the header directly: a higher-specificity legacy Space rule was
+  // overriding the palette background, leaving the default atmosphere visible.
+  const spaceHead = $('#sp-head');
+  if (spaceHead) spaceHead.style.background = cover;
   renderSpace();
   pushStack('space');
   if (s.nature === 'business') {
