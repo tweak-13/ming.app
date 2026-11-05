@@ -10392,7 +10392,7 @@ function businessUpdateCard(post, space) {
       '<button class="act ' + (liked ? 'is-on' : '') + '" data-sp="biz-like:' + post.id + '" aria-pressed="' + liked + '" aria-label="React to this update">' + icon('heart') + '<span>' + likes + '</span></button>' +
       '<button class="act" data-sp="biz-comments:' + post.id + '" aria-label="Open replies">' + icon('chat') + '<span>' + comments.length + '</span></button>' +
       '<button class="act" data-sp="biz-share:' + post.id + '" aria-label="Share this update"><span aria-hidden="true">↗</span><span>Share</span></button>' +
-      (!mine ? '<button class="act" data-sp="biz-message:' + post.id + '" aria-label="Send a direct message to the author" title="Message author">' + icon('send') + '</button>' : '') +
+
       ((mine || canModerate) ? '<button class="act" data-sp="biz-delete:' + post.id + '" aria-label="Delete update">' + icon('trash') + '</button>' : '') +
       '<span class="expiry">' + (Number.isFinite(hours) ? '<span class="life ' + (hours < 4 ? 'low' : '') + '"><i style="width:' + pct + '%"></i></span>' : '') + esc(businessPostLifeLabel(post)) + '</span>' +
     '</div></article>';
