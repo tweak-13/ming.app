@@ -2640,3 +2640,16 @@
  .biz-command-task em{display:none}
 }
 @media(prefers-reduced-motion:no-preference){.biz-command-panel,.biz-command-stat{animation:bizCommandIn .45s ease both}.biz-command-stat:nth-child(2){animation-delay:.04s}.biz-command-stat:nth-child(3){animation-delay:.08s}.biz-command-stat:nth-child(4){animation-delay:.12s}@keyframes bizCommandIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}}
+
+
+/* Business Space cover uses the palette selected during creation.
+   Scoped to Business so other Space nature styling remains untouched. */
+#screen-space[data-nature="business"] .sp-head {
+  background:
+    radial-gradient(180px 100px at 92% 0%, color-mix(in srgb, var(--sp-accent-3) 24%, transparent), transparent 72%),
+    linear-gradient(140deg,
+      color-mix(in srgb, var(--sp-accent) 34%, var(--surface)),
+      color-mix(in srgb, var(--sp-accent-2) 22%, var(--surface)) 58%,
+      color-mix(in srgb, var(--sp-accent-3) 12%, var(--surface)));
+  border-bottom-color: color-mix(in srgb, var(--sp-accent-2) 32%, var(--border));
+}
