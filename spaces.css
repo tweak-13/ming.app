@@ -3092,3 +3092,101 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
  #screen-space.sp[data-nature="business"] .sp-task-controls{padding:8px;gap:6px}
 }
 @media(prefers-reduced-motion:reduce){#screen-space.sp[data-nature="business"] .sp-task-hero-orbit i{animation:none}}
+
+
+/* BUSINESS TASK DETAIL + COMPOSER — complete sheet redesign */
+#sheet:has(.sp-task-detail),#sheet:has(.sp-task-form),#sheet:has(.sp-task-text-prompt){border:1px solid rgba(197,165,114,.28);background:var(--bg,#100c0a);box-shadow:0 28px 90px rgba(0,0,0,.42)}
+#sheet:has(.sp-task-detail) .sheet-head,#sheet:has(.sp-task-form) .sheet-head,#sheet:has(.sp-task-text-prompt) .sheet-head{padding:22px 24px 16px;border-bottom:1px solid var(--border,rgba(197,165,114,.16))}
+#sheet:has(.sp-task-detail) .sheet-head h2,#sheet:has(.sp-task-form) .sheet-head h2,#sheet:has(.sp-task-text-prompt) .sheet-head h2{font-size:21px;letter-spacing:-.035em}
+#sheet:has(.sp-task-detail) .sheet-head p,#sheet:has(.sp-task-form) .sheet-head p,#sheet:has(.sp-task-text-prompt) .sheet-head p{font-size:11px;color:var(--muted)}
+#sheet:has(.sp-task-detail) .sheet-body,#sheet:has(.sp-task-form) .sheet-body,#sheet:has(.sp-task-text-prompt) .sheet-body{padding:17px 23px 22px}
+#sheet:has(.sp-task-detail) .sheet-foot,#sheet:has(.sp-task-form) .sheet-foot,#sheet:has(.sp-task-text-prompt) .sheet-foot{padding:13px 22px calc(13px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--surface)}
+#sheet:has(.sp-task-detail) .sheet-foot .btn,#sheet:has(.sp-task-form) .sheet-foot .btn,#sheet:has(.sp-task-text-prompt) .sheet-foot .btn{min-height:42px;border-radius:12px;padding-inline:17px}
+#sheet .sp-task-detail{display:grid;gap:17px}
+#sheet .sp-task-detail-identity{padding:17px;border:1px solid var(--border);border-radius:17px;background:linear-gradient(145deg,var(--surface),color-mix(in srgb,var(--coffee) 5%,var(--surface)))}
+#sheet .sp-task-detail-pills{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:13px}
+#sheet .sp-task-detail-id{color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.13em}
+#sheet .sp-task-detail-identity h2{margin:0 0 8px;font-size:clamp(21px,5vw,27px);line-height:1.16;letter-spacing:-.045em;overflow-wrap:anywhere}
+#sheet .sp-task-detail-description{margin:0;color:var(--muted);font-size:12px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
+#sheet .sp-task-detail-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#sheet .sp-task-detail-overview>div{display:grid;grid-template-columns:27px minmax(0,1fr);column-gap:7px;align-items:center;min-width:0;padding:11px 9px;border:1px solid var(--border);border-radius:13px;background:var(--surface)}
+#sheet .sp-task-overview-icon{grid-row:span 2;display:grid;place-items:center;width:27px;height:27px;border-radius:9px;background:color-mix(in srgb,var(--coffee) 11%,var(--surface-2));color:var(--coffee);font-size:14px}
+#sheet .sp-task-detail-overview small{color:var(--muted);font-size:8px;font-weight:850;letter-spacing:.1em}
+#sheet .sp-task-detail-overview b{min-width:0;overflow-wrap:anywhere;font-size:10px;line-height:1.4}
+#sheet .sp-task-detail-overview b.is-late{color:#c76c67}
+#sheet .sp-task-detail-section{padding:16px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
+#sheet .sp-task-detail-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
+#sheet .sp-task-detail-section-head>div{min-width:0}
+#sheet .sp-task-section-kicker{display:block;margin-bottom:5px;color:var(--coffee);font-size:8px;font-weight:850;letter-spacing:.14em}
+#sheet .sp-task-detail-section-head h3{margin:0;font-size:15px;letter-spacing:-.025em}
+#sheet .sp-task-section-count{flex:0 0 auto;padding:5px 8px;border:1px solid var(--border);border-radius:99px;background:var(--surface-2);color:var(--muted);font-size:9px}
+#sheet .sp-task-status-panel{padding:15px}
+#sheet .sp-task-current-status{padding:5px 9px;border-radius:99px;background:var(--surface-2);color:var(--coffee);font-size:9px;font-weight:800}
+#sheet .sp-task-status-label{display:block;margin:0 0 7px;color:var(--muted);font-size:10px;font-weight:700}
+#sheet #sp-task-detail-status{width:100%;min-height:43px;padding:10px 12px;border:1px solid var(--border);border-radius:11px;background:var(--surface-2);color:var(--text);font:inherit;font-size:12px}
+#sheet .sp-task-check-progress{margin:-2px 0 11px}
+#sheet .sp-task-check-progress>div:first-child{display:flex;justify-content:space-between;gap:10px;margin-bottom:7px;color:var(--muted);font-size:9px}
+#sheet .sp-task-check-progress b{color:var(--coffee)}
+#sheet .sp-task-check-progress>div:last-child{height:5px;overflow:hidden;border-radius:99px;background:var(--surface-2)}
+#sheet .sp-task-check-progress i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--coffee),var(--accent))}
+#sheet .sp-task-checklist{display:grid;gap:7px}
+#sheet .sp-task-subtask{display:flex;align-items:center;gap:10px;min-height:43px;padding:10px 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface-2);cursor:pointer}
+#sheet .sp-task-subtask input{position:absolute;opacity:0;width:1px;height:1px}
+#sheet .sp-task-checkmark{display:grid;place-items:center;flex:0 0 19px;width:19px;height:19px;border:1px solid color-mix(in srgb,var(--coffee) 40%,var(--border));border-radius:6px;background:var(--surface);color:white}
+#sheet .sp-task-subtask input:checked+.sp-task-checkmark{border-color:var(--coffee);background:var(--coffee)}
+#sheet .sp-task-subtask input:checked+.sp-task-checkmark:after{content:'✓';font-size:12px;font-weight:900}
+#sheet .sp-task-checkcopy{font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+#sheet .sp-task-subtask.is-done .sp-task-checkcopy{color:var(--muted);text-decoration:line-through}
+#sheet .sp-task-section-empty{display:flex;align-items:center;flex-direction:column;padding:20px 13px;border:1px dashed var(--border);border-radius:12px;background:var(--surface-2);text-align:center}
+#sheet .sp-task-section-empty>span{display:grid;place-items:center;width:34px;height:34px;margin-bottom:8px;border-radius:11px;background:color-mix(in srgb,var(--coffee) 12%,var(--surface));color:var(--coffee);font-size:19px}
+#sheet .sp-task-section-empty b{font-size:11px}
+#sheet .sp-task-section-empty p{max-width:250px;margin:5px 0 0;color:var(--muted);font-size:10px;line-height:1.6}
+#sheet .sp-task-attachments{display:grid;gap:2px}
+#sheet .sp-task-attachment{gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+#sheet .sp-task-attachment-icon{width:34px;height:34px;flex-basis:34px;border-radius:11px}
+#sheet .sp-task-attachment>div{min-width:0}
+#sheet .sp-task-attachment b{font-size:10px}
+#sheet .sp-task-attachment small{font-size:9px}
+#sheet .sp-task-attach-pick{position:relative;display:flex;align-items:center;justify-content:flex-start;gap:10px;margin-top:12px;padding:12px;border:1px dashed color-mix(in srgb,var(--coffee) 45%,var(--border));border-radius:12px;background:color-mix(in srgb,var(--coffee) 5%,var(--surface));color:var(--coffee);font-size:11px;cursor:pointer}
+#sheet .sp-task-attach-pick>span:first-child{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:color-mix(in srgb,var(--coffee) 12%,var(--surface));font-size:16px}
+#sheet .sp-task-attach-pick small{margin-left:auto;color:var(--muted);font-size:9px}
+#sheet .sp-task-attach-pick input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+#sheet .sp-task-discussion-list{display:grid;gap:12px}
+#sheet .sp-task-comment{gap:10px;padding:0 0 12px;border-bottom:1px solid var(--border)}
+#sheet .sp-task-comment-avatar{width:32px;height:32px;flex-basis:32px;font-size:11px}
+#sheet .sp-task-comment-content{min-width:0;flex:1}
+#sheet .sp-task-comment-byline{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap}
+#sheet .sp-task-comment-byline b{font-size:10px}
+#sheet .sp-task-comment-byline small{margin:0;color:var(--muted);font-size:8px}
+#sheet .sp-task-comment-content p{margin:7px 0 0;padding:10px 11px;border-radius:0 12px 12px 12px;background:var(--surface-2);font-size:11px;line-height:1.65;overflow-wrap:anywhere}
+#sheet .sp-task-comment-button{width:100%;min-height:40px;margin-top:12px;border:1px solid var(--border);border-radius:11px}
+#sheet .sp-task-detail-footnote{margin:0;color:var(--muted);font-size:9px;line-height:1.6;text-align:center}
+#sheet .sp-task-form{gap:14px}
+#sheet .sp-task-form-banner{display:flex;align-items:center;gap:11px;padding:13px;border:1px solid var(--border);border-radius:14px;background:color-mix(in srgb,var(--coffee) 7%,var(--surface))}
+#sheet .sp-task-form-symbol{display:grid;place-items:center;flex:0 0 37px;width:37px;height:37px;border-radius:12px;background:color-mix(in srgb,var(--coffee) 14%,var(--surface));color:var(--coffee);font-size:20px}
+#sheet .sp-task-form-banner b{font-size:11px}
+#sheet .sp-task-form-banner p{margin:4px 0 0;color:var(--muted);font-size:10px;line-height:1.55}
+#sheet .sp-task-form-block{display:grid;gap:11px;padding:15px;border:1px solid var(--border);border-radius:15px;background:var(--surface)}
+#sheet .sp-task-form-label{display:block;color:var(--coffee);font-size:8px;font-weight:850;letter-spacing:.14em}
+#sheet .sp-task-form .field{display:grid;gap:6px}
+#sheet .sp-task-form .field label{margin:0;color:var(--text);font-size:10px;font-weight:750}
+#sheet .sp-task-form .field label em{color:#bd6862;font-style:normal}
+#sheet .sp-task-form .field input,#sheet .sp-task-form .field textarea,#sheet .sp-task-form .field select{min-height:42px;padding:10px 11px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);color:var(--text);font:inherit;font-size:11px}
+#sheet .sp-task-form .field textarea{min-height:92px;resize:vertical;line-height:1.6}
+#sheet .sp-task-form .field input:focus,#sheet .sp-task-form .field textarea:focus,#sheet .sp-task-form .field select:focus,#sheet #sp-task-detail-status:focus{outline:2px solid color-mix(in srgb,var(--coffee) 28%,transparent);outline-offset:1px}
+#sheet .sp-task-form-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#sheet .sp-task-text-prompt{display:grid;gap:13px;padding:16px;border:1px solid var(--border);border-radius:15px;background:var(--surface)}
+#sheet .sp-task-text-prompt .field{display:grid;gap:7px}
+#sheet .sp-task-text-prompt .field label{font-size:11px;font-weight:750}
+#sheet .sp-task-text-prompt textarea{width:100%;min-height:120px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text);font:inherit;font-size:12px;line-height:1.6;resize:vertical}
+#sheet .sp-task-text-prompt>p{margin:0;color:var(--muted);font-size:9px;line-height:1.6}
+@media(max-width:520px){
+ #sheet:has(.sp-task-detail) .sheet-head,#sheet:has(.sp-task-form) .sheet-head,#sheet:has(.sp-task-text-prompt) .sheet-head{padding:18px 17px 13px}
+ #sheet:has(.sp-task-detail) .sheet-body,#sheet:has(.sp-task-form) .sheet-body,#sheet:has(.sp-task-text-prompt) .sheet-body{padding:13px 15px 18px}
+ #sheet:has(.sp-task-detail) .sheet-foot,#sheet:has(.sp-task-form) .sheet-foot,#sheet:has(.sp-task-text-prompt) .sheet-foot{padding-inline:15px}
+ #sheet .sp-task-detail-overview{gap:6px}
+ #sheet .sp-task-detail-overview>div{grid-template-columns:1fr;gap:5px;padding:9px 7px}
+ #sheet .sp-task-overview-icon{grid-row:auto}
+ #sheet .sp-task-detail-overview b{font-size:9px}
+ #sheet .sp-task-form-row{grid-template-columns:minmax(0,1fr)}
+}
