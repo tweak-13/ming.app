@@ -9258,7 +9258,7 @@ const NATURES = {
       { name:'Garden', colors:['#EEF6E9','#A9C98F','#557C55'] },
       { name:'Bonfire', colors:['#FFF0DF','#D78A63','#7A3F32'] }
     ],
-    tabs: [['home', 'Home', 'home'], ['moments', 'Moments', 'sp-camera'], ['events', 'Events', 'cal'], ['meetings', 'Meetings', 'sp-bolt'], ['people', 'People', 'users']]
+    tabs: [['home', 'Feed', 'home'], ['discover', 'Discover', 'spark'], ['moments', 'Stories', 'sp-camera'], ['people', 'People', 'users']]
   },
   casual: {
     label: 'Casual', eyebrow: 'Right now matters', icon: 'sp-bolt', hue: 160,
@@ -9989,6 +9989,11 @@ function openSpace(id, tab) {
     if (s.features?.opportunities !== false) void refreshOpenRoles(s.id);
     if (s.features?.audit !== false) void refreshSpaceActivity(s.id);
   }
+  if (s.nature === 'friendly' && hasLocation()) {
+    void loadMingDiscoverableProfiles().then(() => {
+      if (sp.activeId === s.id && sp.tab === 'discover') refreshSpace();
+    });
+  }
 }
 
 function renderSpace() {
@@ -10005,12 +10010,14 @@ function renderSpace() {
     renderBusinessHome(s);
     void hydrateBusinessHomeMedia(s.id);
   }
+  if (s.nature === 'friendly' && ['home','moments'].includes(sp.tab)) void hydrateFriendlyMedia(s.id);
   $('#sp-scroll').scrollTop = 0;
 }
 function refreshSpace() {
   const s = spaceById(sp.activeId);
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
   if (s.nature === 'business' && sp.tab === 'home') renderBusinessHome(s);
+  if (s.nature === 'friendly' && ['home','moments'].includes(sp.tab)) void hydrateFriendlyMedia(s.id);
 }
 
 function spBar(s, opts = {}) {
@@ -10843,32 +10850,128 @@ VIEWS.business.log = s => {
 };
 
 /* ============================================================
-   FRIENDLY
+   FRIENDLY — SOCIAL CLUB
+   Feed posts, 24-hour stories and intent-based friend discovery.
+   Media uses the existing private ming-post-media bucket and
+   content is persisted through the existing Space RPCs.
 ============================================================ */
+const friendlyMediaUrlCache = new Map();
+const FRIENDSHIP_TYPES = [
+  ['open','Open to genuine friendships'],
+  ['activity','Activity / hobby buddy'],
+  ['creative','Creative collaborators'],
+  ['study','Study or learning partner'],
+  ['travel','Travel and city explorers'],
+  ['gaming','Gaming friends'],
+  ['fitness','Fitness and sports partners'],
+  ['local','Local hangouts and new experiences']
+];
+
+function friendlyPosts(spaceId, format) {
+  return contentOf(spaceId, 'friend_post')
+    .filter(post => !format || post.postFormat === format)
+    .filter(post => post.postFormat !== 'story' || Number(post.expiresAt || 0) > Date.now())
+    .slice().sort((a,b) => Number(b.at || b.createdAt || 0) - Number(a.at || a.createdAt || 0));
+}
+function friendlyPostMediaMarkup(post) {
+  const media = Array.isArray(post.media) ? post.media : [];
+  const cached = friendlyMediaUrlCache.get(post.id) || [];
+  const ready = media.map((item,index) => ({item,url:item.url || cached[index] || '',index})).filter(x=>x.url);
+  if (!ready.length) return media.length ? '<div class="friend-media-pending">Loading the moment…</div>' : '';
+  return '<div class="friend-post-media friend-post-media--'+ready.length+'">'+ready.map(({item,url,index}) =>
+    '<button type="button" class="friend-media-tile" data-sp="friend-media:'+post.id+':'+index+'" aria-label="Open post media">'+
+    (String(item.mime||'').startsWith('video/') ? '<video src="'+esc(url)+'" muted playsinline preload="metadata"></video><span class="friend-video-mark">▶</span>' : '<img src="'+esc(url)+'" alt="'+esc(item.name||'Friendship post')+'" loading="lazy"/>')+
+    '</button>').join('')+'</div>';
+}
+async function hydrateFriendlyMedia(spaceId) {
+  let changed = false;
+  for (const post of friendlyPosts(spaceId)) {
+    const media = Array.isArray(post.media) ? post.media : [];
+    if (!media.length) continue;
+    const cached = friendlyMediaUrlCache.get(post.id);
+    if (cached && cached.expiresAt > Date.now()+60000) continue;
+    const urls = await Promise.all(media.map(async item => {
+      if (item.url) return item.url;
+      if (!item.path) return '';
+      const {data,error} = await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path,3600);
+      return error ? '' : (data?.signedUrl || '');
+    }));
+    friendlyMediaUrlCache.set(post.id,Object.assign(urls,{expiresAt:Date.now()+3500000}));
+    changed = true;
+  }
+  if (changed && sp.activeId===spaceId && ['home','moments'].includes(sp.tab)) refreshSpace();
+}
+function friendlyPostCard(post) {
+  const author = personOf(post.authorId), mine = post.authorId===currentUser.id;
+  const liked = !!post.mine?.like, likes = Math.max(0,Number(post.reacts?.like||0));
+  const interests = Array.isArray(post.interests) ? post.interests : [];
+  return '<article class="friend-post" id="friend-post-'+esc(post.id)+'">'+
+    '<header class="friend-post-head">'+avatar(author,42)+'<div class="friend-post-author"><b>'+esc(author.short||author.name||'Tweaklr member')+'</b><small>'+esc(mine?'You':(author.username||'Friendly Space member'))+' · '+esc(timeAgo(Number(post.at||post.createdAt||Date.now())))+'</small></div>'+
+    '<span class="friend-post-kind">'+(post.postFormat==='story'?'✦ STORY':'✳ FRIEND POST')+'</span></header>'+
+    friendlyPostMediaMarkup(post)+
+    (post.caption ? '<p class="friend-post-caption">'+esc(post.caption)+'</p>' : '')+
+    (post.lookingFor ? '<div class="friend-looking"><span>✧ LOOKING TO MEET</span><p>'+esc(post.lookingFor)+'</p><small>'+esc(FRIENDSHIP_TYPES.find(x=>x[0]===post.friendshipType)?.[1]||'Open to friendship')+'</small></div>' : '')+
+    (interests.length ? '<div class="friend-interest-tags">'+interests.map(t=>'<span>#'+esc(t)+'</span>').join('')+'</div>' : '')+
+    '<footer class="friend-post-actions"><button class="'+(liked?'is-liked':'')+'" data-sp="friend-like:'+post.id+'" aria-pressed="'+liked+'">♥ <span>'+likes+'</span></button>'+
+    '<button data-sp="friend-message:'+post.authorId+'">Message</button>'+
+    (!mine && isUuidPerson(post.authorId) ? '<button data-sp="friend-connect:'+post.authorId+'">Connect ↗</button>' : '')+
+    (mine ? '<span class="friend-post-yours">Your post</span>' : '')+'</footer></article>';
+}
+function friendlyStoryTray(space) {
+  const stories = friendlyPosts(space.id,'story');
+  const latestByAuthor = [];
+  const seen = new Set();
+  stories.forEach(post=>{if(!seen.has(post.authorId)){seen.add(post.authorId);latestByAuthor.push(post);}});
+  return '<section class="friend-stories"><div class="friend-section-heading"><div><span>THE LAST 24 HOURS</span><h3>Stories</h3></div><button data-sp="friend-compose:story">＋ Add story</button></div>'+
+    '<div class="friend-story-row"><button class="friend-story-add" data-sp="friend-compose:story"><i>＋</i><small>Your story</small></button>'+
+    latestByAuthor.slice(0,12).map(post=>{const p=personOf(post.authorId);return '<button class="friend-story-person" data-sp="tab:moments"><span>'+avatar(p,48)+'</span><small>'+esc(p.short||p.name||'Friend')+'</small></button>';}).join('')+
+    '</div></section>';
+}
+function friendlyTokens(value) {
+  return String(value||'').toLowerCase().replace(/[^a-z0-9+# ]/g,' ').split(/\s+/).filter(t=>t.length>2&&!['the','and','for','with','that','this','you','are','from','want','looking','someone','people','friend','friends','open'].includes(t));
+}
+function friendlySuggestions(space) {
+  const ownPosts = friendlyPosts(space.id).filter(p=>p.authorId===currentUser.id && p.lookingFor);
+  const intent = ownPosts[0] || {};
+  const query = [intent.lookingFor,intent.friendshipType,(intent.interests||[]).join(' ')].join(' ');
+  const tokens = [...new Set(friendlyTokens(query))];
+  const candidates = new Map();
+  mingDiscoverPeople.forEach(p=>candidates.set(p.id,p));
+  mingConnectionProfiles.forEach(p=>candidates.set(p.id,p));
+  Server.db.members.filter(m=>m.spaceId===space.id&&m.approved!==false).forEach(m=>{const p=personOf(m.userId);if(p?.id)candidates.set(p.id,p);});
+  const matches = [...candidates.values()].filter(p=>p?.id && p.id!==currentUser.id && isUuidPerson(p.id) && !tweaklrBlockedUserIds.has(p.id) && !isConnected(p.id));
+  return matches.map(p=>{
+    const text = [p.name,p.tag,p.bio,p.activity,...(p.interests||[]),...(p.tags||[])].join(' ').toLowerCase();
+    const hits = tokens.filter(t=>text.includes(t));
+    const score = tokens.length ? Math.round(hits.length/tokens.length*100) : 0;
+    return {p,score,hits};
+  }).sort((a,b)=>b.score-a.score || String(a.p.name||'').localeCompare(String(b.p.name||''))).slice(0,8);
+}
 VIEWS.friendly.home = s => {
-  const members = Server.db.members.filter(m => m.spaceId === s.id);
-  const polls = contentOf(s.id, 'poll');
-  const events = contentOf(s.id, 'event');
-  return `
-  <div class="friend-strip">
-    ${members.map(m => {
-      const p = personOf(m.userId);
-      return `<button data-sp="member:${m.userId}">${avatar(p, 40)}<div class="nm">${esc(p.short || p.name || '')}</div></button>`;
-    }).join('')}
-  </div>
-  <div class="sp-sec"><h3>Today <span><button data-sp="new:moment">Share</button></span></h3>
-    ${contentOf(s.id, 'moment').slice(0, 2).map(momentCard).join('') || spEmpty('Quiet in here.', { t: 'Share something', a: 'new:moment' })}
-  </div>
-  ${polls.length ? `<div class="sp-sec"><h3>Settle it</h3>${polls.map(pollCard).join('')}</div>` : ''}
-  ${events.length ? `<div class="sp-sec"><h3>Coming up</h3>${events.map(eventCard).join('')}</div>` : ''}`;
+  const posts = friendlyPosts(s.id).filter(p=>p.postFormat!=='story');
+  return '<div class="friend-social-shell">'+
+    '<section class="friend-welcome"><span class="friend-welcome-kicker">TWEAKLR FRIENDLY</span><h2>Good people. Great chemistry.</h2><p>Share your world, find your kind of people and let the next friendship start naturally.</p><button data-sp="friend-compose:post">＋ Create a post</button><div class="friend-welcome-orbit" aria-hidden="true">✳</div></section>'+
+    friendlyStoryTray(s)+
+    '<section class="friend-feed"><div class="friend-section-heading"><div><span>YOUR CIRCLE, YOUR DISCOVERIES</span><h3>Fresh from the circle</h3></div><span class="friend-feed-count">'+posts.length+' posts</span></div>'+
+    (posts.length ? posts.map(friendlyPostCard).join('') : '<div class="friend-empty"><span>✦</span><h3>Your friendship feed starts here.</h3><p>Share a photo or video, tell people what you are into and describe the kind of friendship you want to find.</p><button data-sp="friend-compose:post">Share your first post</button></div>')+
+    '</section></div>';
 };
-VIEWS.friendly.moments = s => `
-  <div class="sp-sec"><h3>Moments <span><button data-sp="new:moment">Share</button></span></h3>
-    ${contentOf(s.id, 'moment').map(momentCard).join('') || spEmpty('No moments yet.', { t: 'Share the first', a: 'new:moment' })}</div>`;
-VIEWS.friendly.events = s => `
-  <div class="sp-sec"><h3>Events <span><button data-sp="new:event">Plan</button></span></h3>
-    ${contentOf(s.id, 'event').map(eventCard).join('') || spEmpty('Nothing planned.', { t: 'Plan something', a: 'new:event' })}</div>`;
-VIEWS.friendly.people = s => membersView(s, 'Everyone here was invited by someone.');
+VIEWS.friendly.discover = s => {
+  const intent = friendlyPosts(s.id).find(p=>p.authorId===currentUser.id&&p.lookingFor);
+  const suggestions = friendlySuggestions(s);
+  return '<div class="friend-discover">'+
+    '<section class="friend-discover-hero"><span>FRIENDSHIP MATCHMAKER</span><h2>Find your kind of people.</h2><p>We compare what you say you are looking for with interests, bios and profile tags from people currently discoverable to you.</p>'+
+    (intent ? '<div class="friend-intent-card"><small>YOUR CURRENT FRIENDSHIP NOTE</small><b>'+esc(intent.lookingFor)+'</b><span>'+esc(FRIENDSHIP_TYPES.find(x=>x[0]===intent.friendshipType)?.[1]||'Open friendship')+'</span><button data-sp="friend-compose:post">Update my note</button></div>' : '<button data-sp="friend-compose:post">Tell us who you want to meet ↗</button>')+
+    '</section><div class="friend-section-heading"><div><span>BASED ON YOUR INTENT</span><h3>People you may click with</h3></div><span class="friend-feed-count">'+suggestions.length+' matches</span></div>'+
+    (suggestions.length ? suggestions.map(({p,score,hits})=>'<article class="friend-match">'+avatar(p,50)+'<div class="friend-match-copy"><b>'+esc(p.short||p.name||'Tweaklr member')+'</b><small>'+esc(p.tag||'Tweaklr member')+'</small><p>'+esc((p.interests||[]).slice(0,3).join(' · ')||p.bio||'Open to meeting new people')+'</p><span>'+(score?score>=50?'Strong shared fit':score>=20?'Some shared interests':'Worth discovering':'Explore this person')+(hits.length?' · '+hits.slice(0,3).map(esc).join(', '):'')+'</span></div><button data-sp="friend-connect:'+p.id+'">Connect</button></article>').join('') : '<div class="friend-empty"><span>◎</span><h3>Your matches are waiting.</h3><p>'+(hasLocation()?'Share what kind of friendship you want so we can compare it with discoverable profiles.':'Turn on location discovery to find nearby people, or invite friends into this Space.')+'</p><button data-sp="friend-compose:post">Create your friendship post</button></div>')+
+    '<p class="friend-match-disclaimer">Suggestions are ranked from profile information available to this Space. They are compatibility hints, not an AI judgement or a guarantee of compatibility.</p></div>';
+};
+VIEWS.friendly.moments = s => {
+  const stories = friendlyPosts(s.id,'story');
+  return '<div class="friend-stories-page"><div class="friend-discover-hero"><span>DISAPPEARS AFTER 24 HOURS</span><h2>Little moments, while they last.</h2><p>Post a photo or video to your story and let your circle catch a glimpse of your day.</p><button data-sp="friend-compose:story">＋ Add to your story</button></div>'+
+    (stories.length ? stories.map(friendlyPostCard).join('') : '<div class="friend-empty"><span>◌</span><h3>No stories right now.</h3><p>Share a little moment. It will stay here for 24 hours.</p><button data-sp="friend-compose:story">Create a story</button></div>')+'</div>';
+};
+VIEWS.friendly.people = s => '<div class="friend-people-page"><div class="friend-discover-hero"><span>THE PEOPLE IN THIS SPACE</span><h2>Your circle, getting closer.</h2><p>Meet the people already sharing this Friendly Space with you.</p></div>'+membersView(s, 'People who share this Friendly Space.')+'</div>';
 
 const REACTS = [['love', '♥'], ['ha', 'ha'], ['same', 'same'], ['wow', 'wow']];
 const momentCard = m => `
@@ -11437,6 +11540,59 @@ document.addEventListener('change',e=>{if(['sp-task-filter-status','sp-task-filt
 document.addEventListener('change',async e=>{const sel=e.target.closest('[data-task-status-id]');if(!sel)return;const task=Server.db.content.find(t=>t.id===sel.dataset.taskStatusId&&t.spaceId===sp.activeId);if(!task)return;const prior=taskStatus(task);if(!['todo','in_progress','in_review','completed'].includes(sel.value))return;const ok=await saveTaskRow(task,{status:sel.value},'Task status updated');if(ok)renderSpace();else sel.value=prior;});
 document.addEventListener('change',async e=>{const input=e.target.closest('[data-task-attachment-id]');if(!input)return;const task=Server.db.content.find(t=>t.id===input.dataset.taskAttachmentId&&t.spaceId===sp.activeId),file=input.files?.[0];if(!task||!file)return;if(file.size>25*1024*1024){toast('Attachments must be 25 MB or smaller.','x');input.value='';return;}const result=await Server.uploadSpaceFile(sp.activeId,file,'task',task.id,null);if(!result.ok){toast(result.error||'Attachment upload failed.','x');return;}toast('Task attachment added','check');closeSheet();await loadSpacesFromDatabase();if(sp.activeId===task.spaceId)openTaskDetails(task.id);});
 document.addEventListener('change',async e=>{const input=e.target.closest('[data-task-subtoggle]');if(!input)return;const id=input.dataset.taskParent,index=Number(input.dataset.taskSubtoggle),task=Server.db.content.find(t=>t.id===id&&t.spaceId===sp.activeId);if(!task||!task.subtasks?.[index])return;const subtasks=task.subtasks.map((x,i)=>i===index?{...x,done:input.checked}:x);if(await saveTaskRow(task,{subtasks},'Checklist updated')){closeSheet();openTaskDetails(id);}});
+function openFriendlyPostComposer(format='post') {
+  const story = format === 'story';
+  openSheet({
+    title: story ? 'Add to your story' : 'Create a friendship post',
+    sub: story ? 'A little glimpse of your day. Stories disappear after 24 hours.' : 'Show people who you are and the kind of friendship you would love to find.',
+    body:'<div class="friend-composer">'+
+      '<div class="friend-composer-upload"><label for="friend-post-files"><span>＋</span><b>Add photos or videos</b><small>Up to 4 items · images 15 MB · videos 50 MB</small></label><input id="friend-post-files" type="file" accept="image/*,video/*" multiple hidden/><div id="friend-post-preview"></div></div>'+
+      '<div class="field"><label for="friend-post-caption">Caption</label><textarea id="friend-post-caption" maxlength="300" rows="3" placeholder="What is happening in your world?"></textarea></div>'+
+      (story ? '' : '<div class="field"><label for="friend-post-looking">A little note — who are you hoping to meet?</label><textarea id="friend-post-looking" maxlength="220" rows="3" placeholder="I would love to meet curious people who enjoy photography, exploring new places and spontaneous weekend plans…"></textarea></div>'+
+      '<div class="field"><label for="friend-post-type">The friendship I am looking for</label><select id="friend-post-type">'+FRIENDSHIP_TYPES.map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('')+'</select></div>'+
+      '<div class="field"><label for="friend-post-interests">Interests (separate with commas)</label><input id="friend-post-interests" maxlength="140" placeholder="Photography, music, hiking, gaming"/></div>')+
+      '<p class="friend-composer-privacy">Your post is visible to members of this Friendly Space. Your exact location is never attached.</p></div>',
+    foot:'<button type="button" class="btn btn--soft" data-action="close-sheet">Cancel</button><button type="button" class="btn btn--primary" data-sp="friend-post-submit:'+format+'">Share '+(story?'story':'post')+'</button>'
+  });
+  const input=$('#friend-post-files'),preview=$('#friend-post-preview');
+  input?.addEventListener('change',()=>{
+    const files=Array.from(input.files||[]);
+    preview.innerHTML=files.slice(0,4).map(file=>{const url=URL.createObjectURL(file);return '<div class="friend-preview-tile">'+(file.type.startsWith('video/')?'<video src="'+esc(url)+'" muted playsinline></video>':'<img src="'+esc(url)+'" alt="Preview"/>')+'</div>';}).join('');
+    if(files.length>4)toast('Only the first four items will be shared.','alert');
+  });
+}
+async function publishFriendlyPost(format='post') {
+  const space=spaceById(sp.activeId);
+  if(!space||space.nature!=='friendly'||!Server.can(space.id,'space.post')){toast('You cannot post in this Friendly Space.','x');return;}
+  if(!isUuidPerson(currentUser.id)){toast('Please sign in again.','alert');return;}
+  const files=Array.from($('#friend-post-files')?.files||[]).slice(0,4);
+  const caption=($('#friend-post-caption')?.value||'').trim();
+  const lookingFor=($('#friend-post-looking')?.value||'').trim();
+  const friendshipType=$('#friend-post-type')?.value||'open';
+  const interests=($('#friend-post-interests')?.value||'').split(',').map(x=>x.trim().replace(/^#/,'')).filter(Boolean).slice(0,8);
+  if(!files.length){toast('Add at least one photo or video to share yourself.','alert');return;}
+  if(!caption){toast('Add a caption before sharing.','alert');return;}
+  if(format!=='story'&&!lookingFor){toast('Add a small note about the kind of people you hope to meet.','alert');return;}
+  if(files.some(file=>!file.type.startsWith('image/')&&!file.type.startsWith('video/'))){toast('Only photos and videos can be shared.','alert');return;}
+  if(files.some(file=>file.size>(file.type.startsWith('video/')?50:15)*1024*1024)){toast('Photos must be 15 MB or less and videos 50 MB or less.','alert');return;}
+  const uploaded=[];
+  for(const file of files){
+    const safe=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,90)||'moment';
+    const path=currentUser.id+'/friendly-'+space.id+'/'+crypto.randomUUID()+'-'+safe;
+    const {error}=await supabaseClient.storage.from('ming-post-media').upload(path,file,{contentType:file.type,cacheControl:'3600',upsert:false});
+    if(error){if(uploaded.length)await supabaseClient.storage.from('ming-post-media').remove(uploaded.map(x=>x.path)).catch(()=>{});toast('Your media could not be uploaded.','x');return;}
+    uploaded.push({path,name:file.name,mime:file.type});
+  }
+  const payload={caption,lookingFor:format==='story'?'':lookingFor,friendshipType:format==='story'?'open':friendshipType,interests:format==='story'?[]:interests,postFormat:format==='story'?'story':'post',media:uploaded,reacts:{},mine:{}};
+  if(format==='story')payload.expiresAt=Date.now()+24*HOUR;
+  const result=await Server.submit('space.post',{spaceId:space.id,kind:'friend_post',payload});
+  if(!result.ok){if(uploaded.length)await supabaseClient.storage.from('ming-post-media').remove(uploaded.map(x=>x.path)).catch(()=>{});toast(result.error||'Your post could not be shared.','x');return;}
+  const row=result.data.row;
+  const urls=await Promise.all(uploaded.map(async item=>{const {data,error}=await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path,3600);return error?'':(data?.signedUrl||'');}));
+  friendlyMediaUrlCache.set(row.id,Object.assign(urls,{expiresAt:Date.now()+3500000}));
+  closeSheet();sp.tab=format==='story'?'moments':'home';renderSpace();toast(format==='story'?'Story shared':'Your post is live','check');
+}
+
 function openComposerFor(key) {
   const c = COMPOSERS[key];
   openSheet({
@@ -11867,6 +12023,12 @@ document.addEventListener('click', async e => {
       openModal({title:'Remove this post?',lede:'The post and its discussion will be removed from this Business Space.',actions:[{t:'Cancel',cls:'btn--soft',a:'close-modal'},{t:'Remove post',cls:'btn--danger',a:'biz-delete-confirm'}]});
       $('#modal').querySelector('[data-action="biz-delete-confirm"]').addEventListener('click',async()=>{const {error}=await supabaseClient.rpc('delete_ming_business_space_post',{p_content_id:a});closeModal();if(error){toast(error.message||'Post could not be removed.','x');return;}Server.db.content=Server.db.content.filter(x=>x.id!==a);businessPostMediaUrlCache.delete(a);renderSpace();toast('Post removed','check');});break;
     }
+    case 'friend-compose': openFriendlyPostComposer(a || 'post'); break;
+    case 'friend-post-submit': await publishFriendlyPost(a || 'post'); break;
+    case 'friend-like': { const res=await Server.submit('content.mutate',{id:a,op:'react',key:'like'}); if(!res.ok){toast(res.error||'Could not react.','x');break;} refreshSpace(); break; }
+    case 'friend-connect': connectWith(a); break;
+    case 'friend-message': if(a && a!==currentUser.id) openChat(a); break;
+    case 'friend-media': { const post=Server.db.content.find(x=>x.id===a&&x.kind==='friend_post'); const item=post?.media?.[Number(b)]; const cached=friendlyMediaUrlCache.get(a)||[]; const url=item?.url||cached[Number(b)]||''; if(url)window.open(url,'_blank','noopener'); break; }
     case 'new': a === 'product' ? openProductComposer() : (a === 'task' ? openTaskComposer() : openComposerFor(a)); break;
     case 'task-cancel': closeSheet(); break;
     case 'task-open': openTaskDetails(a); break;
