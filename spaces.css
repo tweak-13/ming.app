@@ -2994,3 +2994,10 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
 @media(prefers-reduced-motion:reduce){
   #screen-space[data-nature="friendly"] *{scroll-behavior:auto!important;animation:none!important;transition:none!important}
 }
+
+#screen-space[data-nature="friendly"] .friend-comment-list{display:grid;gap:10px;max-height:280px;overflow:auto;margin-bottom:14px}
+#screen-space[data-nature="friendly"] .friend-comment-list article{padding:10px 12px;border:1px solid var(--border);border-radius:13px;background:var(--surface-2)}
+#screen-space[data-nature="friendly"] .friend-comment-list article b{font-size:11px;color:var(--text)}
+#screen-space[data-nature="friendly"] .friend-comment-list article p{margin:4px 0;color:var(--text);font-size:12px;line-height:1.5;white-space:pre-wrap}
+#screen-space[data-nature="friendly"] .friend-comment-list article small,
+#screen-space[data-nature="friendly"] .friend-comment-empty{font-size:10px;color:var(--muted)}
