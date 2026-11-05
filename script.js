@@ -10289,15 +10289,40 @@ function businessPostMediaMarkup(post) {
     '</button>').join('') + '</div>';
 }
 
+function businessPostHoursLeft(post) {
+  if (post?.expiryMode === 'never') return Infinity;
+  const createdAt = Number(post?.at || post?.createdAt || Date.now());
+  const expiryAt = Number(post?.expiresAt);
+  const endsAt = Number.isFinite(expiryAt) && expiryAt > 0 ? expiryAt : createdAt + 24 * HOUR;
+  return Math.max(0, (endsAt - now()) / HOUR);
+}
+
+function businessPostLifeLabel(post) {
+  if (post?.expiryMode === 'never') return 'No expiry';
+  const h = businessPostHoursLeft(post);
+  if (!Number.isFinite(h) || h <= 0) return 'Expired';
+  if (h < 1) return 'Disappears in ' + Math.max(1, Math.round(h * 60)) + 'm';
+  if (h < 48) return 'Disappears in ' + Math.round(h) + 'h';
+  const days = h / 24;
+  return 'Disappears in ' + (days < 10 ? days.toFixed(1).replace(/\\.0$/, '') : Math.round(days)) + 'd';
+}
+
+function businessPostLifePercent(post) {
+  if (post?.expiryMode === 'never') return 100;
+  const createdAt = Number(post?.at || post?.createdAt || Date.now());
+  const expiryAt = Number(post?.expiresAt);
+  const duration = Number.isFinite(expiryAt) && expiryAt > createdAt ? expiryAt - createdAt : 24 * HOUR;
+  return Math.max(2, Math.min(100, Math.round((businessPostHoursLeft(post) * HOUR / duration) * 100)));
+}
+
 function businessUpdateCard(post, space) {
   const author = personOf(post.authorId);
   const mine = post.authorId === currentUser.id;
   const role = Server.roleOf(space.id);
   const canModerate = ['owner','admin','manager'].includes(role);
   const createdAt = Number(post.at || post.createdAt || Date.now());
-  const timing = { createdAt };
-  const hours = hoursLeft(timing);
-  const pct = Math.max(2, Math.round((hours / 24) * 100));
+  const hours = businessPostHoursLeft(post);
+  const pct = businessPostLifePercent(post);
   const kind = KINDS[post.postKind] ? post.postKind : 'general';
   const comments = Array.isArray(post.comments) ? post.comments : [];
   const likes = Math.max(0, Number(post.likeCount ?? post.reacts?.like ?? 0));
@@ -10312,7 +10337,7 @@ function businessUpdateCard(post, space) {
       '<button class="act" data-sp="biz-share:' + post.id + '" aria-label="Share this update"><span aria-hidden="true">↗</span><span>Share</span></button>' +
       '<button class="act" data-sp="biz-message:' + post.authorId + '" aria-label="Message author">' + icon('send') + '</button>' +
       ((mine || canModerate) ? '<button class="act" data-sp="biz-delete:' + post.id + '" aria-label="Delete update">' + icon('trash') + '</button>' : '') +
-      '<span class="expiry"><span class="life ' + (hours < 4 ? 'low' : '') + '"><i style="width:' + pct + '%"></i></span>' + esc(lifeLabel(timing)) + '</span>' +
+      '<span class="expiry">' + (Number.isFinite(hours) ? '<span class="life ' + (hours < 4 ? 'low' : '') + '"><i style="width:' + pct + '%"></i></span>' : '') + esc(businessPostLifeLabel(post)) + '</span>' +
     '</div></article>';
 }
 
@@ -10336,7 +10361,7 @@ async function hydrateBusinessHomeMedia(spaceId) {
   if (changed && sp.activeId === spaceId && sp.tab === 'home') refreshSpace();
 }
 
-async function createBusinessSpaceUpdate(spaceId, kind, title, body, files) {
+async function createBusinessSpaceUpdate(spaceId, kind, title, body, files, durationHours) {
   const space = spaceById(spaceId);
   if (!space || space.nature !== 'business' || !Server.can(spaceId, 'space.post')) {
     toast('You cannot post in this Business Space.', 'x'); return false;
@@ -10371,7 +10396,7 @@ async function createBusinessSpaceUpdate(spaceId, kind, title, body, files) {
 
   const result = await Server.submit('space.post', {
     spaceId, kind:'business_post',
-    payload:{ title:cleanTitle, body:cleanBody, postKind:KINDS[kind]?kind:'general', media:uploaded, comments:[], likedBy:[], likeCount:0, expiresAt:Date.now()+24*HOUR }
+    payload:{ title:cleanTitle, body:cleanBody, postKind:KINDS[kind]?kind:'general', media:uploaded, comments:[], likedBy:[], likeCount:0, expiryMode:durationHours === null ? 'never' : 'duration', expiryDurationHours:durationHours === null ? null : durationHours, expiresAt:durationHours === null ? null : Date.now()+durationHours*HOUR }
   });
   if (!result.ok) {
     if (uploaded.length) await supabaseClient.storage.from('ming-post-media').remove(uploaded.map(x=>x.path)).catch(()=>{});
@@ -10388,6 +10413,16 @@ async function createBusinessSpaceUpdate(spaceId, kind, title, body, files) {
 
 function openBusinessUpdateComposer() {
   const kinds = ['general','service','sale','talk','alert'];
+  const durations = [
+    { value:'1', label:'1 hour' },
+    { value:'6', label:'6 hours' },
+    { value:'12', label:'12 hours' },
+    { value:'24', label:'24 hours' },
+    { value:'72', label:'3 days' },
+    { value:'168', label:'7 days' },
+    { value:'720', label:'30 days' },
+    { value:'never', label:'Until I delete it' }
+  ];
   let selectedKind = 'general', selectedMedia = [];
   openSheet({
     title:'Daily Update',
@@ -10396,7 +10431,8 @@ function openBusinessUpdateComposer() {
       '<div class="field"><label for="biz-update-body">Details</label><textarea id="biz-update-body" maxlength="280" placeholder="A couple of lines is plenty."></textarea><div class="count"><span id="biz-update-count">0</span>/280</div></div>' +
       '<div class="field"><label>Photos &amp; videos</label><input id="biz-update-media" type="file" accept="image/*,video/*" multiple hidden /><button type="button" class="btn btn--soft btn--block" id="biz-update-media-pick">' + icon('spark') + ' Add photos or videos</button><div id="biz-update-preview" style="display:grid;gap:8px;margin-top:9px"></div><div class="count">Up to 4 files · photos 15 MB each · videos 50 MB each</div></div>' +
       '<div class="field"><label>Category</label><div class="pick" id="biz-update-kinds">' + kinds.map(k=>'<button type="button" data-kind="'+k+'" aria-pressed="'+(k==='general')+'">'+esc(KINDS[k].label)+'</button>').join('') + '</div></div>' +
-      '<div class="ephemeral-note">' + icon('clock') + '<span>This update disappears from the Business Home feed after 24 hours.</span></div>',
+      '<div class="field"><label for="biz-update-duration">How long should this update stay visible?</label><select id="biz-update-duration" class="input"><option value="1">1 hour</option><option value="6">6 hours</option><option value="12">12 hours</option><option value="24" selected>24 hours</option><option value="72">3 days</option><option value="168">7 days</option><option value="720">30 days</option><option value="never">Until I delete it</option></select><div class="count">You can remove your update earlier at any time.</div></div>' +
+      '<div class="ephemeral-note" id="biz-update-expiry-note">' + icon('clock') + '<span>This update will disappear after 24 hours.</span></div>',
     foot:'<button class="btn btn--primary btn--block" id="biz-update-submit" disabled>Share update</button>'
   });
   const title=$('#biz-update-title'), body=$('#biz-update-body'), input=$('#biz-update-media'), preview=$('#biz-update-preview'), submit=$('#biz-update-submit');
@@ -10408,7 +10444,17 @@ function openBusinessUpdateComposer() {
   $('#biz-update-kinds')?.addEventListener('click',e=>{const btn=e.target.closest('[data-kind]');if(!btn)return;selectedKind=btn.dataset.kind;$('#biz-update-kinds').querySelectorAll('[data-kind]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.kind===selectedKind)));});
   title?.addEventListener('input',validate);
   body?.addEventListener('input',()=>{$('#biz-update-count').textContent=body.value.length;});
-  submit?.addEventListener('click',()=>createBusinessSpaceUpdate(sp.activeId,selectedKind,title.value,body.value,selectedMedia));
+  const durationSelect=$('#biz-update-duration'), expiryNote=$('#biz-update-expiry-note');
+  durationSelect?.addEventListener('change',()=>{
+    const value=durationSelect.value;
+    const label=durations.find(x=>x.value===value)?.label || '24 hours';
+    if(expiryNote) expiryNote.innerHTML=icon('clock')+'<span>'+(value==='never'?'This update stays visible until you delete it.':'This update will disappear after '+label+'.')+'</span>';
+  });
+  submit?.addEventListener('click',()=>{
+    const raw=durationSelect?.value || '24';
+    const durationHours=raw==='never'?null:Number(raw);
+    createBusinessSpaceUpdate(sp.activeId,selectedKind,title.value,body.value,selectedMedia,durationHours);
+  });
 }
 
 async function openBusinessPostComments(postId) {
@@ -10592,7 +10638,7 @@ function renderBusinessHome(s) {
 
   const updateHost = document.getElementById('biz-command-updates');
   if (updateHost) {
-    const posts = contentOf(s.id,'business_post').filter(p => hoursLeft({createdAt:Number(p.at||p.createdAt||0)})>0).sort((a,b)=>Number(b.at||b.createdAt||0)-Number(a.at||a.createdAt||0)).slice(0,3);
+    const posts = contentOf(s.id,'business_post').filter(p => businessPostHoursLeft(p)>0).sort((a,b)=>Number(b.at||b.createdAt||0)-Number(a.at||a.createdAt||0)).slice(0,3);
     const canPost = Server.can(s.id,'space.post') && (s.features?.businessMessaging!=='owner' || Server.roleOf(s.id)==='owner');
     updateHost.innerHTML = '<div class="biz-command-panel-head"><div><span class="biz-command-label">THE PULSE</span><h2>Team updates</h2><p>Short-lived updates from this workspace</p></div>'+(canPost?'<button data-sp="biz-compose">Share update <span>＋</span></button>':'')+'</div>' +
       (posts.length?'<div class="biz-command-updates-list">'+posts.map(p=>businessUpdateCard(p,s)).join('')+'</div>':'<div class="biz-command-inline-empty">Nothing new has been shared in the last 24 hours.</div>');
