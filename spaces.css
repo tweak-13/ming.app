@@ -2765,3 +2765,80 @@
 #screen-space[data-nature="business"] .biz-command-panel-head > button span {
   color: var(--coffee);
 }
+
+
+/* BUSINESS SPACE — shared Tweaklr theme + measured navigation */
+#screen-space[data-nature="business"] .sp-tabs{
+  box-sizing:border-box;
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  align-items:stretch;
+  gap:6px;
+  padding:10px clamp(10px,2vw,20px);
+  overflow:visible;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(18px);
+}
+#screen-space[data-nature="business"] .biz-app-tab{
+  box-sizing:border-box;
+  min-width:0;
+  min-height:54px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:5px;
+  padding:7px 4px;
+  border:1px solid transparent;
+  border-radius:12px;
+  color:var(--muted);
+  background:transparent;
+  font-size:clamp(9px,1.1vw,11px);
+  line-height:1.15;
+  font-weight:650;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  transition:background .18s ease,color .18s ease,border-color .18s ease;
+}
+#screen-space[data-nature="business"] .biz-app-tab__glyph{
+  display:block;
+  font-size:17px;
+  line-height:1;
+}
+#screen-space[data-nature="business"] .biz-app-tab.on{
+  color:var(--text);
+  border-color:color-mix(in srgb,var(--coffee) 28%,var(--border));
+  background:color-mix(in srgb,var(--coffee) 10%,var(--surface));
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--surface) 80%,transparent);
+}
+html[data-theme="dark"] #screen-space[data-nature="business"] .sp-tabs{
+  background:color-mix(in srgb,var(--surface) 94%,#080605);
+  border-bottom-color:var(--border);
+}
+html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
+  background:color-mix(in srgb,var(--coffee) 19%,var(--surface));
+  border-color:color-mix(in srgb,var(--coffee) 40%,var(--border));
+}
+@media(max-width:520px){
+  #screen-space[data-nature="business"] .sp-tabs{
+    grid-template-columns:repeat(6,minmax(0,1fr));
+    gap:3px;
+    padding:8px 7px;
+  }
+  #screen-space[data-nature="business"] .biz-app-tab{
+    min-height:48px;
+    padding:6px 1px;
+    gap:4px;
+    font-size:9px;
+    letter-spacing:-.02em;
+    border-radius:10px;
+  }
+  #screen-space[data-nature="business"] .biz-app-tab__glyph{font-size:15px}
+}
+@media(max-width:360px){
+  #screen-space[data-nature="business"] .biz-app-tab{font-size:8px}
+  #screen-space[data-nature="business"] .biz-app-tab__glyph{font-size:14px}
+}
