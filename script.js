@@ -8752,7 +8752,7 @@ const Server = (() => {
 
     let data;
     try {
-      const result = await supabaseClient.rpc('get_my_ming_spaces');
+      const result = await supabaseClient.rpc('get_my_ming_spaces_v2');
       data = result.data;
       if (result.error) {
         console.warn('Tweaklr: Spaces database load failed.', result.error.message);
@@ -8774,6 +8774,17 @@ const Server = (() => {
     db.audit = [];
 
     (data || []).forEach(row => {
+      if (row.member_id && row.member_id !== session.userId) {
+        mingConnectionProfiles.set(row.member_id, {
+          id: row.member_id,
+          name: row.member_display_name || 'Tweaklr user',
+          short: row.member_display_name || 'Tweaklr user',
+          username: row.member_username ? '@' + String(row.member_username).replace(/^@/, '') : '',
+          avatarUrl: row.member_avatar_url || '',
+          tag: row.member_headline || '',
+          bio: '', interests: [], tags: [], activity: '', hue: 0, status: null, visitor: false
+        });
+      }
       if (!db.spaces.some(s => s.id === row.space_id)) {
         db.spaces.push({
           id: row.space_id,
