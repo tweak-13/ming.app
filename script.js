@@ -10543,105 +10543,77 @@ async function openBusinessPostMedia(postId,index=0) {
 }
 
 VIEWS.business.home = s => {
-  return `
-    <div class="business-home">
-      <div class="biz-overview-hero">
-        <div class="biz-overview-hero__copy">
-          <span class="biz-overview-eyebrow">TWEAKLR BUSINESS · WORKSPACE</span>
-          <h1>${esc(greetWord())}, ${esc(currentUser.name.split(' ')[0])}</h1>
-          <p class="q">Your business, people and progress — together.</p>
-        </div>
-        <div class="biz-overview-seal" aria-hidden="true"><span>✳</span></div>
-      </div>
-      <div id="biz-home-loc"></div>
-      <div id="biz-home-metrics" class="biz-overview-metrics"></div>
-      <div id="biz-home-shortcuts" class="biz-overview-shortcuts"></div>
-      <div id="biz-home-people" class="section"></div>
-      <div id="biz-home-feed" class="section"></div>
-      <div id="biz-home-opps" class="section"></div>
-      <p class="wordmark-foot"><b>Tweaklr</b> · people, moments, possibilities</p>
-    </div>`;
+  const first = (currentUser?.name || 'there').trim().split(/\s+/)[0];
+  return '<div class="business-home biz-command">' +
+    '<section class="biz-command-hero"><div class="biz-command-hero__top"><span class="biz-command-kicker"><i></i> TWEAKLR BUSINESS / COMMAND CENTRE</span><span class="biz-command-date">' + new Date().toLocaleDateString([], {weekday:'long',day:'numeric',month:'long'}) + '</span></div>' +
+    '<div class="biz-command-hero__main"><div><p class="biz-command-overline">YOUR WORKSPACE, IN MOTION</p><h1>Good ' + esc(greetWord().toLowerCase()) + ', ' + esc(first) + '.</h1><p>See what needs attention, move work forward and keep your people aligned.</p></div><div class="biz-command-orbit" aria-hidden="true"><span></span><i></i><b>TW</b></div></div>' +
+    '<div class="biz-command-actions"><button type="button" class="biz-command-primary" data-sp="new:task"><span>＋</span> Create a task</button><button type="button" class="biz-command-secondary" data-sp="biz-compose">Share an update <span>↗</span></button></div></section>' +
+    '<div class="biz-command-stats" id="biz-command-stats"></div><div class="biz-command-layout"><main class="biz-command-main">' +
+    '<section class="biz-command-panel biz-command-work" id="biz-command-work"></section><section class="biz-command-panel" id="biz-command-updates"></section><section class="biz-command-panel" id="biz-command-hiring"></section>' +
+    '</main><aside class="biz-command-aside"><section class="biz-command-panel biz-command-team" id="biz-command-team"></section><section class="biz-command-panel biz-command-activity" id="biz-command-activity"></section><section class="biz-command-note"><span>✳</span><b>One space. One team.</b><p>Your work, people and decisions stay connected here.</p></section></aside></div>' +
+    '<p class="wordmark-foot"><b>Tweaklr Business</b> · built for momentum</p></div>';
 };
 
 function renderBusinessHome(s) {
+  const root = document.querySelector('#sp-body .biz-command');
+  if (!root) return;
   const canManage = Server.can(s.id, 'space.post.pin');
   const tasks = contentOf(s.id, 'task');
-  const completedTasks = tasks.filter(t => taskStatus(t) === 'completed' || t.done).length;
-  const activeTasks = tasks.length - completedTasks;
+  const statusOf = t => t.status || (t.done ? 'completed' : 'todo');
+  const openTasks = tasks.filter(t => statusOf(t) !== 'completed');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const overdue = openTasks.filter(t => t.due && !Number.isNaN(Date.parse(t.due)) && new Date(t.due+'T00:00:00') < today);
+  const completed = tasks.length - openTasks.length;
   const openRoles = Server.db.openRoles.filter(r => r.spaceId === s.id && r.status === 'open');
-  const files = Server.db.files.filter(f => f.spaceId === s.id && !f.contentId && !f.productId);
-  const membersCount = Server.memberCount(s.id);
-  const metricsHost = document.getElementById('biz-home-metrics');
-  if (metricsHost) {
-    const metrics = [
-      { value:activeTasks, label:'Active tasks', glyph:'✓', tab:'work', feature:'tasks' },
-      { value:openRoles.length, label:'Open positions', glyph:'↗', tab:'brief', feature:'opportunities' },
-      { value:files.length, label:'Shared files', glyph:'▤', tab:'files', feature:'documents' },
-      { value:membersCount, label:'Team members', glyph:'♙', tab:'people' }
-    ].filter(item => !item.feature || s.features?.[item.feature] !== false);
-    metricsHost.innerHTML = metrics.map(item => `<button type="button" class="biz-metric" data-sp="tab:${item.tab}"><span class="biz-metric__glyph">${item.glyph}</span><span class="biz-metric__value">${item.value}</span><span class="biz-metric__label">${item.label}</span><span class="biz-metric__arrow">↗</span></button>`).join('');
-  }
-  const shortcutsHost = document.getElementById('biz-home-shortcuts');
-  if (shortcutsHost) {
-    const shortcuts = [
-      canManage && s.features?.tasks !== false ? {label:'Create task', detail:'Assign work and deadlines', glyph:'＋', action:'new:task'} : null,
-      canManage && s.features?.announcements !== false ? {label:'Announcement', detail:'Share an important notice', glyph:'✳', action:'new:announcement'} : null,
-      canManage && s.features?.opportunities !== false ? {label:'Publish a role', detail:'Find your next teammate', glyph:'↗', action:'role-new'} : null,
-      s.features?.documents !== false ? {label:'Add document', detail:'Keep work files together', glyph:'▤', action:'doc-upload'} : null
-    ].filter(Boolean);
-    shortcutsHost.innerHTML = shortcuts.length ? `<div class="biz-shortcuts-head"><div><span class="biz-overview-eyebrow">QUICK ACTIONS</span><h2>Move work forward</h2></div><span>Workspace tools</span></div><div class="biz-shortcuts-grid">${shortcuts.map(item => `<button type="button" class="biz-shortcut" data-sp="${item.action}"><span class="biz-shortcut__glyph">${item.glyph}</span><span><b>${item.label}</b><small>${item.detail}</small></span><i>↗</i></button>`).join('')}</div>` : '';
-  }
-  const loc = document.getElementById('biz-home-loc');
-  if (loc) {
-    const line = locationLine();
-    const on = state.locStatus === 'granted';
-    loc.innerHTML = `<div class="locbar">${on ? '<span class="pulse-dot"></span>' : icon('pin')}
-      <span class="txt"><b>${esc(line.title)}</b> <span>· ${esc(line.sub)}</span></span>
-      ${on ? '' : `<button data-action="enable-location">${state.locStatus === 'requesting' ? 'Finding…' : 'Turn on'}</button>`}
-    </div>`;
+  const members = Server.db.members.filter(m => m.spaceId === s.id && m.approved !== false).map(m => personOf(m.userId)).filter(Boolean);
+  const stats = [
+    {value:openTasks.length,label:'In progress',glyph:'↗',tab:'work',feature:'tasks'},
+    {value:overdue.length,label:'Needs attention',glyph:'!',tab:'work',feature:'tasks',alert:overdue.length>0},
+    {value:openRoles.length,label:'Open roles',glyph:'＋',tab:'brief',feature:'opportunities'},
+    {value:members.length,label:'People',glyph:'◉',tab:'people'}
+  ].filter(x => !x.feature || s.features?.[x.feature] !== false);
+  const statHost = document.getElementById('biz-command-stats');
+  if (statHost) statHost.innerHTML = stats.map(x => '<button class="biz-command-stat '+(x.alert?'is-alert':'')+'" data-sp="tab:'+x.tab+'"><span>'+x.glyph+'</span><b>'+x.value+'</b><small>'+x.label+'</small><i>↗</i></button>').join('');
+
+  const workHost = document.getElementById('biz-command-work');
+  if (workHost) {
+    const rank = {urgent:0,high:1,medium:2,low:3};
+    const selected = openTasks.slice().sort((a,b) => (rank[a.priority||'medium']-rank[b.priority||'medium']) || ((a.due?Date.parse(a.due):Infinity)-(b.due?Date.parse(b.due):Infinity))).slice(0,5);
+    workHost.innerHTML = '<div class="biz-command-panel-head"><div><span class="biz-command-label">THE WORK QUEUE</span><h2>What needs doing</h2><p>'+(overdue.length?'<strong>'+overdue.length+' overdue</strong> · ':'')+openTasks.length+' active of '+tasks.length+' tasks</p></div><button data-sp="tab:work">Open workroom <span>↗</span></button></div>' +
+      (selected.length ? '<div class="biz-command-task-list">'+selected.map(t => {
+        const person = t.assigneeId ? personOf(t.assigneeId) : null;
+        const who = person ? (person.short||person.name||person.username) : 'Unassigned';
+        const late = t.due && !Number.isNaN(Date.parse(t.due)) && new Date(t.due+'T00:00:00') < today;
+        const due = t.due ? new Date(t.due+'T00:00:00').toLocaleDateString([],{day:'numeric',month:'short'}) : 'No due date';
+        return '<button class="biz-command-task '+(late?'is-late':'')+'" data-sp="task-open:'+t.id+'"><span class="biz-command-check">'+(statusOf(t)==='in_review'?'◷':'○')+'</span><span class="biz-command-task-copy"><b>'+esc(t.title||'Untitled task')+'</b><small>'+esc(who)+' · '+(late?'Overdue':esc(due))+'</small></span><em class="p-'+esc(t.priority||'medium')+'">'+esc(t.priority||'medium')+'</em><span class="biz-command-arrow">↗</span></button>';
+      }).join('')+'</div>' : '<div class="biz-command-empty"><span>✓</span><b>Clear runway.</b><p>No open tasks right now. Create the next milestone when you are ready.</p>'+(canManage?'<button data-sp="new:task">Create a task</button>':'')+'</div>');
+    if (completed) workHost.innerHTML += '<div class="biz-command-complete">'+completed+' task'+(completed===1?'':'s')+' completed · <button data-sp="tab:work">View all work</button></div>';
   }
 
-  const peopleHost = document.getElementById('biz-home-people');
-  if (peopleHost) {
-    const members = Server.db.members.filter(m => m.spaceId === s.id)
-      .map(m => personOf(m.userId)).filter(Boolean);
-    peopleHost.innerHTML = sectionHead('People in this Space', `${members.length} members`) +
-      (members.length ? `<div class="rail">${members.map(p => `
-        <button class="pcard" data-action="person:${p.id}">
-          ${ringAvatar(p, 56, isMingUserOnline(p.id))}
-          <div class="name">${esc(p.short || p.name)}</div>
-          <div class="tag">${esc(p.username || 'Space member')}</div>
-        </button>`).join('')}</div>`
-      : emptyState('No members yet', 'People who join this Business Space will appear here.'));
+  const updateHost = document.getElementById('biz-command-updates');
+  if (updateHost) {
+    const posts = contentOf(s.id,'business_post').filter(p => hoursLeft({createdAt:Number(p.at||p.createdAt||0)})>0).sort((a,b)=>Number(b.at||b.createdAt||0)-Number(a.at||a.createdAt||0)).slice(0,3);
+    const canPost = Server.can(s.id,'space.post') && (s.features?.businessMessaging!=='owner' || Server.roleOf(s.id)==='owner');
+    updateHost.innerHTML = '<div class="biz-command-panel-head"><div><span class="biz-command-label">THE PULSE</span><h2>Team updates</h2><p>Short-lived updates from this workspace</p></div>'+(canPost?'<button data-sp="biz-compose">Share update <span>＋</span></button>':'')+'</div>' +
+      (posts.length?'<div class="biz-command-updates-list">'+posts.map(p=>businessUpdateCard(p,s)).join('')+'</div>':'<div class="biz-command-inline-empty">Nothing new has been shared in the last 24 hours.</div>');
   }
 
-  const feedHost = document.getElementById('biz-home-feed');
-  if (feedHost) {
-    const posts = contentOf(s.id, 'business_post')
-      .filter(p => hoursLeft({createdAt:Number(p.at || p.createdAt || 0)}) > 0)
-      .sort((a,b) => Number(b.at || b.createdAt || 0) - Number(a.at || a.createdAt || 0));
-    const canPost = Server.can(s.id, 'space.post') &&
-      (s.features?.businessMessaging !== 'owner' || Server.roleOf(s.id) === 'owner');
-    feedHost.innerHTML = sectionHead('Daily Updates', 'Gone in 24 hours',
-      canPost ? {t:'Share update',a:'biz-compose'} : null) +
-      (posts.length ? posts.map(p => businessUpdateCard(p,s)).join('') :
-        emptyState('Nothing shared yet today',
-          'Daily Updates disappear after 24 hours. Be the first to say what you are up to.',
-          canPost ? {t:'Share an update',a:'biz-compose'} : null));
-  }
+  const hiringHost = document.getElementById('biz-command-hiring');
+  if (hiringHost && s.features?.opportunities !== false) {
+    hiringHost.innerHTML = '<div class="biz-command-panel-head"><div><span class="biz-command-label">GROW THE TEAM</span><h2>Hiring desk</h2><p>'+openRoles.length+' active opportunity'+(openRoles.length===1?'':'ies')+'</p></div><button data-sp="tab:brief">Manage hiring <span>↗</span></button></div>' +
+      (openRoles.length?'<div class="biz-command-role-list">'+openRoles.slice(0,3).map(r=>'<article><span class="biz-command-role-icon">↗</span><div><b>'+esc(r.title)+'</b><small>'+esc((r.department||r.employmentType||'Open position').replace(/-/g,' '))+' · '+Number(r.applicationCount||0)+' applicant'+(Number(r.applicationCount||0)===1?'':'s')+'</small></div>'+(canManage?'<button data-sp="role-applicants:'+r.id+'">Review</button>':'')+'</article>').join('')+'</div>':'<div class="biz-command-inline-empty">No open roles yet.'+(canManage?' Publish an opportunity when you are ready to grow.':'')+'</div>');
+  } else if (hiringHost) hiringHost.remove();
 
-  const oppsHost = document.getElementById('biz-home-opps');
-  if (oppsHost) {
-    const opportunities = contentOf(s.id, 'opportunity').slice().reverse();
-    const roles = Server.db.openRoles.filter(r => r.spaceId === s.id && r.status === 'open');
-    const cards = [
-      ...opportunities.map(o => `<article class="ocard"><div class="k">Opportunity</div><h3>${esc(o.title || 'Opportunity')}</h3><p>${esc(o.body || '')}</p></article>`),
-      ...roles.map(r => `<article class="ocard"><div class="k">Open role</div><h3>${esc(r.title)}</h3><p>${esc(r.description || 'An opportunity is available in this Business Space.')}</p><div class="f"><span>${esc((r.employmentType || 'Role').replace(/-/g,' '))} · ${esc((r.workMode || 'Flexible').replace(/-/g,' '))}</span></div></article>`)
-    ];
-    oppsHost.innerHTML = sectionHead('Possibilities in this Space', 'Opportunities & open roles') +
-      (cards.length ? `<div class="rail">${cards.join('')}</div>` :
-        emptyState('No possibilities yet', 'Opportunities and open roles shared in this Business Space will appear here.'));
-  }
+  const teamHost = document.getElementById('biz-command-team');
+  if (teamHost) teamHost.innerHTML = '<div class="biz-command-panel-head"><div><span class="biz-command-label">YOUR PEOPLE</span><h2>The team</h2></div><button data-sp="tab:people">Manage <span>↗</span></button></div>' +
+    (members.length?'<div class="biz-command-member-list">'+members.slice(0,6).map(p=>'<button data-action="person:'+p.id+'">'+ringAvatar(p,38,isMingUserOnline(p.id))+'<span><b>'+esc(p.short||p.name)+'</b><small>'+esc(p.username||'Member')+'</small></span><i></i></button>').join('')+'</div>':'<div class="biz-command-inline-empty">Your team will appear here as people join.</div>');
+
+  const activityHost = document.getElementById('biz-command-activity');
+  if (activityHost && s.features?.audit !== false) {
+    const events = Server.auditFor(s.id).slice().sort((a,b)=>b.at-a.at).slice(0,4);
+    activityHost.innerHTML = '<div class="biz-command-panel-head"><div><span class="biz-command-label">WHAT’S MOVING</span><h2>Recent activity</h2></div><button data-sp="tab:log">All activity <span>↗</span></button></div>' +
+      (events.length?'<div class="biz-command-event-list">'+events.map(a=>'<div><span></span><p><b>'+esc(nameOf(a.actor)||'A member')+'</b> '+esc(auditEventLabel(a.event).toLowerCase())+'<small>'+esc(timeAgo(a.at))+'</small></p></div>').join('')+'</div>':'<div class="biz-command-inline-empty">Workspace activity will appear here as your team gets moving.</div>');
+  } else if (activityHost) activityHost.remove();
 }
 
 
