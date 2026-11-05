@@ -2240,3 +2240,190 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+
+/* ============================================================
+   TWEAKLR HOME DESIGN SYSTEM — ALL SPACE CATEGORIES
+   Space interiors use the same Home surfaces, spacing, type,
+   controls and neutral backgrounds. Category-specific features
+   and behaviour remain intact; only their visual skin is unified.
+============================================================ */
+
+#screen-space.sp {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+/* Home's clean, uncluttered canvas replaces category textures. */
+#screen-space.sp .sp-head,
+#screen-space.sp[data-nature] .sp-head {
+  background: var(--bg) !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+#screen-space.sp .sp-head::before,
+#screen-space.sp .sp-head::after {
+  content: none !important;
+  display: none !important;
+}
+#screen-space.sp .sp-body,
+#screen-space.sp[data-nature] .sp-body {
+  background: var(--bg) !important;
+  background-image: none !important;
+  color: var(--text) !important;
+}
+
+/* Home-style heading and header rhythm. */
+#screen-space.sp .sp-bar {
+  padding: calc(var(--safe-t) + 4px) 18px 12px !important;
+  gap: 10px !important;
+}
+#screen-space.sp .sp-bar .back,
+#screen-space.sp .sp-bar .ic {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  border-radius: 50% !important;
+  color: var(--coffee) !important;
+  background: transparent !important;
+}
+#screen-space.sp .sp-bar .back svg,
+#screen-space.sp .sp-bar .ic svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+#screen-space.sp .sp-bar .ttl .n {
+  color: var(--text) !important;
+  font-size: 20px !important;
+  line-height: 1.2 !important;
+  font-weight: 660 !important;
+  letter-spacing: -.035em !important;
+}
+#screen-space.sp .sp-bar .ttl .m {
+  color: var(--muted) !important;
+  opacity: 1 !important;
+  font-size: 12px !important;
+}
+
+/* Space section headings follow Home's .section-head treatment. */
+#screen-space.sp .sp-sec {
+  padding: 20px 18px 0 !important;
+}
+#screen-space.sp .sp-sec > h3 {
+  margin: 0 0 12px !important;
+  color: var(--text) !important;
+  font-size: 16.5px !important;
+  line-height: 1.25 !important;
+  font-weight: 620 !important;
+  letter-spacing: -.024em !important;
+}
+#screen-space.sp .sp-sec > h3 span {
+  color: var(--muted) !important;
+  font-size: 12.5px !important;
+  font-weight: 450 !important;
+}
+
+/* All ordinary Space cards use the same surface as Home update cards. */
+#screen-space.sp .sp-card,
+#screen-space.sp[data-nature] .sp-card {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg) !important;
+  box-shadow: var(--shadow-xs) !important;
+  transform: none;
+}
+#screen-space.sp .sp-card:active {
+  transform: scale(.992) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+#screen-space.sp .sp-empty {
+  border: 1px dashed var(--border-strong) !important;
+  border-radius: var(--r-lg) !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+/* Home's consistent bottom navigation surface, retaining Space tabs. */
+#screen-space.sp .sp-tabs {
+  background: color-mix(in srgb, var(--surface) 94%, transparent) !important;
+  border-top: 1px solid var(--border) !important;
+  box-shadow: 0 -6px 24px rgba(43, 33, 27, .045) !important;
+  backdrop-filter: blur(16px) !important;
+}
+#screen-space.sp .sp-tabs button {
+  color: var(--muted) !important;
+  border-radius: var(--r-md) !important;
+  font-size: 10px !important;
+  font-weight: 520 !important;
+}
+#screen-space.sp .sp-tabs button.on {
+  color: var(--coffee) !important;
+  font-weight: 620 !important;
+  background: var(--surface-2) !important;
+}
+
+/* Reuse Home button and form language across every Space type. */
+#screen-space.sp .btn--primary,
+#screen-space.sp[data-nature] .btn--primary {
+  background: var(--coffee-dark) !important;
+  color: #FBF6F0 !important;
+  border-color: transparent !important;
+}
+#screen-space.sp .btn--soft,
+#screen-space.sp .btn--quiet {
+  background: var(--surface-2) !important;
+  color: var(--coffee-dark) !important;
+  border: 1px solid var(--border) !important;
+}
+#screen-space.sp input:not([type="checkbox"]):not([type="radio"]),
+#screen-space.sp textarea,
+#screen-space.sp select {
+  border-color: var(--border) !important;
+  border-radius: var(--r-md) !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  font-family: var(--font) !important;
+}
+#screen-space.sp input:focus,
+#screen-space.sp textarea:focus,
+#screen-space.sp select:focus {
+  border-color: var(--coffee-light) !important;
+  outline: none !important;
+}
+
+/* Feature-specific hero panels become Home-style cards too. */
+#screen-space.sp .sp-task-hero,
+#screen-space.sp .sp-activity-hero,
+#screen-space.sp .sp-doc-hero {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg) !important;
+  box-shadow: var(--shadow-xs) !important;
+}
+#screen-space.sp .sp-task-hero h2,
+#screen-space.sp .sp-activity-hero h2,
+#screen-space.sp .sp-doc-hero h2 {
+  color: var(--text) !important;
+}
+#screen-space.sp .sp-task-hero p,
+#screen-space.sp .sp-activity-hero p,
+#screen-space.sp .sp-doc-hero p {
+  color: var(--muted) !important;
+}
+#screen-space.sp .sp-task-hero-tags span {
+  color: var(--coffee) !important;
+  background: var(--surface-2) !important;
+  border-color: var(--border) !important;
+}
+
+/* Category accent variables remain available for labels and feature data,
+   but no category receives a separate background, card shape or texture. */
+#screen-space.sp[data-nature] .sp-body,
+#screen-space.sp[data-nature] .sp-head,
+#screen-space.sp[data-nature] .sp-card {
+  background-image: none !important;
+}
