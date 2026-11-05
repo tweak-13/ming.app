@@ -10564,7 +10564,6 @@ VIEWS.business.home = s => {
 };
 
 function renderBusinessHome(s) {
-  const role = Server.roleOf(s.id);
   const canManage = Server.can(s.id, 'space.post.pin');
   const tasks = contentOf(s.id, 'task');
   const completedTasks = tasks.filter(t => taskStatus(t) === 'completed' || t.done).length;
@@ -10586,7 +10585,7 @@ function renderBusinessHome(s) {
   if (shortcutsHost) {
     const shortcuts = [
       canManage && s.features?.tasks !== false ? {label:'Create task', detail:'Assign work and deadlines', glyph:'＋', action:'new:task'} : null,
-      canManage ? {label:'Announcement', detail:'Share an important notice', glyph:'✳', action:'new:announcement'} : null,
+      canManage && s.features?.announcements !== false ? {label:'Announcement', detail:'Share an important notice', glyph:'✳', action:'new:announcement'} : null,
       canManage && s.features?.opportunities !== false ? {label:'Publish a role', detail:'Find your next teammate', glyph:'↗', action:'role-new'} : null,
       s.features?.documents !== false ? {label:'Add document', detail:'Keep work files together', glyph:'▤', action:'doc-upload'} : null
     ].filter(Boolean);
