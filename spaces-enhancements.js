@@ -184,8 +184,9 @@
     const nature = activeNature();
     let panel = document.getElementById('sp-dna-panel');
 
-    // Marketplace Deal Studio is intentionally removed; leave all other Spaces unchanged.
-    if (nature === 'marketplace') {
+    // Business Spaces use the Home experience; remove the legacy Board Mode panel.
+    // Marketplace Deal Studio remains removed. Other Space tools stay unchanged.
+    if (nature === 'business' || nature === 'marketplace') {
       panel?.remove();
       return;
     }
