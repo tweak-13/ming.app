@@ -9989,7 +9989,9 @@ const BUSINESS_APP_TABS = [
   { key:'log', label:'Activity', glyph:'◷', feature:'audit' }
 ];
 function businessAppTabs(space) {
-  return BUSINESS_APP_TABS.filter(tab => !tab.feature || space.features?.[tab.feature] !== false);
+  const role = Server.roleOf(space.id);
+  const canViewTeam = ['owner','admin','manager'].includes(role);
+  return BUSINESS_APP_TABS.filter(tab => (tab.key !== 'people' || canViewTeam) && (!tab.feature || space.features?.[tab.feature] !== false));
 }
 
 function openSpace(id, tab) {
@@ -10665,12 +10667,14 @@ function renderBusinessHome(s) {
   const overdue = openTasks.filter(t => t.due && !Number.isNaN(Date.parse(t.due)) && new Date(t.due+'T00:00:00') < today);
   const completed = tasks.length - openTasks.length;
   const openRoles = Server.db.openRoles.filter(r => r.spaceId === s.id && r.status === 'open');
-  const members = Server.db.members.filter(m => m.spaceId === s.id && m.approved !== false).map(m => personOf(m.userId)).filter(Boolean);
+  const role = Server.roleOf(s.id);
+  const canViewTeam = ['owner','admin','manager'].includes(role);
+  const members = canViewTeam ? Server.db.members.filter(m => m.spaceId === s.id && m.approved !== false).map(m => personOf(m.userId)).filter(Boolean) : [];
   const stats = [
     {value:openTasks.length,label:'In progress',glyph:'↗',tab:'work',feature:'tasks'},
     {value:overdue.length,label:'Needs attention',glyph:'!',tab:'work',feature:'tasks',alert:overdue.length>0},
     {value:openRoles.length,label:'Open roles',glyph:'＋',tab:'brief',feature:'opportunities'},
-    {value:members.length,label:'People',glyph:'◉',tab:'people'}
+    ...(canViewTeam ? [{value:members.length,label:'People',glyph:'◉',tab:'people'}] : [])
   ].filter(x => !x.feature || s.features?.[x.feature] !== false);
   const statHost = document.getElementById('biz-command-stats');
   if (statHost) statHost.innerHTML = stats.map(x => '<button class="biz-command-stat '+(x.alert?'is-alert':'')+'" data-sp="tab:'+x.tab+'"><span>'+x.glyph+'</span><b>'+x.value+'</b><small>'+x.label+'</small><i>↗</i></button>').join('');
@@ -10705,8 +10709,9 @@ function renderBusinessHome(s) {
   } else if (hiringHost) hiringHost.remove();
 
   const teamHost = document.getElementById('biz-command-team');
-  if (teamHost) teamHost.innerHTML = '<div class="biz-command-panel-head"><div><span class="biz-command-label">YOUR PEOPLE</span><h2>The team</h2></div><button data-sp="tab:people">Manage <span>↗</span></button></div>' +
+  if (teamHost && canViewTeam) teamHost.innerHTML = '<div class="biz-command-panel-head"><div><span class="biz-command-label">YOUR PEOPLE</span><h2>The team</h2></div><button data-sp="tab:people">Manage <span>↗</span></button></div>' +
     (members.length?'<div class="biz-command-member-list">'+members.slice(0,6).map(p=>'<button data-action="person:'+p.id+'">'+ringAvatar(p,38,isMingUserOnline(p.id))+'<span><b>'+esc(p.short||p.name)+'</b><small>'+esc(p.username||'Member')+'</small></span><i></i></button>').join('')+'</div>':'<div class="biz-command-inline-empty">Your team will appear here as people join.</div>');
+  else if (teamHost) teamHost.remove();
 
   const activityHost = document.getElementById('biz-command-activity');
   if (activityHost && s.features?.audit !== false) {
