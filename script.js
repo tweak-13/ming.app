@@ -9945,6 +9945,18 @@ function openJoinSheet() {
 /* ============================================================
    SPACE SHELL
 ============================================================ */
+const BUSINESS_APP_TABS = [
+  { key:'home', label:'Overview', glyph:'⌂', feature:null },
+  { key:'work', label:'Work', glyph:'✓', feature:'tasks' },
+  { key:'brief', label:'Hiring', glyph:'↗', feature:'opportunities' },
+  { key:'files', label:'Library', glyph:'▤', feature:'documents' },
+  { key:'people', label:'Team', glyph:'♙', feature:null },
+  { key:'log', label:'Activity', glyph:'◷', feature:'audit' }
+];
+function businessAppTabs(space) {
+  return BUSINESS_APP_TABS.filter(tab => !tab.feature || space.features?.[tab.feature] !== false);
+}
+
 function openSpace(id, tab) {
   const s = spaceById(id);
   if (!s) return;
@@ -9961,14 +9973,19 @@ function openSpace(id, tab) {
   screen.style.setProperty('--sp-theme-name', JSON.stringify(theme.name || 'Tweaklr'));
   renderSpace();
   pushStack('space');
-  if (s.nature === 'business' && sp.tab === 'brief') void refreshOpenRoles(s.id);
+  if (s.nature === 'business') {
+    if (s.features?.opportunities !== false) void refreshOpenRoles(s.id);
+    if (s.features?.audit !== false) void refreshSpaceActivity(s.id);
+  }
 }
 
 function renderSpace() {
   const s = spaceById(sp.activeId);
   const n = NATURES[s.nature];
   $('#sp-head').innerHTML = HEADERS[s.nature](s);
-  $('#sp-tabs').innerHTML = s.nature === 'business' ? '' : n.tabs.map(([k, label, ic]) => `
+  $('#sp-tabs').innerHTML = s.nature === 'business'
+    ? businessAppTabs(s).map(tab => `<button class="biz-app-tab ${sp.tab === tab.key ? 'on' : ''}" data-sp="tab:${tab.key}" aria-current="${sp.tab === tab.key ? 'page' : 'false'}"><span class="biz-app-tab__glyph" aria-hidden="true">${tab.glyph}</span><span>${tab.label}</span></button>`).join('')
+    : n.tabs.map(([k, label, ic]) => `
     <button class="${sp.tab === k ? 'on' : ''}" data-sp="tab:${k}" aria-current="${sp.tab === k}">
       ${icon(ic)}<span>${label}</span></button>`).join('');
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
@@ -10130,11 +10147,9 @@ async function refreshOpenRoles(spaceId) {
       applicationCount:Number(r.application_count || 0), myApplicationStatus:r.my_application_status || ''
     }));
     Server.db.openRoles = Server.db.openRoles.filter(r => r.spaceId !== spaceId).concat(mapped);
-    if (sp.activeId === spaceId && spaceById(spaceId)?.nature === 'business' && sp.tab === 'brief') {
-      const body = $('#sp-body');
-      if (body) body.innerHTML = VIEWS.business.brief(spaceById(spaceId));
-      const head = $('#sp-head');
-      if (head) head.innerHTML = HEADERS.business(spaceById(spaceId));
+    if (sp.activeId === spaceId && spaceById(spaceId)?.nature === 'business') {
+      if (sp.tab === 'brief') renderSpace();
+      else if (sp.tab === 'home') renderBusinessHome(spaceById(spaceId));
     }
     return true;
   } catch (error) {
@@ -10530,11 +10545,17 @@ async function openBusinessPostMedia(postId,index=0) {
 VIEWS.business.home = s => {
   return `
     <div class="business-home">
-      <div class="greet">
-        <h1>${esc(greetWord())}, ${esc(currentUser.name.split(' ')[0])}</h1>
-        <p class="q">What's happening around you?</p>
+      <div class="biz-overview-hero">
+        <div class="biz-overview-hero__copy">
+          <span class="biz-overview-eyebrow">TWEAKLR BUSINESS · WORKSPACE</span>
+          <h1>${esc(greetWord())}, ${esc(currentUser.name.split(' ')[0])}</h1>
+          <p class="q">Your business, people and progress — together.</p>
+        </div>
+        <div class="biz-overview-seal" aria-hidden="true"><span>✳</span></div>
       </div>
       <div id="biz-home-loc"></div>
+      <div id="biz-home-metrics" class="biz-overview-metrics"></div>
+      <div id="biz-home-shortcuts" class="biz-overview-shortcuts"></div>
       <div id="biz-home-people" class="section"></div>
       <div id="biz-home-feed" class="section"></div>
       <div id="biz-home-opps" class="section"></div>
@@ -10543,6 +10564,33 @@ VIEWS.business.home = s => {
 };
 
 function renderBusinessHome(s) {
+  const canManage = Server.can(s.id, 'space.post.pin');
+  const tasks = contentOf(s.id, 'task');
+  const completedTasks = tasks.filter(t => taskStatus(t) === 'completed' || t.done).length;
+  const activeTasks = tasks.length - completedTasks;
+  const openRoles = Server.db.openRoles.filter(r => r.spaceId === s.id && r.status === 'open');
+  const files = Server.db.files.filter(f => f.spaceId === s.id && !f.contentId && !f.productId);
+  const membersCount = Server.memberCount(s.id);
+  const metricsHost = document.getElementById('biz-home-metrics');
+  if (metricsHost) {
+    const metrics = [
+      { value:activeTasks, label:'Active tasks', glyph:'✓', tab:'work', feature:'tasks' },
+      { value:openRoles.length, label:'Open positions', glyph:'↗', tab:'brief', feature:'opportunities' },
+      { value:files.length, label:'Shared files', glyph:'▤', tab:'files', feature:'documents' },
+      { value:membersCount, label:'Team members', glyph:'♙', tab:'people' }
+    ].filter(item => !item.feature || s.features?.[item.feature] !== false);
+    metricsHost.innerHTML = metrics.map(item => `<button type="button" class="biz-metric" data-sp="tab:${item.tab}"><span class="biz-metric__glyph">${item.glyph}</span><span class="biz-metric__value">${item.value}</span><span class="biz-metric__label">${item.label}</span><span class="biz-metric__arrow">↗</span></button>`).join('');
+  }
+  const shortcutsHost = document.getElementById('biz-home-shortcuts');
+  if (shortcutsHost) {
+    const shortcuts = [
+      canManage && s.features?.tasks !== false ? {label:'Create task', detail:'Assign work and deadlines', glyph:'＋', action:'new:task'} : null,
+      canManage && s.features?.announcements !== false ? {label:'Announcement', detail:'Share an important notice', glyph:'✳', action:'new:announcement'} : null,
+      canManage && s.features?.opportunities !== false ? {label:'Publish a role', detail:'Find your next teammate', glyph:'↗', action:'role-new'} : null,
+      s.features?.documents !== false ? {label:'Add document', detail:'Keep work files together', glyph:'▤', action:'doc-upload'} : null
+    ].filter(Boolean);
+    shortcutsHost.innerHTML = shortcuts.length ? `<div class="biz-shortcuts-head"><div><span class="biz-overview-eyebrow">QUICK ACTIONS</span><h2>Move work forward</h2></div><span>Workspace tools</span></div><div class="biz-shortcuts-grid">${shortcuts.map(item => `<button type="button" class="biz-shortcut" data-sp="${item.action}"><span class="biz-shortcut__glyph">${item.glyph}</span><span><b>${item.label}</b><small>${item.detail}</small></span><i>↗</i></button>`).join('')}</div>` : '';
+  }
   const loc = document.getElementById('biz-home-loc');
   if (loc) {
     const line = locationLine();
@@ -10720,6 +10768,7 @@ async function refreshSpaceActivity(spaceId) {
     const pending = Server.db.audit.filter(row => row.spaceId === spaceId && String(row.id).startsWith('local_'));
     Server.db.audit = Server.db.audit.filter(row => row.spaceId !== spaceId).concat(incoming, pending);
     if (sp.activeId === spaceId && sp.tab === 'log') refreshSpace();
+    else if (sp.activeId === spaceId && sp.tab === 'home') renderBusinessHome(spaceById(spaceId));
   } catch (error) {
     console.warn('Tweaklr: latest Space activity refresh failed.', error);
   }
