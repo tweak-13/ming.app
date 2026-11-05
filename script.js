@@ -10391,7 +10391,7 @@ function businessUpdateCard(post, space) {
       '<button class="act ' + (liked ? 'is-on' : '') + '" data-sp="biz-like:' + post.id + '" aria-pressed="' + liked + '" aria-label="React to this update">' + icon('heart') + '<span>' + likes + '</span></button>' +
       '<button class="act" data-sp="biz-comments:' + post.id + '" aria-label="Open replies">' + icon('chat') + '<span>' + comments.length + '</span></button>' +
       '<button class="act" data-sp="biz-share:' + post.id + '" aria-label="Share this update"><span aria-hidden="true">↗</span><span>Share</span></button>' +
-      '<button class="act" data-sp="biz-message:' + post.authorId + '" aria-label="Message author">' + icon('send') + '</button>' +
+      '<button class="act" data-sp="biz-message:' + post.id + '" aria-label="Message author" title="Message author">' + icon('send') + '</button>' +
       ((mine || canModerate) ? '<button class="act" data-sp="biz-delete:' + post.id + '" aria-label="Delete update">' + icon('trash') + '</button>' : '') +
       '<span class="expiry">' + (Number.isFinite(hours) ? '<span class="life ' + (hours < 4 ? 'low' : '') + '"><i style="width:' + pct + '%"></i></span>' : '') + esc(businessPostLifeLabel(post)) + '</span>' +
     '</div></article>';
@@ -12089,7 +12089,22 @@ document.addEventListener('click', async e => {
       post.comments=Array.isArray(post.comments)?post.comments:[];post.comments.push(comment||{authorId:currentUser.id,text:value,at:Date.now()});
       closeSheet();renderSpace();toast('Comment posted','check');break;
     }
-    case 'biz-message': closeSheet(); if(a && a!==currentUser.id) setTimeout(()=>openChat(a),180); else toast('You cannot message yourself.','x'); break;
+    case 'biz-message': {
+      const post=Server.db.content.find(x=>x.id===a&&x.spaceId===sp.activeId&&x.kind==='business_post');
+      const personId=post?.authorId;
+      if(!personId){toast('The post author could not be identified. Refresh the Space and try again.','alert');break;}
+      if(personId===currentUser.id){toast('You cannot message yourself.','x');break;}
+      let recipient=byId(personId);
+      if(!recipient){
+        const {data:profile,error}=await supabaseClient.from('profiles').select('id,username,display_name,avatar_url').eq('id',personId).maybeSingle();
+        if(error||!profile){toast('Could not load this member’s profile. Please try again.','alert');break;}
+        const displayName=profile.display_name||profile.username||'Tweaklr member';
+        recipient={id:profile.id,name:displayName,short:displayName,username:profile.username?'@'+profile.username.replace(/^@/,''):'',avatarUrl:profile.avatar_url||'',bio:'',headline:'',interests:[],tags:[],activity:'',hue:26,status:null,visitor:false};
+        mingConnectionProfiles.set(profile.id,recipient);
+      }
+      try{await openChat(personId);}catch(error){console.error('Tweaklr: could not open Business Space author chat.',error);toast('Could not open this conversation. Please try again.','alert');}
+      break;
+    }
     case 'biz-remove-member': {
       const member=Server.db.members.find(m=>m.spaceId===sp.activeId&&m.userId===a);
       if(!member||!['owner','admin'].includes(Server.roleOf(sp.activeId))||member.role==='owner'){toast('This member cannot be removed.','x');break;}
