@@ -5016,9 +5016,8 @@ async function openChat(personId) {
   chatOnline = false;
   renderChatPresenceStatus();
   await startMingChatRealtime(personId);
-  // Opening a conversation must not interrupt navigation with a browser permission prompt.
-  // Push setup may proceed silently only when notification permission is already granted.
-  void ensureMingPushReady();
+  // Do not request or initialize browser notifications as a side effect of opening a DM.
+  // Notification enrollment belongs to the app's explicit notification settings flow.
   await loadChatReactions(c);
   renderThread();
   pushStack('chat');
@@ -10393,7 +10392,7 @@ function businessUpdateCard(post, space) {
       '<button class="act ' + (liked ? 'is-on' : '') + '" data-sp="biz-like:' + post.id + '" aria-pressed="' + liked + '" aria-label="React to this update">' + icon('heart') + '<span>' + likes + '</span></button>' +
       '<button class="act" data-sp="biz-comments:' + post.id + '" aria-label="Open replies">' + icon('chat') + '<span>' + comments.length + '</span></button>' +
       '<button class="act" data-sp="biz-share:' + post.id + '" aria-label="Share this update"><span aria-hidden="true">↗</span><span>Share</span></button>' +
-      '<button class="act" data-sp="biz-message:' + post.id + '" aria-label="Message author" title="Message author">' + icon('send') + '</button>' +
+      (!mine ? '<button class="act" data-sp="biz-message:' + post.id + '" aria-label="Send a direct message to the author" title="Message author">' + icon('send') + '</button>' : '') +
       ((mine || canModerate) ? '<button class="act" data-sp="biz-delete:' + post.id + '" aria-label="Delete update">' + icon('trash') + '</button>' : '') +
       '<span class="expiry">' + (Number.isFinite(hours) ? '<span class="life ' + (hours < 4 ? 'low' : '') + '"><i style="width:' + pct + '%"></i></span>' : '') + esc(businessPostLifeLabel(post)) + '</span>' +
     '</div></article>';
@@ -12095,16 +12094,21 @@ document.addEventListener('click', async e => {
       const post=Server.db.content.find(x=>x.id===a&&x.spaceId===sp.activeId&&x.kind==='business_post');
       const personId=post?.authorId;
       if(!personId){toast('The post author could not be identified. Refresh the Space and try again.','alert');break;}
-      if(personId===currentUser.id){toast('You cannot message yourself.','x');break;}
-      let recipient=byId(personId);
-      if(!recipient){
-        const {data:profile,error}=await supabaseClient.from('profiles').select('id,username,display_name,avatar_url').eq('id',personId).maybeSingle();
-        if(error||!profile){toast('Could not load this member’s profile. Please try again.','alert');break;}
-        const displayName=profile.display_name||profile.username||'Tweaklr member';
-        recipient={id:profile.id,name:displayName,short:displayName,username:profile.username?'@'+profile.username.replace(/^@/,''):'',avatarUrl:profile.avatar_url||'',bio:'',headline:'',interests:[],tags:[],activity:'',hue:26,status:null,visitor:false};
-        mingConnectionProfiles.set(profile.id,recipient);
+      if(personId===currentUser.id){toast('This is your post. The message button is only available on other members’ posts.','info');break;}
+      try {
+        let recipient=byId(personId);
+        if(!recipient || recipient.id!==personId) {
+          const {data:profile,error}=await supabaseClient.from('profiles').select('id,username,display_name,avatar_url').eq('id',personId).maybeSingle();
+          if(error||!profile){console.error('Tweaklr: Business Space DM author lookup failed.',error);toast('Could not load this member’s profile. Please try again.','alert');break;}
+          const displayName=profile.display_name||profile.username||'Tweaklr member';
+          recipient={id:profile.id,name:displayName,short:displayName,username:profile.username?'@'+profile.username.replace(/^@/,''):'',avatarUrl:profile.avatar_url||'',bio:'',headline:'',interests:[],tags:[],activity:'',hue:26,status:null,visitor:false};
+          mingConnectionProfiles.set(profile.id,recipient);
+        }
+        await openChat(personId);
+      } catch(error) {
+        console.error('Tweaklr: could not open Business Space author chat.',error);
+        toast('Could not open this conversation. Please try again.','alert');
       }
-      try{await openChat(personId);}catch(error){console.error('Tweaklr: could not open Business Space author chat.',error);toast('Could not open this conversation. Please try again.','alert');}
       break;
     }
     case 'biz-remove-member': {
