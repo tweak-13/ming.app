@@ -3200,3 +3200,38 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
 #sheet .sp-task-priority.p-high i{background:#b78351}
 #sheet .sp-task-priority.p-low{color:#71977f;background:rgba(113,151,127,.09);border-color:rgba(113,151,127,.22)}
 #sheet .sp-task-priority.p-low i{background:#71977f}
+
+
+/* BUSINESS DOCUMENT UPLOAD — refined, scoped sheet */
+#sheet:has(.sp-doc-upload-panel) .sheet__body,
+#sheet:has(.sp-doc-upload-panel) .sheet-body{padding-top:12px}
+#sheet .sp-doc-upload-panel{display:flex;flex-direction:column;gap:17px;padding:2px 1px 5px}
+#sheet .sp-doc-upload-intro{padding:3px 2px 1px}
+#sheet .sp-doc-upload-kicker{display:inline-flex;align-items:center;color:var(--accent,#C5A572);font-size:9px;font-weight:850;letter-spacing:.17em}
+#sheet .sp-doc-upload-intro h3{margin:7px 0 5px;color:var(--text);font-size:19px;line-height:1.2;letter-spacing:-.035em}
+#sheet .sp-doc-upload-intro p{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+#sheet .sp-doc-upload-drop{position:relative;display:flex;align-items:center;gap:13px;min-width:0;padding:17px;border:1px dashed rgba(197,165,114,.48);border-radius:18px;background:radial-gradient(ellipse at 0% 0%,rgba(197,165,114,.12),transparent 58%),linear-gradient(145deg,rgba(197,165,114,.055),rgba(139,53,67,.045));cursor:pointer;transition:border-color .18s,background .18s,box-shadow .18s}
+#sheet .sp-doc-upload-drop:hover,#sheet .sp-doc-upload-drop:focus-within{border-color:var(--accent,#C5A572);box-shadow:0 0 0 3px rgba(197,165,114,.09)}
+#sheet .sp-doc-upload-drop.has-file{border-style:solid;border-color:rgba(92,166,126,.62);background:linear-gradient(145deg,rgba(92,166,126,.10),rgba(197,165,114,.045))}
+#sheet .sp-doc-upload-drop-icon{display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;border-radius:15px;color:var(--accent,#C5A572);background:rgba(197,165,114,.13);border:1px solid rgba(197,165,114,.2)}
+#sheet .sp-doc-upload-drop-icon svg{width:22px;height:22px}
+#sheet .sp-doc-upload-drop-copy{display:flex;flex:1;flex-direction:column;gap:4px;min-width:0}
+#sheet .sp-doc-upload-drop-copy b{font-size:13px;color:var(--text)}
+#sheet .sp-doc-upload-drop-copy small{font-size:10px;line-height:1.45;color:var(--muted)}
+#sheet .sp-doc-upload-drop-copy strong{overflow:hidden;color:var(--text);font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+#sheet .sp-doc-upload-browse{flex:0 0 auto;padding:8px 10px;border:1px solid rgba(197,165,114,.3);border-radius:10px;color:var(--accent,#C5A572);font-size:10px;font-weight:750}
+#sheet .sp-doc-upload-drop input[type=file]{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;clip-path:inset(50%)}
+#sheet .sp-doc-upload-fields{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(125px,.75fr);gap:11px}
+#sheet .sp-doc-upload-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+#sheet .sp-doc-upload-field label{display:flex;align-items:center;gap:7px;color:var(--text);font-size:11px;font-weight:750}
+#sheet .sp-doc-upload-field label span{color:var(--muted);font-size:8px;letter-spacing:.1em;font-weight:700}
+#sheet .sp-doc-upload-field input,#sheet .sp-doc-upload-field select{width:100%;min-width:0;min-height:45px;padding:0 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text);font:inherit;font-size:12px;outline:none}
+#sheet .sp-doc-upload-field input:focus,#sheet .sp-doc-upload-field select:focus{border-color:var(--accent,#C5A572);box-shadow:0 0 0 3px rgba(197,165,114,.09)}
+#sheet .sp-doc-upload-field input::placeholder{color:var(--muted);opacity:.8}
+#sheet .sp-doc-upload-security{display:flex;align-items:flex-start;gap:10px;padding:12px 13px;border:1px solid rgba(92,166,126,.2);border-radius:14px;background:rgba(92,166,126,.055)}
+#sheet .sp-doc-upload-security>span{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;border-radius:9px;color:#70b58c;background:rgba(92,166,126,.12)}
+#sheet .sp-doc-upload-security svg{width:15px;height:15px}
+#sheet .sp-doc-upload-security p{display:flex;flex-direction:column;gap:3px;margin:0;min-width:0}
+#sheet .sp-doc-upload-security b{color:var(--text);font-size:10.5px}
+#sheet .sp-doc-upload-security small{color:var(--muted);font-size:10px;line-height:1.5}
+@media(max-width:440px){#sheet .sp-doc-upload-drop{gap:10px;padding:13px}#sheet .sp-doc-upload-browse{padding:7px 8px;font-size:9px}#sheet .sp-doc-upload-fields{grid-template-columns:1fr}#sheet .sp-doc-upload-intro h3{font-size:17px}}
