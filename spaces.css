@@ -2653,3 +2653,115 @@
       color-mix(in srgb, var(--sp-accent-3) 12%, var(--surface)));
   border-bottom-color: color-mix(in srgb, var(--sp-accent-2) 32%, var(--border));
 }
+
+/* ============================================================
+   BUSINESS SPACE — reuse Tweaklr Home's native surface system.
+   Visual-only skin: keep Business mini-app structure and behavior.
+============================================================ */
+#screen-space[data-nature="business"] .business-home {
+  color: var(--text);
+}
+#screen-space[data-nature="business"] .biz-command-hero {
+  color: var(--text);
+  background:
+    radial-gradient(220px 150px at 95% 0%, color-mix(in srgb, var(--coffee) 13%, transparent), transparent 72%),
+    radial-gradient(200px 150px at 0% 100%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 72%),
+    linear-gradient(145deg, var(--surface), color-mix(in srgb, var(--surface-2) 76%, var(--surface)));
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+#screen-space[data-nature="business"] .biz-command-hero h1,
+#screen-space[data-nature="business"] .biz-command-hero__main p:last-child {
+  color: var(--text);
+}
+#screen-space[data-nature="business"] .biz-command-kicker,
+#screen-space[data-nature="business"] .biz-command-overline {
+  color: var(--coffee);
+}
+#screen-space[data-nature="business"] .biz-command-kicker i {
+  background: var(--coffee);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--coffee) 40%, transparent);
+}
+#screen-space[data-nature="business"] .biz-command-date {
+  color: var(--muted);
+}
+#screen-space[data-nature="business"] .biz-command-orbit {
+  border-color: color-mix(in srgb, var(--coffee) 22%, var(--border));
+  background: radial-gradient(circle, color-mix(in srgb, var(--coffee) 12%, transparent), transparent 68%);
+}
+#screen-space[data-nature="business"] .biz-command-orbit:before,
+#screen-space[data-nature="business"] .biz-command-orbit:after {
+  border-color: color-mix(in srgb, var(--coffee) 20%, transparent);
+}
+#screen-space[data-nature="business"] .biz-command-orbit span,
+#screen-space[data-nature="business"] .biz-command-orbit b {
+  color: var(--coffee);
+  background-color: var(--coffee);
+}
+#screen-space[data-nature="business"] .biz-command-orbit i {
+  background: var(--accent);
+}
+#screen-space[data-nature="business"] .biz-command-actions .biz-command-primary {
+  color: var(--surface);
+  background: var(--coffee);
+  border-color: var(--coffee);
+}
+#screen-space[data-nature="business"] .biz-command-actions .biz-command-secondary {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+#screen-space[data-nature="business"] .biz-command-stat,
+#screen-space[data-nature="business"] .biz-command-panel {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg, 18px);
+}
+#screen-space[data-nature="business"] .biz-command-stat > span,
+#screen-space[data-nature="business"] .biz-command-role-icon {
+  color: var(--coffee);
+  background: var(--surface-2);
+}
+#screen-space[data-nature="business"] .biz-command-task em {
+  color: var(--muted);
+  background: var(--surface-2);
+}
+#screen-space[data-nature="business"] .biz-command-task em.p-urgent,
+#screen-space[data-nature="business"] .biz-command-task em.p-high {
+  color: var(--danger, #B65A50);
+  background: color-mix(in srgb, var(--danger, #B65A50) 10%, var(--surface));
+}
+#screen-space[data-nature="business"] .biz-command-empty button,
+#screen-space[data-nature="business"] .biz-command-panel-head > button,
+#screen-space[data-nature="business"] .biz-command-role-list article > button {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+#screen-space[data-nature="business"] .biz-command-note {
+  color: var(--text);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--coffee) 10%, var(--surface)), var(--surface));
+  border-color: color-mix(in srgb, var(--coffee) 18%, var(--border));
+}
+#screen-space[data-nature="business"] .biz-command-note > span {
+  color: var(--coffee);
+}
+#screen-space[data-nature="business"] .biz-command-task,
+#screen-space[data-nature="business"] .biz-command-member-list button,
+#screen-space[data-nature="business"] .biz-command-role-list article {
+  border-color: var(--border);
+}
+#screen-space[data-nature="business"] .biz-command-task-copy b,
+#screen-space[data-nature="business"] .biz-command-panel-head h2,
+#screen-space[data-nature="business"] .biz-command-role-list b,
+#screen-space[data-nature="business"] .biz-command-member-list b,
+#screen-space[data-nature="business"] .biz-command-event-list p b,
+#screen-space[data-nature="business"] .biz-command-note b {
+  color: var(--text);
+}
+#screen-space[data-nature="business"] .biz-command-complete button,
+#screen-space[data-nature="business"] .biz-command-panel-head > button span {
+  color: var(--coffee);
+}
