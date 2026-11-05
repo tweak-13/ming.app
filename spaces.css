@@ -2267,8 +2267,8 @@
   content: none !important;
   display: none !important;
 }
-#screen-space.sp .sp-body,
-#screen-space.sp[data-nature] .sp-body {
+#screen-space.sp #sp-body,
+#screen-space.sp[data-nature] #sp-body {
   background: var(--bg) !important;
   background-image: none !important;
   color: var(--text) !important;
@@ -2422,7 +2422,7 @@
 
 /* Category accent variables remain available for labels and feature data,
    but no category receives a separate background, card shape or texture. */
-#screen-space.sp[data-nature] .sp-body,
+#screen-space.sp[data-nature] #sp-body,
 #screen-space.sp[data-nature] .sp-head,
 #screen-space.sp[data-nature] .sp-card {
   background-image: none !important;
