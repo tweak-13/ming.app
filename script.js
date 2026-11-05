@@ -9244,7 +9244,7 @@ const NATURES = {
       { name:'Ledger', colors:['#17211F','#31524A','#B9D0C5'] },
       { name:'Studio', colors:['#1B1A20','#4A3F52','#D6B4C7'] }
     ],
-    tabs: [['home', 'Home', 'home'], ['brief', 'Brief', 'sp-doc'], ['work', 'Work', 'sp-list'], ['files', 'Files', 'sp-box'], ['people', 'People', 'users'], ['log', 'Log', 'clock']]
+    tabs: [['home', 'Home', 'home']]
   },
   friendly: {
     label: 'Friendly', eyebrow: 'Keep your people close', icon: 'users', hue: 24,
@@ -9950,7 +9950,7 @@ function openSpace(id, tab) {
   if (!s) return;
   if (s.nature === 'silly') { toast('Silly Spaces are no longer available.'); return; }
   sp.activeId = id;
-  sp.tab = tab || NATURES[s.nature].tabs[0][0];
+  sp.tab = s.nature === 'business' ? 'home' : (tab || NATURES[s.nature].tabs[0][0]);
   const screen = $('#screen-space');
   screen.dataset.nature = s.nature;
   screen.dataset.spaceId = s.id;
@@ -9968,16 +9968,20 @@ function renderSpace() {
   const s = spaceById(sp.activeId);
   const n = NATURES[s.nature];
   $('#sp-head').innerHTML = HEADERS[s.nature](s);
-  $('#sp-tabs').innerHTML = n.tabs.map(([k, label, ic]) => `
+  $('#sp-tabs').innerHTML = s.nature === 'business' ? '' : n.tabs.map(([k, label, ic]) => `
     <button class="${sp.tab === k ? 'on' : ''}" data-sp="tab:${k}" aria-current="${sp.tab === k}">
       ${icon(ic)}<span>${label}</span></button>`).join('');
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
-  if (s.nature === 'business' && sp.tab === 'home') void hydrateBusinessHomeMedia(s.id);
+  if (s.nature === 'business' && sp.tab === 'home') {
+    renderBusinessHome(s);
+    void hydrateBusinessHomeMedia(s.id);
+  }
   $('#sp-scroll').scrollTop = 0;
 }
 function refreshSpace() {
   const s = spaceById(sp.activeId);
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
+  if (s.nature === 'business' && sp.tab === 'home') renderBusinessHome(s);
 }
 
 function spBar(s, opts = {}) {
@@ -10524,13 +10528,73 @@ async function openBusinessPostMedia(postId,index=0) {
 }
 
 VIEWS.business.home = s => {
-  const posts=contentOf(s.id,'business_post').filter(p=>hoursLeft({createdAt:Number(p.at||p.createdAt||0)})>0).sort((a,b)=>Number(b.at||0)-Number(a.at||0));
-  const canPost=Server.can(s.id,'space.post')&&(s.features?.businessMessaging!=='owner'||Server.roleOf(s.id)==='owner');
-  return '<div class="biz-home-feed">' +
-    sectionHead('Daily Updates','Gone in 24 hours',canPost?{t:'Share update',a:'biz-compose'}:null) +
-    (posts.length ? posts.map(p=>businessUpdateCard(p,s)).join('') : emptyState('Nothing shared yet today','Daily Updates disappear after 24 hours. Be the first to say what you are up to.',canPost?{t:'Share an update',a:'biz-compose'}:null)) +
-  '</div>';
+  return `
+    <div class="business-home">
+      <div class="greet">
+        <h1>${esc(greetWord())}, ${esc(currentUser.name.split(' ')[0])}</h1>
+        <p class="q">What's happening around you?</p>
+      </div>
+      <div id="biz-home-loc"></div>
+      <div id="biz-home-people" class="section"></div>
+      <div id="biz-home-feed" class="section"></div>
+      <div id="biz-home-opps" class="section"></div>
+      <p class="wordmark-foot"><b>Tweaklr</b> · people, moments, possibilities</p>
+    </div>`;
 };
+
+function renderBusinessHome(s) {
+  const loc = document.getElementById('biz-home-loc');
+  if (loc) {
+    const line = locationLine();
+    const on = state.locStatus === 'granted';
+    loc.innerHTML = `<div class="locbar">${on ? '<span class="pulse-dot"></span>' : icon('pin')}
+      <span class="txt"><b>${esc(line.title)}</b> <span>· ${esc(line.sub)}</span></span>
+      ${on ? '' : `<button data-action="enable-location">${state.locStatus === 'requesting' ? 'Finding…' : 'Turn on'}</button>`}
+    </div>`;
+  }
+
+  const peopleHost = document.getElementById('biz-home-people');
+  if (peopleHost) {
+    const members = Server.db.members.filter(m => m.spaceId === s.id)
+      .map(m => personOf(m.userId)).filter(Boolean);
+    peopleHost.innerHTML = sectionHead('People in this Space', `${members.length} members`) +
+      (members.length ? `<div class="rail">${members.map(p => `
+        <button class="pcard" data-action="person:${p.id}">
+          ${ringAvatar(p, 56, isMingUserOnline(p.id))}
+          <div class="name">${esc(p.short || p.name)}</div>
+          <div class="tag">${esc(p.username || 'Space member')}</div>
+        </button>`).join('')}</div>`
+      : emptyState('No members yet', 'People who join this Business Space will appear here.'));
+  }
+
+  const feedHost = document.getElementById('biz-home-feed');
+  if (feedHost) {
+    const posts = contentOf(s.id, 'business_post')
+      .filter(p => hoursLeft({createdAt:Number(p.at || p.createdAt || 0)}) > 0)
+      .sort((a,b) => Number(b.at || b.createdAt || 0) - Number(a.at || a.createdAt || 0));
+    const canPost = Server.can(s.id, 'space.post') &&
+      (s.features?.businessMessaging !== 'owner' || Server.roleOf(s.id) === 'owner');
+    feedHost.innerHTML = sectionHead('Daily Updates', 'Gone in 24 hours',
+      canPost ? {t:'Share update',a:'biz-compose'} : null) +
+      (posts.length ? posts.map(p => businessUpdateCard(p,s)).join('') :
+        emptyState('Nothing shared yet today',
+          'Daily Updates disappear after 24 hours. Be the first to say what you are up to.',
+          canPost ? {t:'Share an update',a:'biz-compose'} : null));
+  }
+
+  const oppsHost = document.getElementById('biz-home-opps');
+  if (oppsHost) {
+    const opportunities = contentOf(s.id, 'opportunity').slice().reverse();
+    const roles = Server.db.openRoles.filter(r => r.spaceId === s.id && r.status === 'open');
+    const cards = [
+      ...opportunities.map(o => `<article class="ocard"><div class="k">Opportunity</div><h3>${esc(o.title || 'Opportunity')}</h3><p>${esc(o.body || '')}</p></article>`),
+      ...roles.map(r => `<article class="ocard"><div class="k">Open role</div><h3>${esc(r.title)}</h3><p>${esc(r.description || 'An opportunity is available in this Business Space.')}</p><div class="f"><span>${esc((r.employmentType || 'Role').replace(/-/g,' '))} · ${esc((r.workMode || 'Flexible').replace(/-/g,' '))}</span></div></article>`)
+    ];
+    oppsHost.innerHTML = sectionHead('Possibilities in this Space', 'Opportunities & open roles') +
+      (cards.length ? `<div class="rail">${cards.join('')}</div>` :
+        emptyState('No possibilities yet', 'Opportunities and open roles shared in this Business Space will appear here.'));
+  }
+}
 
 
 VIEWS.business.brief = s => {
