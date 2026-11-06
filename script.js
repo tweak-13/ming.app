@@ -10627,8 +10627,8 @@ async function openBusinessPostComments(postId) {
   openSheet({
     title: 'Comments',
     sub: (total === 1 ? '1 response' : total + ' responses') + ' · ' + (post.title || 'Business Space post'),
-    body,
-    foot
+    body: body + foot,
+    foot: ''
   });
 
   let recorder = null;
