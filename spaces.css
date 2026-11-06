@@ -3486,6 +3486,15 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
 #sheet .biz-comment-thread.is-reply .biz-comment-avatar{flex-basis:30px;width:30px;height:30px}
 #sheet .biz-comment-thread.is-reply .biz-comment-avatar .av{width:30px!important;height:30px!important;flex-basis:30px!important}
 #sheet .biz-comment-reply-form{display:grid;gap:7px;margin:9px 0 0 48px;padding:10px;border:1px solid var(--border);border-radius:13px;background:var(--surface-2)}
+#sheet .biz-reply-privacy{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0;padding:0;border:0;min-width:0}
+#sheet .biz-reply-privacy legend{grid-column:1/-1;margin:0 0 2px;padding:0;color:var(--muted);font-size:9px;font-weight:750;letter-spacing:.04em}
+#sheet .biz-reply-privacy label{display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;padding:7px 5px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--muted);cursor:pointer}
+#sheet .biz-reply-privacy label.is-selected{border-color:color-mix(in srgb,var(--coffee,#8B3543) 55%,var(--border));background:color-mix(in srgb,var(--coffee,#8B3543) 10%,var(--surface));color:var(--text)}
+#sheet .biz-reply-privacy input{position:absolute;opacity:0;pointer-events:none}
+#sheet .biz-reply-privacy label span{display:grid;place-items:center}
+#sheet .biz-reply-privacy label svg{width:12px;height:12px}
+#sheet .biz-reply-privacy label strong{font-size:9px}
+#sheet .biz-comment-reply-form{}
 #sheet .biz-comment-reply-form textarea{width:100%;min-height:54px;resize:vertical;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font:inherit;font-size:12px;outline:none}
 #sheet .biz-comment-reply-form>div{display:flex;justify-content:flex-end;gap:8px}
 #sheet .biz-comment-reply-form button{padding:6px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:10px;font-weight:700}
