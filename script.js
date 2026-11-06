@@ -10760,40 +10760,82 @@ async function openBusinessPostComments(postId) {
 
   categoryPrompt?.addEventListener('change', updateComposer);
 
-  // A view-once recording is claimed by each intended recipient before a
-  // short-lived playback URL is issued. The server prevents a second claim.
+  // View-once playback: always release the button on lookup, Storage or RPC
+  // failures. A transient RPC error must not be mistaken for an already-used note.
   $('#sheet')?.addEventListener('click', async event => {
     const button = event.target.closest('[data-comment-once]');
     if (!button || button.disabled) return;
+
     const commentId = button.dataset.commentOnce;
+    const holder = button.closest('.biz-comment-voice-once');
+    const resetButton = label => {
+      if (!button.isConnected) return;
+      button.disabled = false;
+      button.textContent = label;
+    };
+
     button.disabled = true;
     button.textContent = 'Preparing…';
-    const comment = comments.find(item => item.id === commentId);
-    if (!comment?.voice_path) return;
-    const { data: signed, error: signedError } = await supabaseClient.storage
-      .from('ming-business-comment-voice').createSignedUrl(comment.voice_path, 90);
-    if (signedError || !signed?.signedUrl) {
-      button.disabled = false;
-      button.textContent = 'Try again';
-      toast('Voice note could not be opened.', 'alert');
-      return;
+
+    try {
+      const comment = comments.find(item => String(item.id) === String(commentId));
+      if (!comment?.voice_path) {
+        resetButton('Try again');
+        toast('This voice note could not be found. Close and reopen the comments, then try again.', 'alert');
+        return;
+      }
+
+      // Create the short-lived URL before consuming the one-time entitlement.
+      const { data: signed, error: signedError } = await supabaseClient.storage
+        .from('ming-business-comment-voice')
+        .createSignedUrl(comment.voice_path, 90);
+
+      if (signedError || !signed?.signedUrl) {
+        resetButton('Try again');
+        console.warn('Tweaklr: view-once voice URL could not be prepared.', signedError?.message);
+        toast('Voice note could not be prepared. Please try again.', 'alert');
+        return;
+      }
+
+      const { data: claimed, error: claimError } = await supabaseClient.rpc(
+        'claim_ming_business_space_comment_voice_once',
+        { p_comment_id: commentId }
+      );
+
+      if (claimError) {
+        resetButton('Try again');
+        console.warn('Tweaklr: view-once voice claim failed.', claimError.message);
+        toast('The one-time listen could not be verified. Please try again.', 'alert');
+        return;
+      }
+
+      if (claimed !== true) {
+        holder?.classList.add('is-consumed');
+        holder?.replaceChildren(document.createTextNode('This voice note has already been played.'));
+        return;
+      }
+
+      if (!holder) {
+        toast('The voice note player is no longer available. Reopen the comments.', 'alert');
+        return;
+      }
+
+      holder.innerHTML = '<span>' + icon('headphones') + '</span><audio controls autoplay preload="auto" src="' + esc(signed.signedUrl) + '"></audio>';
+      const audio = holder.querySelector('audio');
+      audio.addEventListener('ended', () => {
+        holder.classList.add('is-consumed');
+        holder.innerHTML = icon('check-circle') + '<span>Voice note played · one-time access used</span>';
+      }, { once: true });
+      audio.addEventListener('error', () => {
+        holder.classList.add('is-consumed');
+        holder.innerHTML = icon('alert-circle') + '<span>Playback failed after the one-time listen was claimed.</span>';
+        toast('The one-time listen was claimed, but the audio could not be played.', 'alert');
+      }, { once: true });
+    } catch (error) {
+      console.warn('Tweaklr: unexpected view-once voice playback error.', error?.message || error);
+      resetButton('Try again');
+      toast('Voice note could not be prepared. Please try again.', 'alert');
     }
-    const { data: claimed, error: claimError } = await supabaseClient.rpc(
-      'claim_ming_business_space_comment_voice_once',
-      { p_comment_id: commentId }
-    );
-    if (claimError || claimed !== true) {
-      button.closest('.biz-comment-voice-once')?.classList.add('is-consumed');
-      button.closest('.biz-comment-voice-once')?.replaceChildren(document.createTextNode('This voice note has already been played.'));
-      return;
-    }
-    const holder = button.closest('.biz-comment-voice-once');
-    holder.innerHTML = '<span>' + icon('headphones') + '</span><audio controls autoplay preload="auto" src="' + esc(signed.signedUrl) + '"></audio>';
-    const audio = holder.querySelector('audio');
-    audio.addEventListener('ended', () => {
-      holder.classList.add('is-consumed');
-      holder.innerHTML = icon('check-circle') + '<span>Voice note played · one-time access used</span>';
-    }, { once: true });
   });
 
   $('#biz-comment-form')?.addEventListener('submit', async event => {
