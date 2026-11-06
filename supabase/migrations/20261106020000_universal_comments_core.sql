@@ -359,6 +359,7 @@ set search_path = ''
 as $function$
 declare
   v_user uuid := (select auth.uid());
+  v_author uuid;
   v_view_once boolean;
   v_viewed_by uuid[];
 begin
@@ -366,8 +367,8 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  select c.voice_view_once, c.voice_viewed_by
-    into v_view_once, v_viewed_by
+  select c.author_id, c.voice_view_once, c.voice_viewed_by
+    into v_author, v_view_once, v_viewed_by
   from public.ming_comments c
   join public.ming_space_content p
     on p.id = c.target_id
@@ -393,7 +394,7 @@ begin
     raise exception 'Voice note is not available to you';
   end if;
 
-  if not v_view_once then
+  if not v_view_once or v_author = v_user then
     return true;
   end if;
 
