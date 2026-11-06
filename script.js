@@ -10516,89 +10516,300 @@ function openBusinessUpdateComposer() {
 }
 
 async function openBusinessPostComments(postId) {
-  const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
-  if(!post)return;
-  const legacy=Array.isArray(post.comments)?post.comments:[];
-  const {data:rows,error:loadError}=await supabaseClient.rpc('get_ming_business_space_post_comments',{p_content_id:post.id});
-  if(loadError) console.warn('Tweaklr: Business Space comments could not be loaded.',loadError.message);
-  const comments=await Promise.all((rows||[]).map(async row=>{
-    let voiceUrl='';
-    if(row.voice_path){
-      const {data:signed,error:signedError}=await supabaseClient.storage.from('ming-business-comment-voice').createSignedUrl(row.voice_path,1800);
-      if(!signedError)voiceUrl=signed?.signedUrl||'';
+  const post = Server.db.content.find(x => x.id === postId && x.spaceId === sp.activeId && x.kind === 'business_post');
+  if (!post) return;
+
+  const legacy = Array.isArray(post.comments) ? post.comments : [];
+  const { data: rows, error: loadError } = await supabaseClient.rpc(
+    'get_ming_business_space_post_comments',
+    { p_content_id: post.id }
+  );
+  if (loadError) {
+    console.warn('Tweaklr: Business Space comments could not be loaded.', loadError.message);
+    toast('Some comments could not be loaded. Check the Business Space comment setup.', 'alert');
+  }
+
+  const comments = await Promise.all((rows || []).map(async row => {
+    let voiceUrl = '';
+    if (row.voice_path) {
+      const { data: signed, error: signedError } = await supabaseClient
+        .storage.from('ming-business-comment-voice')
+        .createSignedUrl(row.voice_path, 1800);
+      if (!signedError) voiceUrl = signed?.signedUrl || '';
     }
-    return {...row,voiceUrl};
+    return { ...row, voiceUrl };
   }));
-  const legacyMarkup=legacy.map(c=>{
-    const person=personOf(c.authorId);
-    return '<div class="biz-comment-row">'+avatar(person,36)+'<div class="biz-comment-copy"><div class="biz-comment-meta">'+esc(person.short||person.name||person.username||'Space member')+' <span>· '+esc(timeAgo(Number(c.at)||Date.now()))+'</span></div><div class="biz-comment-text">'+esc(c.text||'')+'</div></div></div>';
-  }).join('');
-  const newMarkup=comments.map(c=>{
-    const anonymous=!!c.anonymous;
-    const identity=anonymous?'<div class="biz-comment-anon-avatar" aria-label="Anonymous"><span>◉</span></div>':(c.author_avatar_url?'<div class="av" style="width:36px;height:36px;flex:0 0 36px"><img src="'+esc(c.author_avatar_url)+'" alt="" /></div>':'<div class="biz-comment-anon-avatar">'+icon('user-round')+'</div>');
-    const author=anonymous?'Anonymous':(c.author_display_name||c.author_username||'Space member');
-    const privacy=c.private_to_author?'<span class="biz-comment-private-label">Private</span>':'';
-    const audio=c.voiceUrl?'<audio class="biz-comment-audio" controls preload="none" src="'+esc(c.voiceUrl)+'"></audio>':'';
-    return '<div class="biz-comment-row">'+identity+'<div class="biz-comment-copy"><div class="biz-comment-meta">'+esc(author)+' '+privacy+' <span>· '+esc(timeAgo(Number(c.created_at_ms)||Date.now()))+'</span></div>'+(c.body?'<div class="biz-comment-text">'+esc(c.body)+'</div>':'')+audio+'</div></div>';
-  }).join('');
-  const total=legacy.length+comments.length;
-  post.commentsCount=total;
-  const body='<div class="biz-comment-list">'+(legacyMarkup+newMarkup||'<p class="biz-comment-empty">No replies yet. Start the conversation.</p>')+'</div>';
-  const foot='<form id="biz-comment-form" class="biz-comment-composer"><textarea id="biz-comment-input" rows="2" maxlength="1000" placeholder="Write a reply…" aria-label="Write a reply"></textarea><div class="biz-comment-options"><label><input id="biz-comment-anonymous" type="checkbox" /> <span>Comment anonymously</span></label><label><input id="biz-comment-private" type="checkbox" /> <span>Private to post author</span></label></div><div class="biz-comment-compose-bottom"><button class="biz-comment-mic" id="biz-comment-mic" type="button" aria-label="Record voice note" title="Record voice note">'+icon('mic')+'</button><span id="biz-comment-record-status">Text or voice note · up to 2 minutes</span><button class="send" type="submit" aria-label="Post comment">'+icon('send')+'</button></div><div id="biz-comment-audio-preview"></div><p class="biz-comment-privacy-note">Anonymous comments hide your name, profile photo and account details from other members. Private comments are visible only to you and the person who created this post.</p></form>';
-  openSheet({title:post.title||'Daily Update',sub:total+' '+(total===1?'comment':'comments'),body,foot});
-  let recorder=null,recordStream=null,recordChunks=[],voiceBlob=null,voiceDuration=0,recordStarted=0,recordLimit=null,previewUrl='';
-  const mic=$('#biz-comment-mic'),status=$('#biz-comment-record-status'),preview=$('#biz-comment-audio-preview');
-  const stopRecording=()=>{
-    if(recorder&&recorder.state!=='inactive')recorder.stop();
+
+  const formatCommentTime = value => {
+    const stamp = value ? new Date(value).getTime() : Date.now();
+    return Number.isFinite(stamp) ? timeAgo(stamp) : 'just now';
   };
-  mic?.addEventListener('click',async()=>{
-    if(recorder&&recorder.state==='recording'){stopRecording();return;}
-    if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){toast('Voice notes are not supported in this browser.','alert');return;}
-    try{
-      recordStream=await navigator.mediaDevices.getUserMedia({audio:true});
-      const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':(MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':'');
-      recorder=new MediaRecorder(recordStream,mime?{mimeType:mime}:undefined);
-      recordChunks=[];recordStarted=Date.now();voiceBlob=null;voiceDuration=0;
-      mic.classList.add('is-recording');mic.setAttribute('aria-label','Stop recording');status.textContent='Recording… tap the mic to finish';
-      recorder.ondataavailable=e=>{if(e.data?.size)recordChunks.push(e.data);};
-      recorder.onstop=()=>{
-        recordStream?.getTracks().forEach(track=>track.stop());recordStream=null;
-        if(recordLimit)clearTimeout(recordLimit);recordLimit=null;
-        voiceDuration=Math.max(1,Math.min(120,Math.round((Date.now()-recordStarted)/1000)));
-        voiceBlob=new Blob(recordChunks,{type:recorder?.mimeType||'audio/webm'});
-        recorder=null;recordChunks=[];mic.classList.remove('is-recording');mic.setAttribute('aria-label','Record voice note');
-        if(previewUrl)URL.revokeObjectURL(previewUrl);
-        previewUrl=URL.createObjectURL(voiceBlob);
-        preview.innerHTML='<audio controls preload="metadata" src="'+previewUrl+'"></audio><button type="button" id="biz-comment-discard-audio">Remove recording</button>';
-        $('#biz-comment-discard-audio')?.addEventListener('click',()=>{voiceBlob=null;voiceDuration=0;preview.innerHTML='';if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl='';status.textContent='Text or voice note · up to 2 minutes';});
-        status.textContent='Voice note ready · '+voiceDuration+'s';
-      };
-      recorder.start();recordLimit=setTimeout(()=>stopRecording(),120000);
-    }catch(error){recordStream?.getTracks().forEach(track=>track.stop());recordStream=null;mic.classList.remove('is-recording');status.textContent='Text or voice note · up to 2 minutes';toast('Microphone permission was not granted.','alert');}
+
+  const legacyMarkup = legacy.map(comment => {
+    const person = personOf(comment.authorId);
+    const name = person.short || person.name || person.username || 'Space member';
+    return '<article class="biz-comment-card">' +
+      '<div class="biz-comment-avatar">' + avatar(person, 38) + '</div>' +
+      '<div class="biz-comment-content"><div class="biz-comment-heading"><strong>' + esc(name) +
+      '</strong><span class="biz-comment-time">' + esc(formatCommentTime(Number(comment.at))) + '</span></div>' +
+      '<div class="biz-comment-bubble">' + esc(comment.text || '') + '</div></div></article>';
+  }).join('');
+
+  const newMarkup = comments.map(comment => {
+    const anonymous = !!comment.anonymous;
+    const author = anonymous ? 'Anonymous member' :
+      (comment.author_display_name || comment.author_username || 'Space member');
+    const identity = anonymous
+      ? '<div class="biz-comment-avatar biz-comment-avatar--anonymous" aria-label="Anonymous member">' + icon('user-round') + '</div>'
+      : (comment.author_avatar_url
+        ? '<div class="biz-comment-avatar"><div class="av" style="width:38px;height:38px;flex:0 0 38px"><img src="' + esc(comment.author_avatar_url) + '" alt="" /></div></div>'
+        : '<div class="biz-comment-avatar biz-comment-avatar--fallback">' + icon('user-round') + '</div>');
+    const privacy = comment.private_to_author
+      ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>'
+      : '';
+    const voice = comment.voiceUrl
+      ? '<div class="biz-comment-voice"><span class="biz-comment-voice-icon">' + icon('volume-2') +
+        '</span><audio controls preload="none" src="' + esc(comment.voiceUrl) + '"></audio></div>'
+      : '';
+    const text = comment.body
+      ? '<div class="biz-comment-bubble">' + esc(comment.body) + '</div>'
+      : '';
+    return '<article class="biz-comment-card">' + identity +
+      '<div class="biz-comment-content"><div class="biz-comment-heading"><strong>' + esc(author) +
+      '</strong><span class="biz-comment-time">' + esc(formatCommentTime(comment.created_at_ms)) +
+      '</span>' + privacy + '</div>' + text + voice + '</div></article>';
+  }).join('');
+
+  const total = legacy.length + comments.length;
+  post.commentsCount = total;
+  const listMarkup = legacyMarkup + newMarkup;
+  const body =
+    '<section class="biz-comments-shell" aria-label="Post conversation">' +
+      '<div class="biz-comments-intro">' +
+        '<div class="biz-comments-intro-mark">' + icon('messages-square') + '</div>' +
+        '<div><span class="biz-comments-eyebrow">THE CONVERSATION</span>' +
+        '<h3>' + (total ? 'Good conversations start here.' : 'Make the first move.') + '</h3>' +
+        '<p>' + (total ? 'Ideas, questions and useful updates from your Space.' : 'Share a thought, ask a question or leave a voice note for the Space.') + '</p></div>' +
+      '</div>' +
+      '<div class="biz-comments-list-head"><span>COMMENTS</span><span class="biz-comments-count">' + total + '</span></div>' +
+      '<div class="biz-comment-list" aria-live="polite">' +
+        (listMarkup || '<div class="biz-comment-empty"><span>' + icon('message-circle') + '</span><strong>It’s quiet in here.</strong><p>Be the first to add something meaningful to this post.</p></div>') +
+      '</div>' +
+    '</section>';
+
+  const foot =
+    '<form id="biz-comment-form" class="biz-comment-composer">' +
+      '<div class="biz-comment-compose-heading"><div><span class="biz-comments-eyebrow">YOUR TURN</span><strong>Add to the conversation</strong></div>' +
+      '<span id="biz-comment-char-count">0 / 1000</span></div>' +
+      '<div class="biz-comment-input-wrap"><textarea id="biz-comment-input" rows="2" maxlength="1000" placeholder="Write something thoughtful…" aria-label="Write a comment"></textarea></div>' +
+      '<div class="biz-comment-options">' +
+        '<label class="biz-comment-option"><input id="biz-comment-anonymous" type="checkbox" /><span class="biz-comment-option-icon">' + icon('user-round') + '</span><span class="biz-comment-option-copy"><strong>Post anonymously</strong><small>Hide your name and profile</small></span><i></i></label>' +
+        '<label class="biz-comment-option"><input id="biz-comment-private" type="checkbox" /><span class="biz-comment-option-icon">' + icon('lock') + '</span><span class="biz-comment-option-copy"><strong>Private to post author</strong><small>Only you and the author can see it</small></span><i></i></label>' +
+      '</div>' +
+      '<div id="biz-comment-audio-preview" class="biz-comment-audio-preview" hidden></div>' +
+      '<div class="biz-comment-compose-bottom">' +
+        '<button class="biz-comment-mic" id="biz-comment-mic" type="button" aria-label="Record a voice comment" title="Record a voice comment">' + icon('mic') + '</button>' +
+        '<div class="biz-comment-record-copy"><strong id="biz-comment-record-title">Add a voice note</strong><span id="biz-comment-record-status">Up to 2 minutes · preview before posting</span></div>' +
+        '<button class="biz-comment-submit" id="biz-comment-submit" type="submit" disabled><span>Post comment</span>' + icon('arrow-up-right') + '</button>' +
+      '</div>' +
+      '<p class="biz-comment-privacy-note">' + icon('shield-check') + '<span>Your privacy choice applies only to this comment. You can post with your name, anonymously, or privately to the post author.</span></p>' +
+    '</form>';
+
+  openSheet({
+    title: 'Comments',
+    sub: (total === 1 ? '1 response' : total + ' responses') + ' · ' + (post.title || 'Business Space post'),
+    body,
+    foot
   });
-  $('#biz-comment-form')?.addEventListener('submit',async e=>{
-    e.preventDefault();
-    const input=$('#biz-comment-input'),textValue=input?.value.trim()||'';
-    if(!textValue&&!voiceBlob){toast('Write a comment or record a voice note first.','x');return;}
-    const anonymous=!!$('#biz-comment-anonymous')?.checked,privateToAuthor=!!$('#biz-comment-private')?.checked;
-    let voicePath=null;
-    if(voiceBlob){
-      voicePath=crypto.randomUUID()+'.webm';
-      const {error:uploadError}=await supabaseClient.storage.from('ming-business-comment-voice').upload(voicePath,voiceBlob,{contentType:'audio/webm',upsert:false});
-      if(uploadError){toast(uploadError.message||'Voice note could not be uploaded. Run the Business Space comment migration first.','alert');return;}
+
+  let recorder = null;
+  let recordStream = null;
+  let recordChunks = [];
+  let voiceBlob = null;
+  let voiceDuration = 0;
+  let recordStarted = 0;
+  let recordLimit = null;
+  let recordTicker = null;
+  let previewUrl = '';
+  let posting = false;
+
+  const mic = $('#biz-comment-mic');
+  const status = $('#biz-comment-record-status');
+  const recordTitle = $('#biz-comment-record-title');
+  const preview = $('#biz-comment-audio-preview');
+  const input = $('#biz-comment-input');
+  const submit = $('#biz-comment-submit');
+  const charCount = $('#biz-comment-char-count');
+  const anonymousToggle = $('#biz-comment-anonymous');
+  const privateToggle = $('#biz-comment-private');
+
+  const updateComposer = () => {
+    const hasContent = !!(input?.value.trim() || voiceBlob);
+    if (submit) submit.disabled = posting || !hasContent;
+    if (charCount) charCount.textContent = (input?.value.length || 0) + ' / 1000';
+  };
+  input?.addEventListener('input', updateComposer);
+  updateComposer();
+
+  const releaseRecording = () => {
+    if (recordLimit) clearTimeout(recordLimit);
+    if (recordTicker) clearInterval(recordTicker);
+    recordLimit = null;
+    recordTicker = null;
+    recordStream?.getTracks().forEach(track => track.stop());
+    recordStream = null;
+  };
+
+  const stopRecording = () => {
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  };
+
+  mic?.addEventListener('click', async () => {
+    if (posting) return;
+    if (recorder && recorder.state === 'recording') {
+      stopRecording();
+      return;
     }
-    const {data:comment,error}=await supabaseClient.rpc('add_ming_business_space_post_comment_v2',{
-      p_content_id:post.id,p_text:textValue,p_anonymous:anonymous,p_private_to_author:privateToAuthor,p_voice_path:voicePath,p_voice_duration:voiceDuration||null
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      toast('Voice comments are not supported in this browser.', 'alert');
+      return;
+    }
+    try {
+      recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+      recorder = new MediaRecorder(recordStream, mime ? { mimeType: mime } : undefined);
+      recordChunks = [];
+      recordStarted = Date.now();
+      voiceBlob = null;
+      voiceDuration = 0;
+      mic.classList.add('is-recording');
+      mic.setAttribute('aria-label', 'Stop recording');
+      recordTitle.textContent = 'Recording your voice…';
+      status.textContent = '00:00 · Tap the button to finish';
+      updateComposer();
+
+      recorder.ondataavailable = event => {
+        if (event.data?.size) recordChunks.push(event.data);
+      };
+      recorder.onstop = () => {
+        const duration = Math.max(1, Math.min(120, Math.round((Date.now() - recordStarted) / 1000)));
+        voiceDuration = duration;
+        voiceBlob = new Blob(recordChunks, { type: recorder?.mimeType || 'audio/webm' });
+        recorder = null;
+        releaseRecording();
+        recordChunks = [];
+        mic.classList.remove('is-recording');
+        mic.setAttribute('aria-label', 'Record a voice comment');
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = URL.createObjectURL(voiceBlob);
+        preview.hidden = false;
+        preview.innerHTML =
+          '<div class="biz-comment-preview-label">' + icon('audio-lines') + '<span><strong>Voice note ready</strong><small>' + duration + ' seconds · listen before posting</small></span></div>' +
+          '<audio controls preload="metadata" src="' + previewUrl + '"></audio>' +
+          '<button type="button" id="biz-comment-discard-audio" aria-label="Remove voice note">' + icon('x') + '</button>';
+        $('#biz-comment-discard-audio')?.addEventListener('click', () => {
+          voiceBlob = null;
+          voiceDuration = 0;
+          preview.hidden = true;
+          preview.innerHTML = '';
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+          previewUrl = '';
+          recordTitle.textContent = 'Add a voice note';
+          status.textContent = 'Up to 2 minutes · preview before posting';
+          updateComposer();
+        });
+        recordTitle.textContent = 'Voice note attached';
+        status.textContent = 'Ready to post · ' + duration + ' seconds';
+        updateComposer();
+      };
+
+      recorder.start();
+      recordTicker = setInterval(() => {
+        const elapsed = Math.min(120, Math.floor((Date.now() - recordStarted) / 1000));
+        const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const ss = String(elapsed % 60).padStart(2, '0');
+        status.textContent = mm + ':' + ss + ' · Tap the button to finish';
+      }, 500);
+      recordLimit = setTimeout(stopRecording, 120000);
+    } catch (error) {
+      releaseRecording();
+      mic.classList.remove('is-recording');
+      recordTitle.textContent = 'Add a voice note';
+      status.textContent = 'Microphone access was not available';
+      toast('Microphone permission was not granted.', 'alert');
+    }
+  });
+
+  $('#biz-comment-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (posting) return;
+    const textValue = input?.value.trim() || '';
+    if (!textValue && !voiceBlob) {
+      toast('Write a comment or record a voice note first.', 'x');
+      return;
+    }
+
+    posting = true;
+    submit.disabled = true;
+    submit.classList.add('is-loading');
+    submit.querySelector('span').textContent = 'Posting…';
+    input.disabled = true;
+    mic.disabled = true;
+    anonymousToggle.disabled = true;
+    privateToggle.disabled = true;
+
+    let voicePath = null;
+    if (voiceBlob) {
+      voicePath = crypto.randomUUID() + '.webm';
+      const { error: uploadError } = await supabaseClient.storage
+        .from('ming-business-comment-voice')
+        .upload(voicePath, voiceBlob, { contentType: 'audio/webm', upsert: false });
+      if (uploadError) {
+        posting = false;
+        submit.classList.remove('is-loading');
+        submit.querySelector('span').textContent = 'Post comment';
+        input.disabled = false;
+        mic.disabled = false;
+        anonymousToggle.disabled = false;
+        privateToggle.disabled = false;
+        updateComposer();
+        toast(uploadError.message || 'Voice note could not be uploaded. Check the Business Space comment setup.', 'alert');
+        return;
+      }
+    }
+
+    const { error: saveError } = await supabaseClient.rpc('add_ming_business_space_post_comment_v2', {
+      p_content_id: post.id,
+      p_text: textValue,
+      p_anonymous: !!anonymousToggle.checked,
+      p_private_to_author: !!privateToggle.checked,
+      p_voice_path: voicePath,
+      p_voice_duration: voiceDuration || null
     });
-    if(error){
-      if(voicePath)await supabaseClient.storage.from('ming-business-comment-voice').remove([voicePath]);
-      toast(error.message||'Comment could not be posted. Run the Business Space comment migration first.','alert');return;
+
+    if (saveError) {
+      if (voicePath) await supabaseClient.storage.from('ming-business-comment-voice').remove([voicePath]);
+      posting = false;
+      submit.classList.remove('is-loading');
+      submit.querySelector('span').textContent = 'Post comment';
+      input.disabled = false;
+      mic.disabled = false;
+      anonymousToggle.disabled = false;
+      privateToggle.disabled = false;
+      updateComposer();
+      toast(saveError.message || 'Comment could not be posted. Check the Business Space comment setup.', 'alert');
+      return;
     }
-    if(previewUrl)URL.revokeObjectURL(previewUrl);
-    refreshSpace();openBusinessPostComments(postId);toast('Comment posted','check');
+
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    releaseRecording();
+    await refreshSpace();
+    await openBusinessPostComments(postId);
+    toast('Comment posted', 'check');
   });
 }
-
 async function getBusinessPostShareData(postId) {
   const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
   if(!post)return null;
