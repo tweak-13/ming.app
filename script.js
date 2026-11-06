@@ -10563,8 +10563,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
   const rpcAdd = isFriendship ? 'add_ming_friendship_space_post_comment_v2' : 'add_ming_business_space_post_comment_v2';
   const rpcClaim = isFriendship ? 'claim_ming_friendship_space_comment_voice_once' : 'claim_ming_business_space_comment_voice_once';
   const rpcDelete = isFriendship ? 'delete_ming_friendship_space_post_comment' : 'delete_ming_business_space_post_comment';
-  const spaceLabel = isFriendship ? 'Friendship' : 'Business Space';
-  const post = Server.db.content.find(x => x.id === postId && x.spaceId === sp.activeId && x.kind === postKind);
+    const post = Server.db.content.find(x => x.id === postId && x.spaceId === sp.activeId && x.kind === postKind);
   if (!post) return;
 
   const legacy = Array.isArray(post.comments) ? post.comments : [];
@@ -10573,7 +10572,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
     { p_content_id: post.id }
   );
   if (loadError) {
-    console.warn('Tweaklr: Business Space comments could not be loaded.', loadError.message);
+    console.warn('Tweaklr: Space comments could not be loaded.', loadError.message);
     toast('Some comments could not be loaded. Check the Space comment setup.', 'alert');
   }
 
@@ -11013,7 +11012,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
       }
     }
 
-    const { error: saveError } = await supabaseClient.rpc('add_ming_business_space_post_comment_v2', {
+    const { error: saveError } = await supabaseClient.rpc(rpcAdd, {
       p_content_id: post.id,
       p_text: textValue,
       p_anonymous: categoryPrompt.querySelector('input[name="biz-comment-category"]:checked')?.value === 'anonymous',
