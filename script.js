@@ -10871,7 +10871,7 @@ async function openBusinessPostComments(postId) {
     if (send) { send.disabled = true; send.textContent = 'Sending…'; }
     try {
       const { error } = await supabaseClient.rpc('add_ming_business_space_post_comment_v2', {
-        p_content_id: form.dataset.bizReply,
+        p_content_id: form.dataset.bizReplyForm,
         p_text: replyText,
         p_anonymous: privacyChoice === 'anonymous',
         p_private_to_author: privacyChoice === 'private',
