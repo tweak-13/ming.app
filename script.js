@@ -10823,10 +10823,6 @@ async function openBusinessPostComments(postId) {
       thread.querySelector('[data-biz-reply-form] textarea')?.focus();
       return;
     }
-    if (event.target.matches('.biz-reply-privacy input[type="radio"]')) {
-      const group = event.target.closest('.biz-reply-privacy');
-      group?.querySelectorAll('label').forEach(label => label.classList.toggle('is-selected', label.contains(event.target) && event.target.checked));
-    }
     if (event.target.closest('[data-biz-reply-cancel]')) {
       event.target.closest('[data-biz-reply-form]')?.remove();
       return;
@@ -10854,6 +10850,14 @@ async function openBusinessPostComments(postId) {
       deleteButton.textContent = 'Delete';
       toast(error?.message || 'Could not delete this comment. Please try again.', 'alert');
     }
+  });
+
+  commentSheet?.addEventListener('change', event => {
+    if (!event.target.matches('.biz-reply-privacy input[type="radio"]')) return;
+    const group = event.target.closest('.biz-reply-privacy');
+    group?.querySelectorAll('label').forEach(label => {
+      label.classList.toggle('is-selected', label.contains(event.target) && event.target.checked);
+    });
   });
 
   commentSheet?.addEventListener('submit', async event => {
