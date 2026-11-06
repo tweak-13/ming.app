@@ -68,29 +68,39 @@ revoke all on table public.ming_comments from public, anon, authenticated;
 
 -- Preserve comments already saved by the earlier Business-only migration.
 -- Their IDs, timestamps, privacy choices, voice paths and view-once history remain.
-insert into public.ming_comments (
-  id, target_type, target_id, space_id, author_id, body, visibility,
-  voice_path, voice_duration, voice_view_once, voice_viewed_by, created_at
-)
-select
-  old.id,
-  'space_content',
-  old.content_id,
-  old.space_id,
-  old.author_id,
-  old.body,
-  case
-    when old.private_to_author then 'private_to_post_author'
-    when old.anonymous then 'anonymous'
-    else 'everyone'
-  end,
-  old.voice_path,
-  old.voice_duration,
-  old.voice_view_once,
-  coalesce(old.voice_viewed_by, '{}'::uuid[]),
-  old.created_at
-from public.ming_business_space_post_comments old
-on conflict (id) do nothing;
+do $migration$
+begin
+  -- Older installations may not have created the Business-only comments table.
+  -- In that case there is nothing to migrate; new comments use ming_comments.
+  if to_regclass('public.ming_business_space_post_comments') is not null then
+    execute $copy$
+      insert into public.ming_comments (
+        id, target_type, target_id, space_id, author_id, body, visibility,
+        voice_path, voice_duration, voice_view_once, voice_viewed_by, created_at
+      )
+      select
+        old.id,
+        'space_content',
+        old.content_id,
+        old.space_id,
+        old.author_id,
+        old.body,
+        case
+          when old.private_to_author then 'private_to_post_author'
+          when old.anonymous then 'anonymous'
+          else 'everyone'
+        end,
+        old.voice_path,
+        old.voice_duration,
+        old.voice_view_once,
+        coalesce(old.voice_viewed_by, '{}'::uuid[]),
+        old.created_at
+      from public.ming_business_space_post_comments old
+      on conflict (id) do nothing
+    $copy$;
+  end if;
+end;
+$migration$;
 
 -- Keep the existing private bucket. Its read policy now recognises comments
 -- stored in the shared table while retaining access to any legacy rows.
@@ -136,22 +146,6 @@ as $function$
       and (
         c.visibility <> 'private_to_post_author'
         or c.author_id = (select auth.uid())
-        or p.author_id = (select auth.uid())
-      )
-  )
-  or exists (
-    select 1
-    from public.ming_business_space_post_comments old
-    join public.ming_space_content p on p.id = old.content_id
-    join public.ming_space_members m
-      on m.space_id = old.space_id
-     and m.user_id = (select auth.uid())
-     and m.approved = true
-    where old.voice_path = p_voice_path
-      and p.kind = 'business_post'
-      and (
-        not old.private_to_author
-        or old.author_id = (select auth.uid())
         or p.author_id = (select auth.uid())
       )
   );
