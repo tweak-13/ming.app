@@ -194,7 +194,7 @@ as $function$
   select exists (
     select 1
     from public.ming_comments c
-    join public.ming_space_content p on p.id=c.target_id
+    join public.ming_space_content p on p.id=c.target_id and p.space_id=c.space_id
       and ((p.kind='business_post' and exists(select 1 from public.ming_spaces sb where sb.id=c.space_id and sb.nature='business'))
         or (p.kind='friend_post' and exists(select 1 from public.ming_spaces sf where sf.id=c.space_id and sf.nature='friendly')))
     join public.ming_space_members m on m.space_id=c.space_id and m.user_id=(select auth.uid()) and m.approved=true
