@@ -10594,34 +10594,39 @@ async function openBusinessPostComments(postId) {
       '<div class="biz-comment-bubble">' + esc(comment.text || '') + '</div></div></article>';
   }).join('');
 
-  const newMarkup = comments.map(comment => {
+  const commentReplies = new Map();
+  comments.forEach(comment => {
+    const parentId = comment.parent_comment_id || null;
+    if (!commentReplies.has(parentId)) commentReplies.set(parentId, []);
+    commentReplies.get(parentId).push(comment);
+  });
+
+  const renderBusinessComment = (comment, isReply = false) => {
     const anonymous = !!comment.anonymous;
-    const author = anonymous ? 'Anonymous member' :
-      (comment.author_display_name || comment.author_username || 'Space member');
+    const author = anonymous ? 'Anonymous member' : (comment.author_display_name || comment.author_username || 'Space member');
     const identity = anonymous
       ? '<div class="biz-comment-avatar biz-comment-avatar--anonymous" aria-label="Anonymous member">' + icon('user-round') + '</div>'
       : (comment.author_avatar_url
         ? '<div class="biz-comment-avatar"><div class="av" style="width:38px;height:38px;flex:0 0 38px"><img src="' + esc(comment.author_avatar_url) + '" alt="" /></div></div>'
         : '<div class="biz-comment-avatar biz-comment-avatar--fallback">' + icon('user-round') + '</div>');
-    const privacy = comment.private_to_author
-      ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>'
-      : '';
+    const privacy = comment.private_to_author ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>' : '';
     const voice = comment.voice_view_once
       ? (comment.voice_viewed
         ? '<div class="biz-comment-voice-once is-consumed">' + icon('check-circle') + '<span>Voice note already played</span></div>'
         : '<div class="biz-comment-voice-once"><span>' + icon('headphones') + '</span><div><strong>One-time voice note</strong><small>Available for one listen</small></div><button type="button" class="biz-comment-once-play" data-comment-once="' + esc(comment.id) + '">Listen once</button></div>')
-      : (comment.voiceUrl
-        ? '<div class="biz-comment-voice"><span class="biz-comment-voice-icon">' + icon('volume-2') +
-          '</span><audio controls preload="none" src="' + esc(comment.voiceUrl) + '"></audio></div>'
-        : '');
-    const text = comment.body
-      ? '<div class="biz-comment-bubble">' + esc(comment.body) + '</div>'
-      : '';
-    return '<article class="biz-comment-card">' + identity +
-      '<div class="biz-comment-content"><div class="biz-comment-heading"><strong>' + esc(author) +
-      '</strong><span class="biz-comment-time">' + esc(formatCommentTime(comment.created_at_ms)) +
-      '</span>' + privacy + '</div>' + text + voice + '</div></article>';
-  }).join('');
+      : (comment.voiceUrl ? '<div class="biz-comment-voice"><span class="biz-comment-voice-icon">' + icon('volume-2') + '</span><audio controls preload="none" src="' + esc(comment.voiceUrl) + '"></audio></div>' : '');
+    const text = comment.body ? '<div class="biz-comment-bubble">' + esc(comment.body) + '</div>' : '';
+    const actions = '<div class="biz-comment-actions">' +
+      (!isReply ? '<button type="button" data-biz-reply="' + esc(comment.id) + '">' + icon('reply') + ' Reply</button>' : '') +
+      (comment.is_mine ? '<button type="button" class="is-delete" data-biz-delete-comment="' + esc(comment.id) + '">' + icon('trash') + ' Delete</button>' : '') +
+      '</div>';
+    const children = !isReply ? (commentReplies.get(String(comment.id)) || []).map(child => renderBusinessComment(child, true)).join('') : '';
+    return '<div class="biz-comment-thread' + (isReply ? ' is-reply' : '') + '"><article class="biz-comment-card">' + identity +
+      '<div class="biz-comment-content"><div class="biz-comment-heading"><strong>' + esc(author) + '</strong><span class="biz-comment-time">' +
+      esc(formatCommentTime(comment.created_at_ms)) + '</span>' + privacy + '</div>' + text + voice + actions + '</div></article>' +
+      (children ? '<div class="biz-comment-replies">' + children + '</div>' : '') + '</div>';
+  };
+  const newMarkup = (commentReplies.get(null) || []).map(comment => renderBusinessComment(comment)).join('');
 
   const total = legacy.length + comments.length;
   post.commentsCount = total;
@@ -10798,6 +10803,72 @@ async function openBusinessPostComments(postId) {
   });
 
   categoryPrompt?.addEventListener('change', updateComposer);
+
+  // Reply and delete controls are delegated from the comments sheet.
+  const commentSheet = $('#sheet');
+  commentSheet?.addEventListener('click', async event => {
+    const replyButton = event.target.closest('[data-biz-reply]');
+    if (replyButton) {
+      const thread = replyButton.closest('.biz-comment-thread');
+      if (!thread || thread.querySelector('[data-biz-reply-form]')) return;
+      thread.insertAdjacentHTML('beforeend',
+        '<form class="biz-comment-reply-form" data-biz-reply-form="' + esc(replyButton.dataset.bizReply) + '">' +
+        '<textarea rows="2" maxlength="1000" placeholder="Write a reply…" aria-label="Write a reply"></textarea>' +
+        '<div><button type="button" data-biz-reply-cancel>Cancel</button><button type="submit">Send reply</button></div></form>');
+      thread.querySelector('[data-biz-reply-form] textarea')?.focus();
+      return;
+    }
+    if (event.target.closest('[data-biz-reply-cancel]')) {
+      event.target.closest('[data-biz-reply-form]')?.remove();
+      return;
+    }
+    const deleteButton = event.target.closest('[data-biz-delete-comment]');
+    if (!deleteButton || deleteButton.disabled) return;
+    if (!window.confirm('Delete this comment? Any replies beneath it will also be removed.')) return;
+    const commentId = deleteButton.dataset.bizDeleteComment;
+    deleteButton.disabled = true;
+    deleteButton.textContent = 'Deleting…';
+    try {
+      const { data, error } = await supabaseClient.rpc('delete_ming_business_space_post_comment', { p_comment_id: commentId });
+      if (error) throw error;
+      const paths = Array.isArray(data?.voice_paths) ? data.voice_paths.filter(Boolean) : [];
+      if (paths.length) {
+        const { error: storageError } = await supabaseClient.storage.from('ming-business-comment-voice').remove(paths);
+        if (storageError) console.warn('Tweaklr: deleted comment voice files could not be cleaned up.', storageError.message);
+      }
+      await refreshSpace();
+      await openBusinessPostComments(postId);
+      toast('Comment deleted', 'check');
+    } catch (error) {
+      console.warn('Tweaklr: Business Space comment deletion failed.', error);
+      deleteButton.disabled = false;
+      deleteButton.textContent = 'Delete';
+      toast(error?.message || 'Could not delete this comment. Please try again.', 'alert');
+    }
+  });
+
+  commentSheet?.addEventListener('submit', async event => {
+    const form = event.target.closest('[data-biz-reply-form]');
+    if (!form) return;
+    event.preventDefault();
+    const replyText = form.querySelector('textarea')?.value.trim() || '';
+    if (!replyText) { toast('Write a reply first.', 'alert'); return; }
+    const send = form.querySelector('button[type="submit"]');
+    if (send) { send.disabled = true; send.textContent = 'Sending…'; }
+    try {
+      const { error } = await supabaseClient.rpc('add_ming_business_space_post_comment_reply', {
+        p_parent_comment_id: form.dataset.bizReply, p_text: replyText
+      });
+      if (error) throw error;
+      await openBusinessPostComments(postId);
+      await refreshSpace();
+      toast('Reply posted', 'check');
+    } catch (error) {
+      console.warn('Tweaklr: Business Space comment reply failed.', error);
+      if (send) { send.disabled = false; send.textContent = 'Send reply'; }
+      toast(error?.message || 'Could not post your reply. Please try again.', 'alert');
+    }
+  });
 
   // View-once playback: always release the button on lookup, Storage or RPC
   // failures. A transient RPC error must not be mistaken for an already-used note.
