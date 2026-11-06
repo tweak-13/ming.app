@@ -10557,8 +10557,14 @@ function openBusinessUpdateComposer() {
   });
 }
 
-async function openBusinessPostComments(postId) {
-  const post = Server.db.content.find(x => x.id === postId && x.spaceId === sp.activeId && x.kind === 'business_post');
+async function openSpacePostComments(postId, postKind = 'business_post') {
+  const isFriendship = postKind === 'friend_post';
+  const rpcGet = isFriendship ? 'get_ming_friendship_space_post_comments' : rpcGet;
+  const rpcAdd = isFriendship ? 'add_ming_friendship_space_post_comment_v2' : rpcAdd;
+  const rpcClaim = isFriendship ? 'claim_ming_friendship_space_comment_voice_once' : rpcClaim;
+  const rpcDelete = isFriendship ? 'delete_ming_friendship_space_post_comment' : rpcDelete;
+  const spaceLabel = isFriendship ? 'Friendship' : 'Business Space';
+  const post = Server.db.content.find(x => x.id === postId && x.spaceId === sp.activeId && x.kind === postKind);
   if (!post) return;
 
   const legacy = Array.isArray(post.comments) ? post.comments : [];
@@ -10568,7 +10574,7 @@ async function openBusinessPostComments(postId) {
   );
   if (loadError) {
     console.warn('Tweaklr: Business Space comments could not be loaded.', loadError.message);
-    toast('Some comments could not be loaded. Check the Business Space comment setup.', 'alert');
+    toast('Some comments could not be loaded. Check the Space comment setup.', 'alert');
   }
 
   const comments = await Promise.all((rows || []).map(async row => {
@@ -10673,7 +10679,7 @@ async function openBusinessPostComments(postId) {
 
   openSheet({
     title: 'Comments',
-    sub: (total === 1 ? '1 response' : total + ' responses') + ' · ' + (post.title || 'Business Space post'),
+    sub: (total === 1 ? '1 response' : total + ' responses') + ' · ' + (post.title || (isFriendship ? 'Friendship post' : 'Business Space post')),
     body: body + foot,
     foot: ''
   });
@@ -10845,10 +10851,10 @@ async function openBusinessPostComments(postId) {
         if (storageError) console.warn('Tweaklr: deleted comment voice files could not be cleaned up.', storageError.message);
       }
       await refreshSpace();
-      await openBusinessPostComments(postId);
+      await openSpacePostComments(postId, postKind);
       toast('Comment deleted', 'check');
     } catch (error) {
-      console.warn('Tweaklr: Business Space comment deletion failed.', error);
+      console.warn('Tweaklr: Space comment deletion failed.', error);
       deleteButton.disabled = false;
       deleteButton.textContent = 'Delete';
       toast(error?.message || 'Could not delete this comment. Please try again.', 'alert');
@@ -11002,7 +11008,7 @@ async function openBusinessPostComments(postId) {
         mic.disabled = false;
         categoryPrompt.querySelectorAll('input').forEach(control => control.disabled = false);
         updateComposer();
-        toast(uploadError.message || 'Voice note could not be uploaded. Check the Business Space comment setup.', 'alert');
+        toast(uploadError.message || 'Voice note could not be uploaded. Check the Space comment setup.', 'alert');
         return;
       }
     }
@@ -11026,7 +11032,7 @@ async function openBusinessPostComments(postId) {
       mic.disabled = false;
       categoryPrompt.querySelectorAll('input').forEach(control => control.disabled = false);
       updateComposer();
-      toast(saveError.message || 'Comment could not be posted. Check the Business Space comment setup.', 'alert');
+      toast(saveError.message || 'Comment could not be posted. Check the Space comment setup.', 'alert');
       return;
     }
 
@@ -11037,6 +11043,10 @@ async function openBusinessPostComments(postId) {
     toast('Comment posted', 'check');
   });
 }
+
+async function openBusinessPostComments(postId) { return openSpacePostComments(postId, 'business_post'); }
+async function openFriendshipPostComments(postId) { return openSpacePostComments(postId, 'friend_post'); }
+
 async function getBusinessPostShareData(postId) {
   const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
   if(!post)return null;
@@ -12633,17 +12643,7 @@ document.addEventListener('click', async e => {
     case 'friend-like': { const res=await Server.submit('content.mutate',{id:a,op:'react',key:'like'}); if(!res.ok){toast(res.error||'Could not react.','x');break;} refreshSpace(); break; }
     case 'friend-connect': connectWith(a); break;
     case 'friend-message': if(a && a!==currentUser.id) openChat(a); break;
-    case 'friend-comments': {
-      const post=Server.db.content.find(x=>x.id===a&&x.kind==='friend_post');if(!post)break;
-      const comments=Array.isArray(post.comments)?post.comments:[];
-      openSheet({title:'The conversation',sub:'Keep it kind. Make a connection.',body:'<div class="friend-comment-list">'+(comments.length?comments.map(c=>{const p=personOf(c.authorId);return '<article><b>'+esc(p.short||p.name||'Friend')+'</b><p>'+esc(c.text)+'</p><small>'+esc(timeAgo(Number(c.at||Date.now())))+'</small></article>';}).join(''):'<p class="friend-comment-empty">Be the first to say something.</p>')+'</div><div class="field"><label for="friend-comment-text">Add a comment</label><textarea id="friend-comment-text" maxlength="400" rows="3" placeholder="Say something thoughtful…"></textarea></div>',foot:'<button type="button" class="btn btn--soft" data-action="close-sheet">Close</button><button type="button" class="btn btn--primary" data-sp="friend-comment-submit:'+a+'">Comment</button>'});
-      break;
-    }
-    case 'friend-comment-submit': {
-      const textValue=$('#friend-comment-text')?.value.trim()||'';if(!textValue){toast('Write a comment first.','x');break;}
-      const result=await Server.submit('content.mutate',{id:a,op:'comment',text:textValue});if(!result.ok){toast(result.error||'Comment could not be saved.','x');break;}
-      closeSheet();refreshSpace();toast('Comment added','check');break;
-    }
+    case 'friend-comments': await openFriendshipPostComments(a); break;
     case 'friend-media': { const post=Server.db.content.find(x=>x.id===a&&x.kind==='friend_post'); const item=post?.media?.[Number(b)]; const cached=friendlyMediaUrlCache.get(a)||[]; const url=item?.url||cached[Number(b)]||''; if(url)window.open(url,'_blank','noopener'); break; }
     case 'new': a === 'product' ? openProductComposer() : (a === 'task' ? openTaskComposer() : openComposerFor(a)); break;
     case 'task-cancel': closeSheet(); break;
