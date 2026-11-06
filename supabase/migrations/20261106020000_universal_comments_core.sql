@@ -107,47 +107,65 @@ set public = false,
     file_size_limit = 10485760,
     allowed_mime_types = excluded.allowed_mime_types;
 
+-- SECURITY DEFINER helper lets the Storage policy check comment permissions
+-- without granting clients direct SELECT access to the private comments table.
+create or replace function public.can_read_ming_business_comment_voice(
+  p_voice_path text
+)
+returns boolean
+language sql
+security definer
+set search_path = ''
+stable
+as $function$
+  select exists (
+    select 1
+    from public.ming_comments c
+    join public.ming_space_content p
+      on p.id = c.target_id
+     and p.kind = 'business_post'
+    join public.ming_spaces s
+      on s.id = c.space_id
+     and s.nature = 'business'
+    join public.ming_space_members m
+      on m.space_id = c.space_id
+     and m.user_id = (select auth.uid())
+     and m.approved = true
+    where c.target_type = 'space_content'
+      and c.voice_path = p_voice_path
+      and (
+        c.visibility <> 'private_to_post_author'
+        or c.author_id = (select auth.uid())
+        or p.author_id = (select auth.uid())
+      )
+  )
+  or exists (
+    select 1
+    from public.ming_business_space_post_comments old
+    join public.ming_space_content p on p.id = old.content_id
+    join public.ming_space_members m
+      on m.space_id = old.space_id
+     and m.user_id = (select auth.uid())
+     and m.approved = true
+    where old.voice_path = p_voice_path
+      and p.kind = 'business_post'
+      and (
+        not old.private_to_author
+        or old.author_id = (select auth.uid())
+        or p.author_id = (select auth.uid())
+      )
+  );
+$function$;
+
+revoke all on function public.can_read_ming_business_comment_voice(text) from public, anon;
+grant execute on function public.can_read_ming_business_comment_voice(text) to authenticated;
+
 drop policy if exists "Business comment voice read permitted" on storage.objects;
 create policy "Business comment voice read permitted"
 on storage.objects for select to authenticated
 using (
   bucket_id = 'ming-business-comment-voice'
-  and (
-    exists (
-      select 1
-      from public.ming_comments c
-      join public.ming_space_content p
-        on p.id = c.target_id
-       and p.kind = 'business_post'
-      join public.ming_space_members m
-        on m.space_id = c.space_id
-       and m.user_id = (select auth.uid())
-       and m.approved = true
-      where c.target_type = 'space_content'
-        and c.voice_path = storage.objects.name
-        and (
-          c.visibility <> 'private_to_post_author'
-          or c.author_id = (select auth.uid())
-          or p.author_id = (select auth.uid())
-        )
-    )
-    or exists (
-      select 1
-      from public.ming_business_space_post_comments old
-      join public.ming_space_content p on p.id = old.content_id
-      join public.ming_space_members m
-        on m.space_id = old.space_id
-       and m.user_id = (select auth.uid())
-       and m.approved = true
-      where old.voice_path = storage.objects.name
-        and p.kind = 'business_post'
-        and (
-          not old.private_to_author
-          or old.author_id = (select auth.uid())
-          or p.author_id = (select auth.uid())
-        )
-    )
-  )
+  and public.can_read_ming_business_comment_voice(storage.objects.name)
 );
 
 -- Existing frontend contract: get_ming_business_space_post_comments(uuid).
@@ -375,8 +393,12 @@ begin
     raise exception 'Voice note is not available to you';
   end if;
 
-  if not v_view_once or (select auth.uid()) = any(coalesce(v_viewed_by, '{}'::uuid[])) then
-    return not v_view_once or (select auth.uid()) = any(coalesce(v_viewed_by, '{}'::uuid[]));
+  if not v_view_once then
+    return true;
+  end if;
+
+  if v_user = any(coalesce(v_viewed_by, '{}'::uuid[])) then
+    return false;
   end if;
 
   update public.ming_comments
