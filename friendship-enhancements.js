@@ -5,8 +5,8 @@
   if (window.__tweaklrFriendshipEnhancements) return;
   window.__tweaklrFriendshipEnhancements = true;
 
-  const nature = window.NATURES?.friendly;
-  const views = window.VIEWS?.friendly;
+  const nature = NATURES?.friendly;
+  const views = VIEWS?.friendly;
   if (!nature || !views) return;
 
   nature.label = 'Friendship';
@@ -24,7 +24,7 @@
   ];
 
   const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const trendPosts = spaceId => (window.friendlyPosts?.(spaceId) || []).filter(post =>
+  const trendPosts = spaceId => (friendlyPosts?.(spaceId) || []).filter(post =>
     post.postFormat === 'trend' || (Array.isArray(post.media) && post.media.some(item => String(item.mime || '').startsWith('video/')))
   );
 
@@ -40,9 +40,9 @@
         challenges.slice(0,8).map(title => '<span class="tw-challenge-chip">✳ ' + esc(title) + '</span>').join('') + '</section>' : '') +
       '<div class="tw-trend-heading"><div><span>WATCH · RECREATE · CONNECT</span><h3>Video trends</h3></div><span>' + posts.length + ' videos</span></div>' +
       (posts.length ? '<div class="tw-trend-feed">' + posts.map(post => {
-        const media = (post.media || []).map((item,index) => ({item,index,url:item.url || (window.friendlyMediaUrlCache?.get(post.id) || [])[index] || ''})).filter(x => x.url && String(x.item.mime || '').startsWith('video/'));
+        const media = (post.media || []).map((item,index) => ({item,index,url:item.url || (friendlyMediaUrlCache?.get(post.id) || [])[index] || ''})).filter(x => x.url && String(x.item.mime || '').startsWith('video/'));
         if (!media.length) return '';
-        const author = window.personOf?.(post.authorId) || {};
+        const author = personOf?.(post.authorId) || {};
         const liked = !!post.mine?.like;
         const video = media[0];
         return '<article class="tw-trend-card" data-trend-id="' + esc(post.id) + '">' +
@@ -89,9 +89,9 @@
   document.head.appendChild(style);
 
   function openTrendComposer(remixId) {
-    const parent = remixId ? trendPosts(window.sp?.activeId).find(p => p.id === remixId) : null;
+    const parent = remixId ? trendPosts(sp?.activeId).find(p => p.id === remixId) : null;
     const challenge = parent?.trendTitle || '';
-    window.openSheet({
+    openSheet({
       title: remixId ? 'Join this trend' : 'Create a trend video',
       sub: 'Show your take on something you love. Shared interests are where friendships begin.',
       body: '<div class="tw-trend-composer">' +
@@ -112,29 +112,29 @@
   }
 
   async function publishTrend() {
-    const space = window.spaceById?.(window.sp?.activeId);
+    const space = spaceById?.(sp?.activeId);
     const file = document.getElementById('tw-trend-video')?.files?.[0];
     const title = document.getElementById('tw-trend-title')?.value.trim() || '';
     const caption = document.getElementById('tw-trend-caption')?.value.trim() || '';
     const interests = (document.getElementById('tw-trend-tags')?.value || '').split(',').map(x => x.trim().replace(/^#/,'')).filter(Boolean).slice(0,8);
     if (!space || space.nature !== 'friendly') return;
-    if (!file || !file.type.startsWith('video/')) { window.toast?.('Choose a video to share.','alert'); return; }
-    if (file.size > 50*1024*1024) { window.toast?.('Videos must be 50 MB or smaller.','alert'); return; }
-    if (!title) { window.toast?.('Give your trend a name.','alert'); return; }
-    if (!caption) { window.toast?.('Add a short caption.','alert'); return; }
-    const path = window.currentUser.id + '/friendly-' + space.id + '/' + crypto.randomUUID() + '-trend-' + (file.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,70) || 'video');
-    const {error: uploadError} = await window.supabaseClient.storage.from('ming-post-media').upload(path,file,{contentType:file.type,cacheControl:'3600',upsert:false});
-    if (uploadError) { window.toast?.('Your video could not be uploaded.','x'); return; }
+    if (!file || !file.type.startsWith('video/')) { toast?.('Choose a video to share.','alert'); return; }
+    if (file.size > 50*1024*1024) { toast?.('Videos must be 50 MB or smaller.','alert'); return; }
+    if (!title) { toast?.('Give your trend a name.','alert'); return; }
+    if (!caption) { toast?.('Add a short caption.','alert'); return; }
+    const path = currentUser.id + '/friendly-' + space.id + '/' + crypto.randomUUID() + '-trend-' + (file.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,70) || 'video');
+    const {error: uploadError} = await supabaseClient.storage.from('ming-post-media').upload(path,file,{contentType:file.type,cacheControl:'3600',upsert:false});
+    if (uploadError) { toast?.('Your video could not be uploaded.','x'); return; }
     const payload = {caption,lookingFor:'',friendshipType:'open',interests,postFormat:'trend',trendTitle:title,media:[{path,name:file.name,mime:file.type}],reacts:{},mine:{},comments:[]};
-    const result = await window.Server.submit('space.post',{spaceId:space.id,kind:'friend_post',payload});
-    if (!result.ok) { await window.supabaseClient.storage.from('ming-post-media').remove([path]); window.toast?.(result.error || 'Your trend could not be shared.','x'); return; }
+    const result = await Server.submit('space.post',{spaceId:space.id,kind:'friend_post',payload});
+    if (!result.ok) { await supabaseClient.storage.from('ming-post-media').remove([path]); toast?.(result.error || 'Your trend could not be shared.','x'); return; }
     const row = result.data.row;
-    const {data} = await window.supabaseClient.storage.from('ming-post-media').createSignedUrl(path,3600);
-    window.friendlyMediaUrlCache?.set(row.id,Object.assign([data?.signedUrl || ''],{expiresAt:Date.now()+3500000}));
-    window.closeSheet?.();
-    window.sp.tab = 'trends';
-    window.renderSpace?.();
-    window.toast?.('Your trend video is live.','check');
+    const {data} = await supabaseClient.storage.from('ming-post-media').createSignedUrl(path,3600);
+    friendlyMediaUrlCache?.set(row.id,Object.assign([data?.signedUrl || ''],{expiresAt:Date.now()+3500000}));
+    closeSheet?.();
+    sp.tab = 'trends';
+    renderSpace?.();
+    toast?.('Your trend video is live.','check');
   }
 
   document.addEventListener('click', event => {
