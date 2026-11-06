@@ -3475,3 +3475,19 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
 #sheet:has(.biz-comments-shell) .sheet-body{display:block;min-height:0;flex:1 1 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(18px + env(safe-area-inset-bottom));}
 #sheet:has(.biz-comments-shell) .sheet-foot{display:none;}
 #sheet:has(.biz-comments-shell) .biz-comment-list{max-height:none;overflow:visible;}
+
+
+/* BUSINESS SPACE COMMENTS — reply threads and comment-owner actions */
+#sheet .biz-comment-actions{display:flex;align-items:center;gap:12px;margin-top:7px}
+#sheet .biz-comment-actions button{display:inline-flex;align-items:center;gap:5px;padding:3px 0;border:0;background:none;color:var(--muted);font-size:10px;font-weight:650;cursor:pointer}
+#sheet .biz-comment-actions button svg{width:12px;height:12px}
+#sheet .biz-comment-actions button.is-delete{color:#bd7777}
+#sheet .biz-comment-replies{display:flex;flex-direction:column;gap:11px;margin:10px 0 0 20px;padding-left:13px;border-left:1px solid color-mix(in srgb,var(--coffee,#8B3543) 35%,var(--border))}
+#sheet .biz-comment-thread.is-reply .biz-comment-avatar{flex-basis:30px;width:30px;height:30px}
+#sheet .biz-comment-thread.is-reply .biz-comment-avatar .av{width:30px!important;height:30px!important;flex-basis:30px!important}
+#sheet .biz-comment-reply-form{display:grid;gap:7px;margin:9px 0 0 48px;padding:10px;border:1px solid var(--border);border-radius:13px;background:var(--surface-2)}
+#sheet .biz-comment-reply-form textarea{width:100%;min-height:54px;resize:vertical;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font:inherit;font-size:12px;outline:none}
+#sheet .biz-comment-reply-form>div{display:flex;justify-content:flex-end;gap:8px}
+#sheet .biz-comment-reply-form button{padding:6px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:10px;font-weight:700}
+#sheet .biz-comment-reply-form button[type="submit"]{border-color:transparent;background:var(--coffee,#8B3543);color:#fff}
+@media(max-width:430px){#sheet .biz-comment-replies{margin-left:12px;padding-left:9px}#sheet .biz-comment-reply-form{margin-left:12px}}
