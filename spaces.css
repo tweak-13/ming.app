@@ -3468,3 +3468,10 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
 #sheet:has(.biz-comments-shell){max-height:90dvh;}
 #sheet:has(.biz-comments-shell) .sheet-body{min-height:0;flex:1 1 0%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;}
 #sheet:has(.biz-comments-shell) .biz-comment-list{max-height:none;overflow:visible;overscroll-behavior:initial;}
+
+
+/* BUSINESS COMMENTS — scroll the voice preview and privacy choices with the composer */
+#sheet:has(.biz-comments-shell){max-height:90dvh;}
+#sheet:has(.biz-comments-shell) .sheet-body{display:block;min-height:0;flex:1 1 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding-bottom:calc(18px + env(safe-area-inset-bottom));}
+#sheet:has(.biz-comments-shell) .sheet-foot{display:none;}
+#sheet:has(.biz-comments-shell) .biz-comment-list{max-height:none;overflow:visible;}
