@@ -10559,17 +10559,17 @@ function openBusinessUpdateComposer() {
 
 async function openSpacePostComments(postId, postKind = 'business_post') {
   const isFriendship = postKind === 'friend_post';
-  const rpcGet = isFriendship ? 'get_ming_friendship_space_post_comments' : rpcGet;
-  const rpcAdd = isFriendship ? 'add_ming_friendship_space_post_comment_v2' : rpcAdd;
-  const rpcClaim = isFriendship ? 'claim_ming_friendship_space_comment_voice_once' : rpcClaim;
-  const rpcDelete = isFriendship ? 'delete_ming_friendship_space_post_comment' : rpcDelete;
+  const rpcGet = isFriendship ? 'get_ming_friendship_space_post_comments' : 'get_ming_business_space_post_comments';
+  const rpcAdd = isFriendship ? 'add_ming_friendship_space_post_comment_v2' : 'add_ming_business_space_post_comment_v2';
+  const rpcClaim = isFriendship ? 'claim_ming_friendship_space_comment_voice_once' : 'claim_ming_business_space_comment_voice_once';
+  const rpcDelete = isFriendship ? 'delete_ming_friendship_space_post_comment' : 'delete_ming_business_space_post_comment';
   const spaceLabel = isFriendship ? 'Friendship' : 'Business Space';
   const post = Server.db.content.find(x => x.id === postId && x.spaceId === sp.activeId && x.kind === postKind);
   if (!post) return;
 
   const legacy = Array.isArray(post.comments) ? post.comments : [];
   const { data: rows, error: loadError } = await supabaseClient.rpc(
-    'get_ming_business_space_post_comments',
+    rpcGet,
     { p_content_id: post.id }
   );
   if (loadError) {
@@ -10843,7 +10843,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
     deleteButton.disabled = true;
     deleteButton.textContent = 'Deleting…';
     try {
-      const { data, error } = await supabaseClient.rpc('delete_ming_business_space_post_comment', { p_comment_id: commentId });
+      const { data, error } = await supabaseClient.rpc(rpcDelete, { p_comment_id: commentId });
       if (error) throw error;
       const paths = Array.isArray(data?.voice_paths) ? data.voice_paths.filter(Boolean) : [];
       if (paths.length) {
@@ -10879,7 +10879,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
     const send = form.querySelector('button[type="submit"]');
     if (send) { send.disabled = true; send.textContent = 'Sending…'; }
     try {
-      const { error } = await supabaseClient.rpc('add_ming_business_space_post_comment_v2', {
+      const { error } = await supabaseClient.rpc(rpcAdd, {
         p_content_id: form.dataset.bizReplyForm,
         p_text: replyText,
         p_anonymous: privacyChoice === 'anonymous',
@@ -10937,7 +10937,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
       }
 
       const { data: claimed, error: claimError } = await supabaseClient.rpc(
-        'claim_ming_business_space_comment_voice_once',
+        rpcClaim,
         { p_comment_id: commentId }
       );
 
