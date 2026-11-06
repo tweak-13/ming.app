@@ -10047,6 +10047,7 @@ function renderSpace() {
   if (s.nature === 'business' && sp.tab === 'home') {
     renderBusinessHome(s);
     void hydrateBusinessHomeMedia(s.id);
+    void hydrateBusinessPostCommentCounts(s.id);
   }
   if (s.nature === 'friendly' && ['home','moments'].includes(sp.tab)) void hydrateFriendlyMedia(s.id);
   $('#sp-scroll').scrollTop = 0;
@@ -10054,7 +10055,10 @@ function renderSpace() {
 function refreshSpace() {
   const s = spaceById(sp.activeId);
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
-  if (s.nature === 'business' && sp.tab === 'home') renderBusinessHome(s);
+  if (s.nature === 'business' && sp.tab === 'home') {
+    renderBusinessHome(s);
+    void hydrateBusinessPostCommentCounts(s.id);
+  }
   if (s.nature === 'friendly' && ['home','moments'].includes(sp.tab)) void hydrateFriendlyMedia(s.id);
 }
 
@@ -10370,6 +10374,41 @@ function businessPostLifePercent(post) {
   const expiryAt = Number(post?.expiresAt);
   const duration = Number.isFinite(expiryAt) && expiryAt > createdAt ? expiryAt - createdAt : 24 * HOUR;
   return Math.max(2, Math.min(100, Math.round((businessPostHoursLeft(post) * HOUR / duration) * 100)));
+}
+
+// Business post comment totals are not included in the Space content payload.
+// Hydrate them from the same visibility-aware RPC used by the comments sheet.
+const businessPostCommentCountLoads = new Set();
+
+async function hydrateBusinessPostCommentCounts(spaceId) {
+  const posts = contentOf(spaceId, 'business_post');
+  const pending = posts.filter(post => !businessPostCommentCountLoads.has(post.id));
+  if (!pending.length) return;
+
+  pending.forEach(post => businessPostCommentCountLoads.add(post.id));
+  let changed = false;
+
+  await Promise.all(pending.map(async post => {
+    try {
+      const { data: rows, error } = await supabaseClient.rpc(
+        'get_ming_business_space_post_comments',
+        { p_content_id: post.id }
+      );
+      if (error) {
+        businessPostCommentCountLoads.delete(post.id);
+        console.warn('Tweaklr: Business post comment count could not be loaded.', error.message);
+        return;
+      }
+      const legacyCount = Array.isArray(post.comments) ? post.comments.length : 0;
+      post.commentsCount = legacyCount + (rows || []).length;
+      changed = true;
+    } catch (error) {
+      businessPostCommentCountLoads.delete(post.id);
+      console.warn('Tweaklr: Business post comment count request failed.', error);
+    }
+  }));
+
+  if (changed && sp.activeId === spaceId && sp.tab === 'home') refreshSpace();
 }
 
 function businessUpdateCard(post, space) {
