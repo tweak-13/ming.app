@@ -10531,7 +10531,7 @@ async function openBusinessPostComments(postId) {
 
   const comments = await Promise.all((rows || []).map(async row => {
     let voiceUrl = '';
-    if (row.voice_path) {
+    if (row.voice_path && !row.voice_view_once) {
       const { data: signed, error: signedError } = await supabaseClient
         .storage.from('ming-business-comment-voice')
         .createSignedUrl(row.voice_path, 1800);
@@ -10567,10 +10567,14 @@ async function openBusinessPostComments(postId) {
     const privacy = comment.private_to_author
       ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>'
       : '';
-    const voice = comment.voiceUrl
-      ? '<div class="biz-comment-voice"><span class="biz-comment-voice-icon">' + icon('volume-2') +
-        '</span><audio controls preload="none" src="' + esc(comment.voiceUrl) + '"></audio></div>'
-      : '';
+    const voice = comment.voice_view_once
+      ? (comment.voice_viewed
+        ? '<div class="biz-comment-voice-once is-consumed">' + icon('check-circle') + '<span>Voice note already played</span></div>'
+        : '<div class="biz-comment-voice-once"><span>' + icon('headphones') + '</span><div><strong>One-time voice note</strong><small>Available for one listen</small></div><button type="button" class="biz-comment-once-play" data-comment-once="' + esc(comment.id) + '">Listen once</button></div>')
+      : (comment.voiceUrl
+        ? '<div class="biz-comment-voice"><span class="biz-comment-voice-icon">' + icon('volume-2') +
+          '</span><audio controls preload="none" src="' + esc(comment.voiceUrl) + '"></audio></div>'
+        : '');
     const text = comment.body
       ? '<div class="biz-comment-bubble">' + esc(comment.body) + '</div>'
       : '';
@@ -10602,11 +10606,16 @@ async function openBusinessPostComments(postId) {
       '<div class="biz-comment-compose-heading"><div><span class="biz-comments-eyebrow">YOUR TURN</span><strong>Add to the conversation</strong></div>' +
       '<span id="biz-comment-char-count">0 / 1000</span></div>' +
       '<div class="biz-comment-input-wrap"><textarea id="biz-comment-input" rows="2" maxlength="1000" placeholder="Write something thoughtful…" aria-label="Write a comment"></textarea></div>' +
-      '<div class="biz-comment-options">' +
-        '<label class="biz-comment-option"><input id="biz-comment-anonymous" type="checkbox" /><span class="biz-comment-option-icon">' + icon('user-round') + '</span><span class="biz-comment-option-copy"><strong>Post anonymously</strong><small>Hide your name and profile</small></span><i></i></label>' +
-        '<label class="biz-comment-option"><input id="biz-comment-private" type="checkbox" /><span class="biz-comment-option-icon">' + icon('lock') + '</span><span class="biz-comment-option-copy"><strong>Private to post author</strong><small>Only you and the author can see it</small></span><i></i></label>' +
-      '</div>' +
       '<div id="biz-comment-audio-preview" class="biz-comment-audio-preview" hidden></div>' +
+      '<section id="biz-comment-category-prompt" class="biz-comment-category-prompt" hidden>' +
+        '<div class="biz-comment-category-heading"><span class="biz-comment-category-kicker">BEFORE YOU POST</span><strong>How should this comment appear?</strong><small>Choose the audience and privacy for this contribution.</small></div>' +
+        '<div class="biz-comment-category-grid">' +
+          '<label class="biz-comment-category-choice is-selected"><input type="radio" name="biz-comment-category" value="public" checked><span class="biz-comment-category-symbol">' + icon('users') + '</span><span><strong>Everyone</strong><small>Visible to approved Space members</small></span><i></i></label>' +
+          '<label class="biz-comment-category-choice"><input type="radio" name="biz-comment-category" value="anonymous"><span class="biz-comment-category-symbol">' + icon('user-round') + '</span><span><strong>Anonymous</strong><small>Your profile stays hidden</small></span><i></i></label>' +
+          '<label class="biz-comment-category-choice"><input type="radio" name="biz-comment-category" value="private"><span class="biz-comment-category-symbol">' + icon('lock') + '</span><span><strong>Private</strong><small>Only you and the post author</small></span><i></i></label>' +
+        '</div>' +
+        '<label id="biz-comment-view-once-wrap" class="biz-comment-view-once" hidden><input id="biz-comment-view-once" type="checkbox"><span class="biz-comment-view-once-icon">' + icon('eye') + '</span><span><strong>View once</strong><small>Voice note can be opened once by its recipient</small></span><i></i></label>' +
+      '</section>' +
       '<div class="biz-comment-compose-bottom">' +
         '<button class="biz-comment-mic" id="biz-comment-mic" type="button" aria-label="Record a voice comment" title="Record a voice comment">' + icon('mic') + '</button>' +
         '<div class="biz-comment-record-copy"><strong id="biz-comment-record-title">Add a voice note</strong><span id="biz-comment-record-status">Up to 2 minutes · preview before posting</span></div>' +
@@ -10640,13 +10649,20 @@ async function openBusinessPostComments(postId) {
   const input = $('#biz-comment-input');
   const submit = $('#biz-comment-submit');
   const charCount = $('#biz-comment-char-count');
-  const anonymousToggle = $('#biz-comment-anonymous');
-  const privateToggle = $('#biz-comment-private');
-
+  const categoryPrompt = $('#biz-comment-category-prompt');
+  const viewOnceWrap = $('#biz-comment-view-once-wrap');
+  const viewOnceToggle = $('#biz-comment-view-once');
   const updateComposer = () => {
     const hasContent = !!(input?.value.trim() || voiceBlob);
+    if (categoryPrompt) categoryPrompt.hidden = !hasContent;
+    if (viewOnceWrap) viewOnceWrap.hidden = !voiceBlob;
+    if (!voiceBlob && viewOnceToggle) viewOnceToggle.checked = false;
     if (submit) submit.disabled = posting || !hasContent;
     if (charCount) charCount.textContent = (input?.value.length || 0) + ' / 1000';
+    categoryPrompt?.querySelectorAll('.biz-comment-category-choice').forEach(choice => {
+      const radio = choice.querySelector('input');
+      choice.classList.toggle('is-selected', !!radio?.checked);
+    });
   };
   input?.addEventListener('input', updateComposer);
   updateComposer();
@@ -10742,6 +10758,44 @@ async function openBusinessPostComments(postId) {
     }
   });
 
+  categoryPrompt?.addEventListener('change', updateComposer);
+
+  // A view-once recording is claimed by each intended recipient before a
+  // short-lived playback URL is issued. The server prevents a second claim.
+  $('#sheet')?.addEventListener('click', async event => {
+    const button = event.target.closest('[data-comment-once]');
+    if (!button || button.disabled) return;
+    const commentId = button.dataset.commentOnce;
+    button.disabled = true;
+    button.textContent = 'Preparing…';
+    const { data: claimed, error: claimError } = await supabaseClient.rpc(
+      'claim_ming_business_space_comment_voice_once',
+      { p_comment_id: commentId }
+    );
+    if (claimError || claimed !== true) {
+      button.closest('.biz-comment-voice-once')?.classList.add('is-consumed');
+      button.closest('.biz-comment-voice-once')?.replaceChildren(document.createTextNode('This voice note has already been played.'));
+      return;
+    }
+    const comment = comments.find(item => item.id === commentId);
+    if (!comment?.voice_path) return;
+    const { data: signed, error: signedError } = await supabaseClient.storage
+      .from('ming-business-comment-voice').createSignedUrl(comment.voice_path, 90);
+    if (signedError || !signed?.signedUrl) {
+      button.disabled = false;
+      button.textContent = 'Try again';
+      toast('Voice note could not be opened.', 'alert');
+      return;
+    }
+    const holder = button.closest('.biz-comment-voice-once');
+    holder.innerHTML = '<span>' + icon('headphones') + '</span><audio controls autoplay preload="auto" src="' + esc(signed.signedUrl) + '"></audio>';
+    const audio = holder.querySelector('audio');
+    audio.addEventListener('ended', () => {
+      holder.classList.add('is-consumed');
+      holder.innerHTML = icon('check-circle') + '<span>Voice note played · one-time access used</span>';
+    }, { once: true });
+  });
+
   $('#biz-comment-form')?.addEventListener('submit', async event => {
     event.preventDefault();
     if (posting) return;
@@ -10757,8 +10811,7 @@ async function openBusinessPostComments(postId) {
     submit.querySelector('span').textContent = 'Posting…';
     input.disabled = true;
     mic.disabled = true;
-    anonymousToggle.disabled = true;
-    privateToggle.disabled = true;
+    categoryPrompt.querySelectorAll('input').forEach(control => control.disabled = true);
 
     let voicePath = null;
     if (voiceBlob) {
@@ -10772,8 +10825,7 @@ async function openBusinessPostComments(postId) {
         submit.querySelector('span').textContent = 'Post comment';
         input.disabled = false;
         mic.disabled = false;
-        anonymousToggle.disabled = false;
-        privateToggle.disabled = false;
+        categoryPrompt.querySelectorAll('input').forEach(control => control.disabled = false);
         updateComposer();
         toast(uploadError.message || 'Voice note could not be uploaded. Check the Business Space comment setup.', 'alert');
         return;
@@ -10783,10 +10835,11 @@ async function openBusinessPostComments(postId) {
     const { error: saveError } = await supabaseClient.rpc('add_ming_business_space_post_comment_v2', {
       p_content_id: post.id,
       p_text: textValue,
-      p_anonymous: !!anonymousToggle.checked,
-      p_private_to_author: !!privateToggle.checked,
+      p_anonymous: categoryPrompt.querySelector('input[name="biz-comment-category"]:checked')?.value === 'anonymous',
+      p_private_to_author: categoryPrompt.querySelector('input[name="biz-comment-category"]:checked')?.value === 'private',
       p_voice_path: voicePath,
-      p_voice_duration: voiceDuration || null
+      p_voice_duration: voiceDuration || null,
+      p_voice_view_once: !!(voiceBlob && viewOnceToggle?.checked)
     });
 
     if (saveError) {
@@ -10796,8 +10849,7 @@ async function openBusinessPostComments(postId) {
       submit.querySelector('span').textContent = 'Post comment';
       input.disabled = false;
       mic.disabled = false;
-      anonymousToggle.disabled = false;
-      privateToggle.disabled = false;
+      categoryPrompt.querySelectorAll('input').forEach(control => control.disabled = false);
       updateComposer();
       toast(saveError.message || 'Comment could not be posted. Check the Business Space comment setup.', 'alert');
       return;
