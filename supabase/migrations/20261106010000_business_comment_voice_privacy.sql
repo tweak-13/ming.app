@@ -111,7 +111,59 @@ begin
   if char_length(btrim(coalesce(p_text,''))) > 1000 then raise exception 'Comment must be 1000 characters or fewer'; end if;
   if char_length(btrim(coalesce(p_text,'')))=0 and p_voice_path is null then raise exception 'Write a comment or attach a voice note'; end if;
   if p_voice_duration is not null and p_voice_duration not between 1 and 120 then raise exception 'Voice notes must be 1–120 seconds'; end if;
-  if p_voice_path is not null and (p_voice_path !~ '/' or p_voice_path !~ '^[a-zA-Z0-9._-]+$') then
+  if p_voice_path is not null and (p_voice_path ~ '/' or p_voice_path !~ '^[a-zA-Z0-9._-]+) then
+    raise exception 'Invalid voice note file path';
+  end if;
+
+  select p.space_id,p.author_id into v_space_id,v_post_author
+  from public.ming_space_content p
+  join public.ming_spaces s on s.id=p.space_id and s.nature='business'
+  where p.id=p_content_id and p.kind='business_post'
+  for update of p;
+  if not found then raise exception 'Business post not found'; end if;
+
+  if not exists (
+    select 1 from public.ming_space_members m
+    where m.space_id=v_space_id and m.user_id=v_user and m.approved=true
+  ) then raise exception 'Approved Business Space membership required'; end if;
+
+  if p_voice_path is not null and not exists (
+    select 1 from storage.objects o
+    where o.bucket_id='ming-business-comment-voice'
+      and o.name=p_voice_path
+      and o.owner_id=v_user::text
+  ) then raise exception 'Voice note upload was not found'; end if;
+
+  insert into public.ming_business_space_post_comments(
+    content_id,space_id,author_id,body,anonymous,private_to_author,voice_path,voice_duration
+  ) values (
+    p_content_id,v_space_id,v_user,btrim(coalesce(p_text,'')),coalesce(p_anonymous,false),
+    coalesce(p_private_to_author,false),p_voice_path,p_voice_duration
+  ) returning * into v_comment;
+
+  select * into v_profile from public.profiles where id=v_user;
+  return jsonb_build_object(
+    'id',v_comment.id,
+    'body',v_comment.body,
+    'anonymous',v_comment.anonymous,
+    'private_to_author',v_comment.private_to_author,
+    'voice_path',v_comment.voice_path,
+    'voice_duration',v_comment.voice_duration,
+    'created_at_ms',floor(extract(epoch from v_comment.created_at)*1000)::bigint,
+    'author_display_name',case when v_comment.anonymous then null else coalesce(v_profile.display_name,v_profile.username,'Space member') end,
+    'author_username',case when v_comment.anonymous then null else v_profile.username end,
+    'author_avatar_url',case when v_comment.anonymous then null else v_profile.avatar_url end
+  );
+end;
+$function$;
+
+revoke all on function public.get_ming_business_space_post_comments(uuid) from public,anon;
+revoke all on function public.add_ming_business_space_post_comment_v2(uuid,text,boolean,boolean,text,integer) from public,anon;
+grant execute on function public.get_ming_business_space_post_comments(uuid) to authenticated;
+grant execute on function public.add_ming_business_space_post_comment_v2(uuid,text,boolean,boolean,text,integer) to authenticated;
+
+notify pgrst,'reload schema';
+) then
     raise exception 'Invalid voice note file path';
   end if;
 
