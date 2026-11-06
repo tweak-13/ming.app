@@ -10382,6 +10382,7 @@ function businessUpdateCard(post, space) {
   const pct = businessPostLifePercent(post);
   const kind = KINDS[post.postKind] ? post.postKind : 'general';
   const comments = Array.isArray(post.comments) ? post.comments : [];
+  const commentsCount = Number(post.commentsCount ?? comments.length);
   const likes = Math.max(0, Number(post.likeCount ?? post.reacts?.like ?? 0));
   const liked = Array.isArray(post.likedBy) ? post.likedBy.includes(currentUser.id) : !!post.mine?.like;
   return '<article class="upd" id="biz-upd-' + esc(post.id) + '">' +
@@ -10390,7 +10391,7 @@ function businessUpdateCard(post, space) {
     businessPostMediaMarkup(post) +
     '<div class="upd-foot">' +
       '<button class="act ' + (liked ? 'is-on' : '') + '" data-sp="biz-like:' + post.id + '" aria-pressed="' + liked + '" aria-label="React to this update">' + icon('heart') + '<span>' + likes + '</span></button>' +
-      '<button class="act" data-sp="biz-comments:' + post.id + '" aria-label="Open replies">' + icon('chat') + '<span>' + comments.length + '</span></button>' +
+      '<button class="act" data-sp="biz-comments:' + post.id + '" aria-label="Open replies">' + icon('chat') + '<span>' + commentsCount + '</span></button>' +
       '<button class="act" data-sp="biz-share:' + post.id + '" aria-label="Share this update"><span aria-hidden="true">↗</span><span>Share</span></button>' +
 
       ((mine || canModerate) ? '<button class="act" data-sp="biz-delete:' + post.id + '" aria-label="Delete update">' + icon('trash') + '</button>' : '') +
@@ -10541,6 +10542,7 @@ async function openBusinessPostComments(postId) {
     return '<div class="biz-comment-row">'+identity+'<div class="biz-comment-copy"><div class="biz-comment-meta">'+esc(author)+' '+privacy+' <span>· '+esc(timeAgo(Number(c.created_at_ms)||Date.now()))+'</span></div>'+(c.body?'<div class="biz-comment-text">'+esc(c.body)+'</div>':'')+audio+'</div></div>';
   }).join('');
   const total=legacy.length+comments.length;
+  post.commentsCount=total;
   const body='<div class="biz-comment-list">'+(legacyMarkup+newMarkup||'<p class="biz-comment-empty">No replies yet. Start the conversation.</p>')+'</div>';
   const foot='<form id="biz-comment-form" class="biz-comment-composer"><textarea id="biz-comment-input" rows="2" maxlength="1000" placeholder="Write a reply…" aria-label="Write a reply"></textarea><div class="biz-comment-options"><label><input id="biz-comment-anonymous" type="checkbox" /> <span>Comment anonymously</span></label><label><input id="biz-comment-private" type="checkbox" /> <span>Private to post author</span></label></div><div class="biz-comment-compose-bottom"><button class="biz-comment-mic" id="biz-comment-mic" type="button" aria-label="Record voice note" title="Record voice note">'+icon('mic')+'</button><span id="biz-comment-record-status">Text or voice note · up to 2 minutes</span><button class="send" type="submit" aria-label="Post comment">'+icon('send')+'</button></div><div id="biz-comment-audio-preview"></div><p class="biz-comment-privacy-note">Anonymous comments hide your name, profile photo and account details from other members. Private comments are visible only to you and the person who created this post.</p></form>';
   openSheet({title:post.title||'Daily Update',sub:total+' '+(total===1?'comment':'comments'),body,foot});
