@@ -10814,9 +10814,18 @@ async function openBusinessPostComments(postId) {
       thread.insertAdjacentHTML('beforeend',
         '<form class="biz-comment-reply-form" data-biz-reply-form="' + esc(replyButton.dataset.bizReply) + '">' +
         '<textarea rows="2" maxlength="1000" placeholder="Write a reply…" aria-label="Write a reply"></textarea>' +
+        '<fieldset class="biz-reply-privacy"><legend>Who should see this reply?</legend>' +
+        '<label class="is-selected"><input type="radio" name="biz-reply-privacy-' + esc(replyButton.dataset.bizReply) + '" value="everyone" checked><span>' + icon('users') + '</span><strong>Everyone</strong></label>' +
+        '<label><input type="radio" name="biz-reply-privacy-' + esc(replyButton.dataset.bizReply) + '" value="anonymous"><span>' + icon('user-round') + '</span><strong>Anonymous</strong></label>' +
+        '<label><input type="radio" name="biz-reply-privacy-' + esc(replyButton.dataset.bizReply) + '" value="private"><span>' + icon('lock') + '</span><strong>Private</strong></label>' +
+        '</fieldset>' +
         '<div><button type="button" data-biz-reply-cancel>Cancel</button><button type="submit">Send reply</button></div></form>');
       thread.querySelector('[data-biz-reply-form] textarea')?.focus();
       return;
+    }
+    if (event.target.matches('.biz-reply-privacy input[type="radio"]')) {
+      const group = event.target.closest('.biz-reply-privacy');
+      group?.querySelectorAll('label').forEach(label => label.classList.toggle('is-selected', label.contains(event.target) && event.target.checked));
     }
     if (event.target.closest('[data-biz-reply-cancel]')) {
       event.target.closest('[data-biz-reply-form]')?.remove();
@@ -10853,11 +10862,18 @@ async function openBusinessPostComments(postId) {
     event.preventDefault();
     const replyText = form.querySelector('textarea')?.value.trim() || '';
     if (!replyText) { toast('Write a reply first.', 'alert'); return; }
+    const privacyChoice = form.querySelector('input[type="radio"]:checked')?.value || 'everyone';
     const send = form.querySelector('button[type="submit"]');
     if (send) { send.disabled = true; send.textContent = 'Sending…'; }
     try {
       const { error } = await supabaseClient.rpc('add_ming_business_space_post_comment_v2', {
-        p_content_id: form.dataset.bizReply, p_text: replyText
+        p_content_id: form.dataset.bizReply,
+        p_text: replyText,
+        p_anonymous: privacyChoice === 'anonymous',
+        p_private_to_author: privacyChoice === 'private',
+        p_voice_path: null,
+        p_voice_duration: null,
+        p_voice_view_once: false
       });
       if (error) throw error;
       await openBusinessPostComments(postId);
