@@ -10517,18 +10517,85 @@ function openBusinessUpdateComposer() {
 async function openBusinessPostComments(postId) {
   const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
   if(!post)return;
-  const comments=Array.isArray(post.comments)?post.comments:[];
-  const body=comments.length?comments.map(c=>{const person=personOf(c.authorId);return '<div style="display:flex;gap:11px;padding:11px 0;border-top:1px solid var(--border)">'+avatar(person,36)+'<div><div style="font-size:13.5px;font-weight:560">'+esc(person.short||person.name||person.username||'Space member')+' <span style="color:var(--muted);font-weight:400">· '+esc(timeAgo(Number(c.at)||Date.now()))+'</span></div><div style="font-size:14px;margin-top:3px;line-height:1.45;white-space:pre-wrap">'+esc(c.text||'')+'</div></div></div>';}).join(''):'<p style="padding:18px 0;color:var(--muted);font-size:13.5px;text-align:center">No replies yet. Say something useful.</p>';
-  openSheet({title:post.title||'Daily Update',sub:comments.length+' '+(comments.length===1?'reply':'replies'),body,foot:'<form id="biz-comment-form" style="display:flex;gap:9px;align-items:flex-end"><textarea id="biz-comment-input" rows="1" maxlength="1000" placeholder="Write a reply" aria-label="Write a reply" style="flex:1;min-height:44px;max-height:100px;padding:11px 15px;border-radius:22px;border:1px solid var(--border);background:var(--bg);font-size:15px;resize:none;outline:none"></textarea><button class="send" type="submit" aria-label="Post reply">'+icon('send')+'</button></form>'});
+  const legacy=Array.isArray(post.comments)?post.comments:[];
+  const {data:rows,error:loadError}=await supabaseClient.rpc('get_ming_business_space_post_comments',{p_content_id:post.id});
+  if(loadError) console.warn('Tweaklr: Business Space comments could not be loaded.',loadError.message);
+  const comments=await Promise.all((rows||[]).map(async row=>{
+    let voiceUrl='';
+    if(row.voice_path){
+      const {data:signed,error:signedError}=await supabaseClient.storage.from('ming-business-comment-voice').createSignedUrl(row.voice_path,1800);
+      if(!signedError)voiceUrl=signed?.signedUrl||'';
+    }
+    return {...row,voiceUrl};
+  }));
+  const legacyMarkup=legacy.map(c=>{
+    const person=personOf(c.authorId);
+    return '<div class="biz-comment-row">'+avatar(person,36)+'<div class="biz-comment-copy"><div class="biz-comment-meta">'+esc(person.short||person.name||person.username||'Space member')+' <span>· '+esc(timeAgo(Number(c.at)||Date.now()))+'</span></div><div class="biz-comment-text">'+esc(c.text||'')+'</div></div></div>';
+  }).join('');
+  const newMarkup=comments.map(c=>{
+    const anonymous=!!c.anonymous;
+    const identity=anonymous?'<div class="biz-comment-anon-avatar" aria-label="Anonymous"><span>◉</span></div>':(c.author_avatar_url?'<div class="av" style="width:36px;height:36px;flex:0 0 36px"><img src="'+esc(c.author_avatar_url)+'" alt="" /></div>':'<div class="biz-comment-anon-avatar">'+icon('user-round')+'</div>');
+    const author=anonymous?'Anonymous':(c.author_display_name||c.author_username||'Space member');
+    const privacy=c.private_to_author?'<span class="biz-comment-private-label">Private</span>':'';
+    const audio=c.voiceUrl?'<audio class="biz-comment-audio" controls preload="none" src="'+esc(c.voiceUrl)+'"></audio>':'';
+    return '<div class="biz-comment-row">'+identity+'<div class="biz-comment-copy"><div class="biz-comment-meta">'+esc(author)+' '+privacy+' <span>· '+esc(timeAgo(Number(c.created_at_ms)||Date.now()))+'</span></div>'+(c.body?'<div class="biz-comment-text">'+esc(c.body)+'</div>':'')+audio+'</div></div>';
+  }).join('');
+  const total=legacy.length+comments.length;
+  const body='<div class="biz-comment-list">'+(legacyMarkup+newMarkup||'<p class="biz-comment-empty">No replies yet. Start the conversation.</p>')+'</div>';
+  const foot='<form id="biz-comment-form" class="biz-comment-composer"><textarea id="biz-comment-input" rows="2" maxlength="1000" placeholder="Write a reply…" aria-label="Write a reply"></textarea><div class="biz-comment-options"><label><input id="biz-comment-anonymous" type="checkbox" /> <span>Comment anonymously</span></label><label><input id="biz-comment-private" type="checkbox" /> <span>Private to post author</span></label></div><div class="biz-comment-compose-bottom"><button class="biz-comment-mic" id="biz-comment-mic" type="button" aria-label="Record voice note" title="Record voice note">'+icon('mic')+'</button><span id="biz-comment-record-status">Text or voice note · up to 2 minutes</span><button class="send" type="submit" aria-label="Post comment">'+icon('send')+'</button></div><div id="biz-comment-audio-preview"></div><p class="biz-comment-privacy-note">Anonymous comments hide your name, profile photo and account details from other members. Private comments are visible only to you and the person who created this post.</p></form>';
+  openSheet({title:post.title||'Daily Update',sub:total+' '+(total===1?'comment':'comments'),body,foot});
+  let recorder=null,recordStream=null,recordChunks=[],voiceBlob=null,voiceDuration=0,recordStarted=0,recordLimit=null,previewUrl='';
+  const mic=$('#biz-comment-mic'),status=$('#biz-comment-record-status'),preview=$('#biz-comment-audio-preview');
+  const stopRecording=()=>{
+    if(recorder&&recorder.state!=='inactive')recorder.stop();
+  };
+  mic?.addEventListener('click',async()=>{
+    if(recorder&&recorder.state==='recording'){stopRecording();return;}
+    if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){toast('Voice notes are not supported in this browser.','alert');return;}
+    try{
+      recordStream=await navigator.mediaDevices.getUserMedia({audio:true});
+      const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':(MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':'');
+      recorder=new MediaRecorder(recordStream,mime?{mimeType:mime}:undefined);
+      recordChunks=[];recordStarted=Date.now();voiceBlob=null;voiceDuration=0;
+      mic.classList.add('is-recording');mic.setAttribute('aria-label','Stop recording');status.textContent='Recording… tap the mic to finish';
+      recorder.ondataavailable=e=>{if(e.data?.size)recordChunks.push(e.data);};
+      recorder.onstop=()=>{
+        recordStream?.getTracks().forEach(track=>track.stop());recordStream=null;
+        if(recordLimit)clearTimeout(recordLimit);recordLimit=null;
+        voiceDuration=Math.max(1,Math.min(120,Math.round((Date.now()-recordStarted)/1000)));
+        voiceBlob=new Blob(recordChunks,{type:recorder?.mimeType||'audio/webm'});
+        recorder=null;recordChunks=[];mic.classList.remove('is-recording');mic.setAttribute('aria-label','Record voice note');
+        if(previewUrl)URL.revokeObjectURL(previewUrl);
+        previewUrl=URL.createObjectURL(voiceBlob);
+        preview.innerHTML='<audio controls preload="metadata" src="'+previewUrl+'"></audio><button type="button" id="biz-comment-discard-audio">Remove recording</button>';
+        $('#biz-comment-discard-audio')?.addEventListener('click',()=>{voiceBlob=null;voiceDuration=0;preview.innerHTML='';if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl='';status.textContent='Text or voice note · up to 2 minutes';});
+        status.textContent='Voice note ready · '+voiceDuration+'s';
+      };
+      recorder.start();recordLimit=setTimeout(()=>stopRecording(),120000);
+    }catch(error){recordStream?.getTracks().forEach(track=>track.stop());recordStream=null;mic.classList.remove('is-recording');status.textContent='Text or voice note · up to 2 minutes';toast('Microphone permission was not granted.','alert');}
+  });
   $('#biz-comment-form')?.addEventListener('submit',async e=>{
-    e.preventDefault();const input=$('#biz-comment-input'),textValue=input?.value.trim()||'';if(!textValue)return;
-    const {data:comment,error}=await supabaseClient.rpc('add_ming_business_space_post_comment',{p_content_id:post.id,p_text:textValue});
-    if(error){toast(error.message||'Could not post reply.','alert');return;}
-    post.comments=Array.isArray(post.comments)?post.comments:[];post.comments.push(comment||{authorId:currentUser.id,text:textValue,at:Date.now()});
-    refreshSpace();openBusinessPostComments(postId);toast('Reply posted','check');
+    e.preventDefault();
+    const input=$('#biz-comment-input'),textValue=input?.value.trim()||'';
+    if(!textValue&&!voiceBlob){toast('Write a comment or record a voice note first.','x');return;}
+    const anonymous=!!$('#biz-comment-anonymous')?.checked,privateToAuthor=!!$('#biz-comment-private')?.checked;
+    let voicePath=null;
+    if(voiceBlob){
+      voicePath=crypto.randomUUID()+'.webm';
+      const {error:uploadError}=await supabaseClient.storage.from('ming-business-comment-voice').upload(voicePath,voiceBlob,{contentType:'audio/webm',upsert:false});
+      if(uploadError){toast(uploadError.message||'Voice note could not be uploaded. Run the Business Space comment migration first.','alert');return;}
+    }
+    const {data:comment,error}=await supabaseClient.rpc('add_ming_business_space_post_comment_v2',{
+      p_content_id:post.id,p_text:textValue,p_anonymous:anonymous,p_private_to_author:privateToAuthor,p_voice_path:voicePath,p_voice_duration:voiceDuration||null
+    });
+    if(error){
+      if(voicePath)await supabaseClient.storage.from('ming-business-comment-voice').remove([voicePath]);
+      toast(error.message||'Comment could not be posted. Run the Business Space comment migration first.','alert');return;
+    }
+    if(previewUrl)URL.revokeObjectURL(previewUrl);
+    refreshSpace();openBusinessPostComments(postId);toast('Comment posted','check');
   });
 }
-
 
 async function getBusinessPostShareData(postId) {
   const post=Server.db.content.find(x=>x.id===postId&&x.spaceId===sp.activeId&&x.kind==='business_post');
@@ -12085,10 +12152,9 @@ document.addEventListener('click', async e => {
     case 'biz-comment-save': {
       const post=Server.db.content.find(x=>x.id===a && x.spaceId===sp.activeId); const value=$('#biz-comment-text')?.value.trim()||'';
       if(!post||!value){toast('Write a comment first.','x');break;}
-      const {data:comment,error}=await supabaseClient.rpc('add_ming_business_space_post_comment',{p_content_id:post.id,p_text:value});
+      const {error}=await supabaseClient.rpc('add_ming_business_space_post_comment_v2',{p_content_id:post.id,p_text:value,p_anonymous:false,p_private_to_author:false,p_voice_path:null,p_voice_duration:null});
       if(error){toast(error.message||'Comment could not be saved.','x');break;}
-      post.comments=Array.isArray(post.comments)?post.comments:[];post.comments.push(comment||{authorId:currentUser.id,text:value,at:Date.now()});
-      closeSheet();renderSpace();toast('Comment posted','check');break;
+      closeSheet();await openBusinessPostComments(post.id);renderSpace();toast('Comment posted','check');break;
     }
     case 'biz-message': {
       const post=Server.db.content.find(x=>x.id===a&&x.spaceId===sp.activeId&&x.kind==='business_post');
