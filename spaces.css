@@ -3235,3 +3235,31 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
 #sheet .sp-doc-upload-security b{color:var(--text);font-size:10.5px}
 #sheet .sp-doc-upload-security small{color:var(--muted);font-size:10px;line-height:1.5}
 @media(max-width:440px){#sheet .sp-doc-upload-drop{gap:10px;padding:13px}#sheet .sp-doc-upload-browse{padding:7px 8px;font-size:9px}#sheet .sp-doc-upload-fields{grid-template-columns:1fr}#sheet .sp-doc-upload-intro h3{font-size:17px}}
+
+
+/* Business Space post comments: privacy modes and voice notes. */
+#sheet .biz-comment-list{max-height:min(48vh,460px);overflow:auto;padding:0 2px}
+#sheet .biz-comment-row{display:flex;gap:11px;padding:12px 0;border-top:1px solid var(--border);align-items:flex-start}
+#sheet .biz-comment-copy{min-width:0;flex:1}
+#sheet .biz-comment-meta{font-size:13px;font-weight:600;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+#sheet .biz-comment-meta>span{color:var(--muted);font-weight:400}
+#sheet .biz-comment-text{font-size:14px;margin-top:4px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+#sheet .biz-comment-anon-avatar{width:36px;height:36px;flex:0 0 36px;border-radius:50%;display:grid;place-items:center;background:rgba(139,53,67,.13);color:#d8ad91}
+#sheet .biz-comment-private-label{font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:3px 6px;border-radius:8px;background:rgba(139,53,67,.14);color:#d8ad91}
+#sheet .biz-comment-audio{display:block;width:min(100%,320px);height:38px;margin-top:8px}
+#sheet .biz-comment-empty{padding:22px 0;text-align:center;color:var(--muted);font-size:13px}
+#sheet .biz-comment-composer{display:grid;gap:10px}
+#sheet #biz-comment-input{width:100%;min-height:64px;max-height:140px;resize:vertical;padding:12px 14px;border:1px solid var(--border);border-radius:16px;background:var(--bg);color:var(--text);font:inherit;outline:none}
+#sheet .biz-comment-options{display:flex;gap:12px;flex-wrap:wrap}
+#sheet .biz-comment-options label{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+#sheet .biz-comment-options input{accent-color:#8b3543}
+#sheet .biz-comment-compose-bottom{display:flex;align-items:center;gap:10px}
+#sheet #biz-comment-record-status{font-size:11px;color:var(--muted);flex:1}
+#sheet .biz-comment-mic{width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);display:grid;place-items:center}
+#sheet .biz-comment-mic.is-recording{background:rgba(139,53,67,.2);color:#e39aa6;border-color:#8b3543;animation:bizCommentPulse 1.2s ease-in-out infinite}
+#sheet #biz-comment-audio-preview{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#sheet #biz-comment-audio-preview audio{width:min(100%,320px);height:36px}
+#sheet #biz-comment-audio-preview button{border:0;background:none;color:var(--muted);font-size:11px;text-decoration:underline}
+#sheet .biz-comment-privacy-note{font-size:10.5px;line-height:1.45;color:var(--muted);margin:0}
+@keyframes bizCommentPulse{50%{box-shadow:0 0 0 5px rgba(139,53,67,.12)}}
+@media(max-width:480px){#sheet .biz-comment-options{gap:8px}#sheet .biz-comment-options label{font-size:11px}}
