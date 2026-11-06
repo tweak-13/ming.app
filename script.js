@@ -10856,8 +10856,8 @@ async function openBusinessPostComments(postId) {
     const send = form.querySelector('button[type="submit"]');
     if (send) { send.disabled = true; send.textContent = 'Sending…'; }
     try {
-      const { error } = await supabaseClient.rpc('add_ming_business_space_post_comment_reply', {
-        p_parent_comment_id: form.dataset.bizReply, p_text: replyText
+      const { error } = await supabaseClient.rpc('add_ming_business_space_post_comment_v2', {
+        p_content_id: form.dataset.bizReply, p_text: replyText
       });
       if (error) throw error;
       await openBusinessPostComments(postId);
