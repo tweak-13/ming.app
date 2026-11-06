@@ -10230,6 +10230,8 @@ function openRoleComposer(roleId = null) {
     title: role ? 'Edit open role' : 'Create an open role',
     sub: 'Publish a clear opportunity and tell applicants what you need.',
     body: `
+      <div class="or-form-shell">
+      <div class="or-form-hero"><span class="or-form-kicker">Business · Open roles</span><strong>Build your team with intention.</strong><p>Set out the opportunity clearly so the right people know what they are stepping into.</p></div>
       <div class="field"><label for="or-title">Role title</label><input id="or-title" maxlength="100" value="${esc(role?.title || '')}" placeholder="e.g. Junior Security Analyst" /></div>
       <div class="field"><label for="or-type">Employment type</label><select id="or-type">
         ${[['full-time','Full-time'],['part-time','Part-time'],['contract','Contract'],['internship','Internship'],['temporary','Temporary'],['volunteer','Volunteer']].map(([v,l])=>`<option value="${v}" ${(role?.employmentType || 'full-time')===v?'selected':''}>${l}</option>`).join('')}
@@ -10245,6 +10247,7 @@ function openRoleComposer(roleId = null) {
       <div class="field"><label for="or-compensation">Compensation / benefits (optional)</label><input id="or-compensation" maxlength="160" value="${esc(role?.compensation || '')}" placeholder="e.g. Paid internship / Salary discussed" /></div>
       <div class="field"><label for="or-deadline">Application deadline (optional)</label><input id="or-deadline" type="datetime-local" value="${openRoleDateValue(role?.applicationDeadline)}" /></div>
       ${role ? `<div class="field"><label for="or-status">Listing status</label><select id="or-status"><option value="open" ${role.status==='open'?'selected':''}>Open — accepting applications</option><option value="closed" ${role.status==='closed'?'selected':''}>Closed</option></select></div>` : ''}
+      </div>
     `,
     foot: `<button class="btn btn--primary btn--block" data-sp="role-save:${role?.id || 'new'}">${role ? 'Save changes' : 'Publish role'}</button>`
   });
