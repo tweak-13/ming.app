@@ -10768,15 +10768,6 @@ async function openBusinessPostComments(postId) {
     const commentId = button.dataset.commentOnce;
     button.disabled = true;
     button.textContent = 'Preparing…';
-    const { data: claimed, error: claimError } = await supabaseClient.rpc(
-      'claim_ming_business_space_comment_voice_once',
-      { p_comment_id: commentId }
-    );
-    if (claimError || claimed !== true) {
-      button.closest('.biz-comment-voice-once')?.classList.add('is-consumed');
-      button.closest('.biz-comment-voice-once')?.replaceChildren(document.createTextNode('This voice note has already been played.'));
-      return;
-    }
     const comment = comments.find(item => item.id === commentId);
     if (!comment?.voice_path) return;
     const { data: signed, error: signedError } = await supabaseClient.storage
@@ -10785,6 +10776,15 @@ async function openBusinessPostComments(postId) {
       button.disabled = false;
       button.textContent = 'Try again';
       toast('Voice note could not be opened.', 'alert');
+      return;
+    }
+    const { data: claimed, error: claimError } = await supabaseClient.rpc(
+      'claim_ming_business_space_comment_voice_once',
+      { p_comment_id: commentId }
+    );
+    if (claimError || claimed !== true) {
+      button.closest('.biz-comment-voice-once')?.classList.add('is-consumed');
+      button.closest('.biz-comment-voice-once')?.replaceChildren(document.createTextNode('This voice note has already been played.'));
       return;
     }
     const holder = button.closest('.biz-comment-voice-once');
