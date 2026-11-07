@@ -350,12 +350,15 @@
 
 /* FRIENDLY COMPACT NAV 2026 — four core destinations + a tidy More menu. */
 #screen-space[data-nature="friendly"] .sp-tabs{
-  position:relative;z-index:20;overflow:visible;
+  position:absolute;left:0;right:0;bottom:0;z-index:20;
+  display:flex;align-items:stretch;justify-content:stretch;
+  width:100%;box-sizing:border-box;overflow:visible;
   padding:7px 10px calc(7px + var(--safe-b));
 }
 #screen-space[data-nature="friendly"] .fs-nav-inner{
-  width:min(100%,620px);margin:0 auto;display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:5px;
+  width:100%;max-width:760px;flex:1 1 100%;min-width:0;
+  margin:0 auto;display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch;gap:5px;
 }
 #screen-space[data-nature="friendly"] .fs-nav-item{
   min-width:0;width:100%;min-height:43px;padding:5px 3px;
