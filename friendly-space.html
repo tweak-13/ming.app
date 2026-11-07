@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0f0a08">
+  <meta name="description" content="Friendly Space — find your kind of people on Tweaklr.">
+  <title>Friendly Space · Tweaklr</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="friendly-space.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="Tweaklr Friendly Space"><span class="brand-mark">t.</span><span>Tweaklr<small>FRIENDLY SPACE</small></span></a>
+      <div class="side-label">YOUR SPACE</div>
+      <nav class="side-nav" aria-label="Friendly Space navigation">
+        <button class="nav-item active" data-view="feed"><span>⌂</span> Feed</button>
+        <button class="nav-item" data-view="discover"><span>✧</span> Find my people</button>
+        <button class="nav-item" data-view="trends"><span>▷</span> Trends & videos <i class="nav-count">4</i></button>
+        <button class="nav-item" data-view="activities"><span>◷</span> Activities</button>
+        <button class="nav-item" data-view="communities"><span>◎</span> Communities</button>
+        <button class="nav-item" data-view="games"><span>♧</span> Play together</button>
+      </nav>
+      <div class="side-label side-label-spaced">YOUR CONNECTIONS</div>
+      <nav class="side-nav">
+        <button class="nav-item" data-view="connections"><span>♡</span> Connections <i class="nav-count" id="connection-count">3</i></button>
+        <button class="nav-item" data-view="messages"><span>✉</span> Messages</button>
+        <button class="nav-item" data-view="profile"><span>◉</span> My profile</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="moonflower-card"><div class="moonflower-icon">✦</div><div><b>Need a conversation spark?</b><p>Let Moonflower help you break the ice.</p><button data-action="moonflower">Ask Moonflower ↗</button></div></div>
+        <div class="mini-user"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces" alt=""><div><b>Alex Morgan</b><small>@alexm</small></div><button aria-label="Profile menu" data-view="profile">•••</button></div>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="mobile-brand"><span class="brand-mark">t.</span><b>Friendly Space</b></div>
+        <div class="breadcrumb"><span>Spaces</span><span class="crumb-dot">/</span><b>Friendly</b></div>
+        <div class="top-actions"><label class="search-box"><span>⌕</span><input id="global-search" placeholder="Search people, interests, activities..." autocomplete="off"></label><button class="round-btn" aria-label="Notifications" data-action="notifications">♧<i class="notification-dot"></i></button><button class="round-btn avatar-button" aria-label="My profile" data-view="profile"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces" alt=""></button></div>
+      </header>
+      <div class="mobile-tabs"><button class="active" data-view="feed">Feed</button><button data-view="discover">Discover</button><button data-view="trends">Trends</button><button data-view="activities">Activities</button></div>
+      <div class="workspace">
+        <section class="content-column" id="content-view" aria-live="polite"></section>
+        <aside class="right-rail" id="right-rail">
+          <section class="rail-card match-card"><div class="rail-heading"><span>✧ FOR YOUR CIRCLE</span><button data-view="discover">See all</button></div><h3>Your next good connection<br>might be one hello away.</h3><div class="match-person"><img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces" alt=""><div><b>Amara James</b><small>4 shared interests · 92% match</small></div><button class="connect-mini" data-connect="amara">＋</button></div><div class="match-person"><img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=faces" alt=""><div><b>Daniel Kim</b><small>3 shared interests · 87% match</small></div><button class="connect-mini" data-connect="daniel">＋</button></div><button class="outline-wide" data-view="discover">Explore people <span>→</span></button></section>
+          <section class="rail-card"><div class="rail-heading"><span>HAPPENING THIS WEEK</span><button data-view="activities">All</button></div><div class="event-mini"><div class="event-date"><b>14</b><small>NOV</small></div><div><b>Creative minds café</b><small>Online · 18 people going</small></div></div><div class="event-mini"><div class="event-date"><b>16</b><small>NOV</small></div><div><b>Sunday photo walk</b><small>Central London · 9 going</small></div></div><div class="event-mini"><div class="event-date"><b>19</b><small>NOV</small></div><div><b>Study & focus room</b><small>Online · 26 people going</small></div></div></section>
+          <section class="rail-card prompt-card"><span class="eyebrow">A LITTLE FRIENDSHIP PROMPT</span><p>What's a small thing that instantly makes your day better?</p><button data-action="prompt">Answer today's question ↗</button></section>
+          <footer class="rail-footer">About · Guidelines · Privacy · Help<br><span>© 2026 Tweaklr · Nearby is everything.</span></footer>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+  <div class="modal-backdrop" id="modal-backdrop" hidden><section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button class="modal-close" data-close aria-label="Close">×</button><div id="modal-content"></div></section></div>
+  <script src="friendly-space.js"></script>
+</body>
+</html>
