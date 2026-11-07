@@ -9997,32 +9997,41 @@ function businessAppTabs(space) {
 
 function openSpace(id, tab) {
   const s = spaceById(id);
-  if (!s) return;
+  if (!s) {
+    console.error('Tweaklr: Space click did not resolve to a loaded Space.', { spaceId: id });
+    toast('This Space could not be found. Refresh Spaces and try again.', 'alert');
+    return;
+  }
   if (s.nature === 'silly') { toast('Silly Spaces are no longer available.'); return; }
-  sp.activeId = id;
-  sp.tab = s.nature === 'business' ? 'home' : (tab || NATURES[s.nature].tabs[0][0]);
-  const screen = $('#screen-space');
-  screen.dataset.nature = s.nature;
-  screen.dataset.spaceId = s.id;
-  // Resolve the persisted palette, including records where the palette is
-  // represented by its name rather than the full three-color object.
-  const savedTheme = s?.theme || s?.features?.theme;
-  const namedTheme = typeof savedTheme === 'string'
-    ? (NATURES[s.nature]?.palettes || []).find(p => p.name.toLowerCase() === savedTheme.toLowerCase())
-    : null;
-  const theme = namedTheme || spaceTheme(s);
-  const cover = `linear-gradient(140deg, ${theme.colors[0]}, ${theme.colors[1]} 58%, ${theme.colors[2]})`;
-  screen.style.setProperty('--sp-accent', theme.colors[0]);
-  screen.style.setProperty('--sp-accent-2', theme.colors[1]);
-  screen.style.setProperty('--sp-accent-3', theme.colors[2]);
-  screen.style.setProperty('--sp-cover', cover);
-  screen.style.setProperty('--sp-theme-name', JSON.stringify(theme.name || 'Tweaklr'));
-  // Set the header directly: a higher-specificity legacy Space rule was
-  // overriding the palette background, leaving the default atmosphere visible.
-  const spaceHead = $('#sp-head');
-  if (spaceHead) spaceHead.style.background = cover;
-  renderSpace();
-  pushStack('space');
+  try {
+    if (!NATURES[s.nature] || !HEADERS[s.nature] || !VIEWS[s.nature]) {
+      throw new Error('Space configuration is missing for type: ' + String(s.nature));
+    }
+    sp.activeId = id;
+    sp.tab = s.nature === 'business' ? 'home' : (tab || NATURES[s.nature].tabs[0][0]);
+    const screen = $('#screen-space');
+    screen.dataset.nature = s.nature;
+    screen.dataset.spaceId = s.id;
+    const savedTheme = s?.theme || s?.features?.theme;
+    const namedTheme = typeof savedTheme === 'string'
+      ? (NATURES[s.nature]?.palettes || []).find(p => p.name.toLowerCase() === savedTheme.toLowerCase())
+      : null;
+    const theme = namedTheme || spaceTheme(s);
+    const cover = `linear-gradient(140deg, ${theme.colors[0]}, ${theme.colors[1]} 58%, ${theme.colors[2]})`;
+    screen.style.setProperty('--sp-accent', theme.colors[0]);
+    screen.style.setProperty('--sp-accent-2', theme.colors[1]);
+    screen.style.setProperty('--sp-accent-3', theme.colors[2]);
+    screen.style.setProperty('--sp-cover', cover);
+    screen.style.setProperty('--sp-theme-name', JSON.stringify(theme.name || 'Tweaklr'));
+    const spaceHead = $('#sp-head');
+    if (spaceHead) spaceHead.style.background = cover;
+    renderSpace();
+    pushStack('space');
+  } catch (error) {
+    console.error('Tweaklr: Space failed to render.', { spaceId: id, nature: s.nature, error });
+    toast((s.nature === 'friendly' ? 'Friendly Space could not open: ' : 'Space could not open: ') + (error?.message || 'Unknown JavaScript error'), 'alert');
+    return;
+  }
   if (s.nature === 'business') {
     if (s.features?.opportunities !== false) void refreshOpenRoles(s.id);
     if (s.features?.audit !== false) void refreshSpaceActivity(s.id);
@@ -10033,7 +10042,6 @@ function openSpace(id, tab) {
     });
   }
 }
-
 function renderSpace() {
   const s = spaceById(sp.activeId);
   const n = NATURES[s.nature];
