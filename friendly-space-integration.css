@@ -407,3 +407,73 @@
   #screen-space[data-nature="friendly"] .fs-nav-inner{gap:2px}
   #screen-space[data-nature="friendly"] .fs-nav-item{font-size:8px;min-height:41px}
 }
+
+
+/* FRIENDLY CREATE-POST SHEET REDESIGN 2026 */
+#sheet:has(.fs-form[data-fs-kind="post"]) {
+  background:linear-gradient(155deg,#211613 0%,#120d0b 52%,#0e0a09 100%);
+  border:1px solid rgba(225,190,157,.19);
+  box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px rgba(255,235,214,.06);
+}
+#sheet:has(.fs-form[data-fs-kind="post"]) .sheet-head{padding:9px 22px 15px}
+#sheet:has(.fs-form[data-fs-kind="post"]) .sheet-head h2{font-size:23px;letter-spacing:-.045em;color:#f4e4d7}
+#sheet:has(.fs-form[data-fs-kind="post"]) .sheet-head p{color:#bba99d;font-size:12px;line-height:1.55}
+#sheet:has(.fs-form[data-fs-kind="post"]) .sheet-body{padding:0 22px 18px}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-post-intro{
+ display:flex;align-items:center;gap:12px;padding:14px;margin:0 0 19px;
+ border:1px solid rgba(218,177,143,.2);border-radius:17px;
+ background:radial-gradient(150px 90px at 100% 0%,rgba(139,53,67,.28),transparent 80%),linear-gradient(120deg,rgba(139,53,67,.16),rgba(241,210,174,.045));
+}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-post-intro-mark{
+ display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:13px;
+ color:#f1d2ae;background:rgba(139,53,67,.28);font-size:20px;
+}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-post-intro div{display:grid;gap:3px;min-width:0}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-post-intro b{font-size:12px;color:#f2dfd0}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-post-intro small{font-size:10px;line-height:1.45;color:#bba99d}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-post-limit{margin-left:auto;white-space:nowrap;font-size:8px;letter-spacing:.12em;color:#d8b99f}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form{display:grid;gap:15px}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form .field{display:grid;gap:8px;margin:0}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form .field label{
+ color:#e6cdb9;font-size:10px;font-weight:750;letter-spacing:.09em;text-transform:uppercase
+}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form input:not([type=file]),
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form textarea,
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form select{
+ width:100%;min-height:46px;padding:12px 14px;border:1px solid rgba(225,190,157,.17);
+ border-radius:13px;background:rgba(255,255,255,.045);color:#f5e8dd;
+ outline:none;font:inherit;font-size:12px;box-sizing:border-box;transition:border-color .18s,background .18s,box-shadow .18s
+}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form textarea{min-height:92px;resize:vertical;line-height:1.55}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form input:focus,
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form textarea:focus,
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form select:focus{
+ border-color:rgba(221,174,143,.7);background:rgba(255,255,255,.065);box-shadow:0 0 0 3px rgba(139,53,67,.17)
+}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form input::placeholder,
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form textarea::placeholder{color:#927f73}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form input[type=file]{
+ width:100%;min-height:82px;padding:17px 13px;border:1px dashed rgba(225,190,157,.38);
+ border-radius:15px;background:rgba(139,53,67,.09);color:#d8c3b3;font-size:10px;box-sizing:border-box
+}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form input[type=file]::file-selector-button{
+ margin-right:12px;padding:9px 12px;border:1px solid rgba(241,210,174,.25);border-radius:10px;
+ background:rgba(241,210,174,.12);color:#f1d2ae;font-weight:700;font-size:10px
+}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form select{color-scheme:dark}
+#sheet:has(.fs-form[data-fs-kind="post"]) .fs-form .fs-note{
+ margin:1px 0 0;padding:11px 13px;border:1px solid rgba(225,190,157,.12);
+ border-radius:12px;background:rgba(255,255,255,.025);color:#bba99d;font-size:10px;line-height:1.55
+}
+#sheet:has(.fs-form[data-fs-kind="post"]) .sheet-foot{display:flex;gap:10px;padding:12px 22px max(18px,env(safe-area-inset-bottom))}
+#sheet:has(.fs-form[data-fs-kind="post"]) .sheet-foot button{flex:1;min-height:45px;border-radius:13px;font-size:11px;font-weight:750}
+#sheet:has(.fs-form[data-fs-kind="post"]) .sheet-foot [data-fs-submit="post"]{
+ border:1px solid rgba(241,210,174,.32);background:linear-gradient(110deg,#8b3543,#65303a);color:#fff2e7;
+ box-shadow:0 8px 22px rgba(93,35,47,.25)
+}
+@media(max-width:560px){
+ #sheet:has(.fs-form[data-fs-kind="post"]) .sheet-head{padding-left:18px;padding-right:18px}
+ #sheet:has(.fs-form[data-fs-kind="post"]) .sheet-body{padding-left:18px;padding-right:18px}
+ #sheet:has(.fs-form[data-fs-kind="post"]) .sheet-foot{padding-left:18px;padding-right:18px}
+ #sheet:has(.fs-form[data-fs-kind="post"]) .fs-post-limit{font-size:7px}
+}
