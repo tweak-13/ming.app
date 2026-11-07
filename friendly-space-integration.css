@@ -81,3 +81,14 @@
 #screen-space[data-nature="friendly"] .fs-moments .friend-post{border:1px solid var(--fs-line);border-radius:18px;overflow:hidden;background:var(--surface)}
 @media(max-width:600px){#screen-space[data-nature="friendly"] .fs-hero{min-height:205px;padding:18px}#screen-space[data-nature="friendly"] .fs-orbit{right:-25px;opacity:.4;width:110px;height:110px}#screen-space[data-nature="friendly"] .fs-hero-copy{max-width:92%}#screen-space[data-nature="friendly"] .fs-picks>div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))}#screen-space[data-nature="friendly"] .fs-cards,#screen-space[data-nature="friendly"] .fs-matches{grid-template-columns:1fr}#screen-space[data-nature="friendly"] .fs-trends-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:390px){#screen-space[data-nature="friendly"] .fs-trends-grid{grid-template-columns:1fr}}
+
+/* Compact Friendly Space header — scoped to Friendly only. */
+#screen-space[data-nature="friendly"] .sp-cover{
+  height:88px !important;
+  min-height:88px !important;
+  border-radius:0 0 18px 18px;
+}
+#screen-space[data-nature="friendly"] .sp-cover .sp-bar{
+  padding-top:max(6px,var(--safe-t));
+  padding-bottom:6px;
+}
