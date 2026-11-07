@@ -10048,7 +10048,32 @@ function renderSpace() {
   $('#sp-head').innerHTML = HEADERS[s.nature](s);
   $('#sp-tabs').innerHTML = s.nature === 'business'
     ? businessAppTabs(s).map(tab => `<button class="biz-app-tab ${sp.tab === tab.key ? 'on' : ''}" data-sp="tab:${tab.key}" aria-current="${sp.tab === tab.key ? 'page' : 'false'}"><span class="biz-app-tab__glyph" aria-hidden="true">${tab.glyph}</span><span>${tab.label}</span></button>`).join('')
-    : n.tabs.map(([k, label, ic]) => `
+    : s.nature === 'friendly'
+      ? (() => {
+          const primary = [
+            ['home','Home','home'],
+            ['discover','Discover','spark'],
+            ['trends','Trends','sp-bolt'],
+            ['circles','Connections','users']
+          ];
+          const secondary = [
+            ['activities','Activities','calendar'],
+            ['play','Play','sp-game'],
+            ['people','People','users'],
+            ['moments','Stories','sp-camera']
+          ];
+          const moreActive = secondary.some(([key]) => sp.tab === key);
+          return '<div class="fs-nav-inner">' +
+            primary.map(([key,label,glyph]) => `<button class="fs-nav-item ${sp.tab === key ? 'on' : ''}" data-sp="tab:${key}" aria-label="${label}" aria-current="${sp.tab === key ? 'page' : 'false'}">${icon(glyph)}<span>${label}</span></button>`).join('') +
+            '<div class="fs-nav-more ' + (moreActive ? 'is-active' : '') + '">' +
+              '<button class="fs-nav-item fs-nav-more-trigger ' + (moreActive ? 'on' : '') + '" data-sp="friendly-more" aria-label="More sections" aria-expanded="false">' + icon('more-horizontal') + '<span>More</span></button>' +
+              '<div class="fs-nav-menu" hidden>' +
+                secondary.map(([key,label,glyph]) => `<button class="fs-nav-menu-item ${sp.tab === key ? 'on' : ''}" data-sp="tab:${key}" aria-current="${sp.tab === key ? 'page' : 'false'}">${icon(glyph)}<span>${label}</span>${sp.tab === key ? '<i>✓</i>' : ''}</button>`).join('') +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        })()
+      : n.tabs.map(([k, label, ic]) => `
     <button class="${sp.tab === k ? 'on' : ''}" data-sp="tab:${k}" aria-current="${sp.tab === k}">
       ${icon(ic)}<span>${label}</span></button>`).join('');
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
@@ -12305,6 +12330,15 @@ document.addEventListener('click', async e => {
       renderSpaces();
       break;
     case 'wallet': openWallet(); break;
+    case 'friendly-more': {
+      const wrap = host.closest('.fs-nav-more');
+      const menu = wrap?.querySelector('.fs-nav-menu');
+      const trigger = wrap?.querySelector('.fs-nav-more-trigger');
+      const open = menu?.hidden !== false;
+      if (menu) menu.hidden = !open;
+      if (trigger) trigger.setAttribute('aria-expanded', String(open));
+      break;
+    }
     case 'tab': sp.tab = a; renderSpace(); if (S().nature === 'business' && a === 'brief') void refreshOpenRoles(S().id); if (S().nature === 'business' && a === 'log') void refreshSpaceActivity(S().id); break;
     case 'invite': closeSheet(); setTimeout(() => openInviteSheet(a), 150); break;
     case 'settings': openSpaceSettings(a); break;
