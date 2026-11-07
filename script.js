@@ -11511,7 +11511,7 @@ function friendlyPostCard(post) {
   const liked = !!post.mine?.like, likes = Math.max(0,Number(post.reacts?.like||0));
   const interests = Array.isArray(post.interests) ? post.interests : [];
   return '<article class="friend-post" id="friend-post-'+esc(post.id)+'">'+
-    '<header class="friend-post-head">'+avatar(author,42)+'<div class="friend-post-author"><b>'+esc(author.short||author.name||'Tweaklr member')+'</b><small>'+esc(mine?'You':(author.username||'Friendly Space member'))+' · '+esc(timeAgo(Number(post.at||post.createdAt||Date.now())))+'</small></div>'+
+    '<header class="friend-post-head">'+avatar(author,44)+'<div class="friend-post-author"><b>'+esc(author.short||author.name||'Tweaklr member')+'</b><small>'+esc(mine?'You':(author.username||'Friendly Space member'))+' · '+esc(timeAgo(Number(post.at||post.createdAt||Date.now())))+'</small></div>'+
     '<span class="friend-post-kind">'+(post.postFormat==='story'?'✦ STORY':'✳ FRIEND POST')+'</span></header>'+
     friendlyPostMediaMarkup(post)+
     (post.caption ? '<p class="friend-post-caption">'+esc(post.caption)+'</p>' : '')+
