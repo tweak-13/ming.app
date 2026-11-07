@@ -79,4 +79,12 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-fs-
  if(el.dataset.fsAction){const a=el.dataset.fsAction;if(['home','discover','trends','activities','circles','play','people','moments'].includes(a)){sp.tab=a;renderSpace();return;}if(['post','story','trend','activity','community'].includes(a)){composer(a);return;}}
  if(el.dataset.fsSubmit){await submit(el.dataset.fsSubmit);return;}if(el.dataset.fsJoinActivity){await join('activity',el.dataset.fsJoinActivity);return;}if(el.dataset.fsJoinCommunity){await join('community',el.dataset.fsJoinCommunity);return;}if(el.dataset.fsGame!==undefined){play(Number(el.dataset.fsGame));return;}if(el.dataset.fsRemix){composer('trend',el.dataset.fsRemix);return;}
 });
+// Repaint an already-open Friendly Space after replacing its views.
+try {
+  const current = spaceById(sp.activeId);
+  if (current && current.nature === 'friendly') renderSpace();
+} catch (error) {
+  console.error('Tweaklr Friendly Space integration could not repaint the active Space:', error);
+}
+
 })();
