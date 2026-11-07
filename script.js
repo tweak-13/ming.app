@@ -11519,7 +11519,7 @@ function friendlyPostCard(post) {
     (interests.length ? '<div class="friend-interest-tags">'+interests.map(t=>'<span>#'+esc(t)+'</span>').join('')+'</div>' : '')+
     '<footer class="friend-post-actions"><button class="'+(liked?'is-liked':'')+'" data-sp="friend-like:'+post.id+'" aria-pressed="'+liked+'">♥ <span>'+likes+'</span></button>'+
     '<button data-sp="friend-comments:'+post.id+'">Comments · '+(Array.isArray(post.comments)?post.comments.length:0)+'</button>'+
-    '<button data-sp="friend-message:'+post.authorId+'">Message</button>'+
+
     (!mine && isUuidPerson(post.authorId) && !isConnected(post.authorId) ? '<button data-sp="friend-connect:'+post.authorId+'">Connect ↗</button>' : '')+
     (mine ? '<button type="button" class="friend-post-delete" data-fs-delete="'+esc(post.id)+'" aria-label="Delete your post">Delete</button>' : '')+'</footer></article>';
 }
