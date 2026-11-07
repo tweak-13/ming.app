@@ -12790,6 +12790,32 @@ document.addEventListener('click', async e => {
       closeSheet(); refreshSpace(); toast(files.length ? 'Listing saved with media' : 'Listed', 'check');
       break;
     }
+    case 'friend-media': {
+      const space = S();
+      if (!space || space.nature !== 'friendly') break;
+      const post = contentOf(space.id, 'friend_post').find(item => String(item.id) === String(a));
+      const index = Number(b);
+      const media = Array.isArray(post?.media) ? post.media[index] : null;
+      const cached = post ? (friendlyMediaUrlCache.get(post.id) || []) : [];
+      const url = media?.url || cached[index] || '';
+      if (!media || !url) { toast('This media is still loading. Please try again.','x'); break; }
+      if (String(media.mime || '').startsWith('video/')) {
+        openSheet({
+          title: 'Video',
+          sub: 'Playing inside Friendly Space',
+          body: '<div class="friend-video-viewer"><video src="'+esc(url)+'" controls autoplay playsinline webkit-playsinline preload="auto" style="display:block;width:100%;max-height:70vh;aspect-ratio:9/16;object-fit:contain;background:#080605;border-radius:16px"></video></div>',
+          foot: '<button type="button" class="btn btn--primary" data-action="close-sheet">Close video</button>'
+        });
+      } else {
+        openSheet({
+          title: 'Photo',
+          sub: 'Shared in Friendly Space',
+          body: '<img src="'+esc(url)+'" alt="'+esc(media.name || 'Friendship post')+'" style="display:block;width:100%;max-height:70vh;object-fit:contain;border-radius:16px;background:#080605"/>',
+          foot: '<button type="button" class="btn btn--primary" data-action="close-sheet">Close</button>'
+        });
+      }
+      break;
+    }
     case 'msg-seller': closeSheet(); setTimeout(() => openChat(a), 180); break;
     case 'wallet-blocked':
       openModal({
