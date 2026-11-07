@@ -346,3 +346,61 @@
   #screen-space[data-nature="friendly"] *:before,
   #screen-space[data-nature="friendly"] *:after{scroll-behavior:auto !important;transition:none !important;animation:none !important}
 }
+
+
+/* FRIENDLY COMPACT NAV 2026 — four core destinations + a tidy More menu. */
+#screen-space[data-nature="friendly"] .sp-tabs{
+  position:relative;z-index:20;overflow:visible;
+  padding:7px 10px calc(7px + var(--safe-b));
+}
+#screen-space[data-nature="friendly"] .fs-nav-inner{
+  width:min(100%,620px);margin:0 auto;display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:5px;
+}
+#screen-space[data-nature="friendly"] .fs-nav-item{
+  min-width:0;width:100%;min-height:43px;padding:5px 3px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  border:0;border-radius:13px;background:transparent;color:var(--muted);
+  font-size:9px;font-weight:650;line-height:1.1;white-space:nowrap;
+  transition:background .18s ease,color .18s ease,transform .18s ease;
+}
+#screen-space[data-nature="friendly"] .fs-nav-item svg{
+  width:18px;height:18px;flex:0 0 auto;
+}
+#screen-space[data-nature="friendly"] .fs-nav-item.on{
+  color:var(--fs-accent)!important;
+  background:color-mix(in srgb,var(--fs-accent) 10%,var(--surface));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fs-accent) 13%,transparent);
+}
+#screen-space[data-nature="friendly"] .fs-nav-more{position:relative;min-width:0}
+#screen-space[data-nature="friendly"] .fs-nav-more-trigger{cursor:pointer}
+#screen-space[data-nature="friendly"] .fs-nav-more.is-active .fs-nav-more-trigger{
+  color:var(--fs-accent)!important;
+}
+#screen-space[data-nature="friendly"] .fs-nav-menu{
+  position:absolute;right:0;bottom:calc(100% + 11px);width:min(218px,68vw);
+  display:grid;gap:4px;padding:8px;border:1px solid var(--fs-line);
+  border-radius:17px;background:color-mix(in srgb,var(--surface) 94%,transparent);
+  box-shadow:0 16px 42px rgba(28,17,14,.2);backdrop-filter:blur(22px);
+  -webkit-backdrop-filter:blur(22px);
+}
+#screen-space[data-nature="friendly"] .fs-nav-menu[hidden]{display:none}
+#screen-space[data-nature="friendly"] .fs-nav-menu-item{
+  display:flex;align-items:center;gap:11px;min-height:42px;padding:8px 10px;
+  border:0;border-radius:11px;background:transparent;color:var(--text);
+  text-align:left;font-size:11px;font-weight:620;
+}
+#screen-space[data-nature="friendly"] .fs-nav-menu-item svg{
+  width:17px;height:17px;color:var(--muted);flex:0 0 auto;
+}
+#screen-space[data-nature="friendly"] .fs-nav-menu-item.on{
+  color:var(--fs-accent);background:color-mix(in srgb,var(--fs-accent) 9%,var(--surface));
+}
+#screen-space[data-nature="friendly"] .fs-nav-menu-item.on svg{color:var(--fs-accent)}
+#screen-space[data-nature="friendly"] .fs-nav-menu-item i{
+  margin-left:auto;font-style:normal;font-size:12px;color:var(--fs-accent);
+}
+@media(max-width:380px){
+  #screen-space[data-nature="friendly"] .fs-nav-inner{gap:2px}
+  #screen-space[data-nature="friendly"] .fs-nav-item{font-size:8px;min-height:41px}
+}
