@@ -10057,7 +10057,7 @@ function renderSpace() {
             ['circles','Connections','users']
           ];
           const secondary = [
-            ['activities','Activities','calendar'],
+            ['activities','Activities','cal'],
             ['play','Play','sp-game'],
             ['people','People','users'],
             ['moments','Stories','sp-camera']
@@ -10066,7 +10066,7 @@ function renderSpace() {
           return '<div class="fs-nav-inner">' +
             primary.map(([key,label,glyph]) => `<button class="fs-nav-item ${sp.tab === key ? 'on' : ''}" data-sp="tab:${key}" aria-label="${label}" aria-current="${sp.tab === key ? 'page' : 'false'}">${icon(glyph)}<span>${label}</span></button>`).join('') +
             '<div class="fs-nav-more ' + (moreActive ? 'is-active' : '') + '">' +
-              '<button class="fs-nav-item fs-nav-more-trigger ' + (moreActive ? 'on' : '') + '" data-sp="friendly-more" aria-label="More sections" aria-expanded="false">' + icon('more-horizontal') + '<span>More</span></button>' +
+              '<button class="fs-nav-item fs-nav-more-trigger ' + (moreActive ? 'on' : '') + '" data-sp="friendly-more" aria-label="More sections" aria-expanded="false">' + icon('layers') + '<span>More</span></button>' +
               '<div class="fs-nav-menu" hidden>' +
                 secondary.map(([key,label,glyph]) => `<button class="fs-nav-menu-item ${sp.tab === key ? 'on' : ''}" data-sp="tab:${key}" aria-current="${sp.tab === key ? 'page' : 'false'}">${icon(glyph)}<span>${label}</span>${sp.tab === key ? '<i>✓</i>' : ''}</button>`).join('') +
               '</div>' +
