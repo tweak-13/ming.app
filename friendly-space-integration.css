@@ -84,8 +84,8 @@
 
 /* Compact Friendly Space header — scoped to Friendly only. */
 #screen-space[data-nature="friendly"] .sp-cover{
-  height:88px !important;
-  min-height:88px !important;
+  height:48px !important;
+  min-height:48px !important;
   border-radius:0 0 18px 18px;
 }
 #screen-space[data-nature="friendly"] .sp-cover .sp-bar{
