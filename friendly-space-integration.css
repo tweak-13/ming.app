@@ -594,6 +594,8 @@
  #sheet:has(.fs-form[data-fs-kind="story"]) .sheet-foot,#sheet:has(.fs-form[data-fs-kind="trend"]) .sheet-foot,#sheet:has(.fs-form[data-fs-kind="activity"]) .sheet-foot{padding-left:18px;padding-right:18px}
 }
 
+
 /* Publisher-only Friendly post deletion control */
-.friend-post-delete{border:1px solid rgba(190,92,105,.32);background:rgba(139,53,67,.12);color:#e7aab0;border-radius:999px;padding:6px 10px;font:inherit;font-size:10px;font-weight:750;cursor:pointer;transition:background .18s,border-color .18s}
-.friend-post-delete:hover{background:rgba(139,53,67,.24);border-color:rgba(190,92,105,.55)}
+.friend-post-delete{border:1px solid rgba(255,65,78,.58);background:linear-gradient(135deg,#b51f32,#821426);color:#fff;border-radius:999px;padding:7px 13px;font:inherit;font-size:10px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 4px 14px rgba(164,20,43,.24);transition:background .18s,transform .18s,box-shadow .18s}
+.friend-post-delete:hover{background:linear-gradient(135deg,#d3263d,#9d142b);box-shadow:0 6px 18px rgba(190,25,50,.34);transform:translateY(-1px)}
+.friend-post-delete:focus-visible{outline:2px solid #ff8994;outline-offset:3px}
