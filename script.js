@@ -10652,8 +10652,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
         : '<div class="biz-comment-avatar biz-comment-avatar--fallback">' + icon('user-round') + '</div>');
     const privacy = comment.private_to_author ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>' : '';
     const voice = comment.voice_view_once
-      ? (comment.voice_viewed
-        ? '<div class="biz-comment-voice-once is-consumed">' + icon('check-circle') + '<span>Voice note already played</span></div>'
+      ? (comment.voice_viewed ? ''
         : '<div class="biz-comment-voice-once"><span>' + icon('headphones') + '</span><div><strong>One-time voice note</strong><small>Available for one listen</small></div><button type="button" class="biz-comment-once-play" data-comment-once="' + esc(comment.id) + '">Listen once</button></div>')
       : (comment.voiceUrl ? '<div class="biz-comment-voice"><span class="biz-comment-voice-icon">' + icon('volume-2') + '</span><audio controls preload="none" src="' + esc(comment.voiceUrl) + '"></audio></div>' : '');
     const text = comment.body ? '<div class="biz-comment-bubble">' + esc(comment.body) + '</div>' : '';
@@ -10994,8 +10993,19 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
       holder.innerHTML = '<span>' + icon('headphones') + '</span><audio controls autoplay preload="auto" src="' + esc(signed.signedUrl) + '"></audio>';
       const audio = holder.querySelector('audio');
       audio.addEventListener('ended', () => {
-        holder.classList.add('is-consumed');
-        holder.innerHTML = icon('check-circle') + '<span>Voice note played · one-time access used</span>';
+        const thread = holder.closest('.biz-comment-thread');
+        const commentCard = holder.closest('.biz-comment-card');
+        const hasText = !!commentCard?.querySelector('.biz-comment-bubble')?.textContent?.trim();
+        if (!hasText) {
+          thread?.remove();
+        } else {
+          holder.remove();
+        }
+        const count = $('#sheet .biz-comments-count');
+        if (count && !$('#sheet .biz-comment-thread')) {
+          const empty = $('#sheet .biz-comment-list');
+          if (empty) empty.innerHTML = '<div class="biz-comment-empty"><span>' + icon('message-circle') + '</span><strong>It’s quiet in here.</strong><p>Be the first to add something meaningful to this post.</p></div>';
+        }
       }, { once: true });
       audio.addEventListener('error', () => {
         holder.classList.add('is-consumed');
