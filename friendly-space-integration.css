@@ -593,3 +593,7 @@
  #sheet:has(.fs-form[data-fs-kind="story"]) .sheet-body,#sheet:has(.fs-form[data-fs-kind="trend"]) .sheet-body,#sheet:has(.fs-form[data-fs-kind="activity"]) .sheet-body{padding-left:18px;padding-right:18px}
  #sheet:has(.fs-form[data-fs-kind="story"]) .sheet-foot,#sheet:has(.fs-form[data-fs-kind="trend"]) .sheet-foot,#sheet:has(.fs-form[data-fs-kind="activity"]) .sheet-foot{padding-left:18px;padding-right:18px}
 }
+
+/* Publisher-only Friendly post deletion control */
+.friend-post-delete{border:1px solid rgba(190,92,105,.32);background:rgba(139,53,67,.12);color:#e7aab0;border-radius:999px;padding:6px 10px;font:inherit;font-size:10px;font-weight:750;cursor:pointer;transition:background .18s,border-color .18s}
+.friend-post-delete:hover{background:rgba(139,53,67,.24);border-color:rgba(190,92,105,.55)}
