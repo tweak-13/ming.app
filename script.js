@@ -11707,9 +11707,9 @@ function friendlyPostCard(post) {
   const interests = Array.isArray(post.interests) ? post.interests : [];
   return '<article class="friend-post" id="friend-post-'+esc(post.id)+'">'+
     '<header class="friend-post-head">'+avatar(author,44)+'<div class="friend-post-author"><b>'+esc(author.short||author.name||'Tweaklr member')+'</b><small>'+esc(mine?'You':(author.username||'Friendly Space member'))+' · '+esc(timeAgo(Number(post.at||post.createdAt||Date.now())))+'</small></div>'+
-    '<span class="friend-post-kind">'+(post.postFormat==='story'?'✦ STORY':'✳ FRIEND POST')+'</span></header>'+
+    '<span class="friend-post-kind">'+(post.postFormat==='story'?'✦ STORY':post.postFormat==='activity'?'✦ ACTIVITY':'✳ FRIEND POST')+'</span></header>'+
     friendlyPostMediaMarkup(post)+
-    (post.caption ? '<p class="friend-post-caption">'+esc(post.caption)+'</p>' : '')+
+    (post.postFormat==='activity' ? '<section class="friend-activity-post-details"><h3>'+esc(post.title||'Activity')+'</h3>'+(post.description||post.caption?'<p>'+esc(post.description||post.caption)+'</p>':'')+'<div class="friend-activity-post-meta">'+(post.startsAt?'<span>◷ '+esc(new Date(post.startsAt).toLocaleString([],{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}))+'</span>':'')+(post.venue?'<span>⌖ '+esc(post.venue)+'</span>':'')+'</div></section>' : (post.caption ? '<p class="friend-post-caption">'+esc(post.caption)+'</p>' : ''))+
     (post.lookingFor ? '<div class="friend-looking"><span>✧ LOOKING TO MEET</span><p>'+esc(post.lookingFor)+'</p><small>'+esc(FRIENDSHIP_TYPES.find(x=>x[0]===post.friendshipType)?.[1]||'Open to friendship')+'</small></div>' : '')+
     (interests.length ? '<div class="friend-interest-tags">'+interests.map(t=>'<span>#'+esc(t)+'</span>').join('')+'</div>' : '')+
     '<footer class="friend-post-actions"><button class="'+(liked?'is-liked':'')+'" data-sp="friend-like:'+post.id+'" aria-pressed="'+liked+'">♥ <span>'+likes+'</span></button>'+
