@@ -26,7 +26,7 @@ VIEWS.friendly.home=s=>{
  const feed=rows(s.id).filter(p=>['post','trend'].includes(p.postFormat));
  const picks=friendlySuggestions(s).slice(0,3);
  return '<div class="fs-view"><section class="fs-hero"><div class="fs-hero-copy"><small class="fs-kicker">TWEAKLR · FRIENDLY SPACE</small><h2>Find your people.<br><em>Feel at home.</em></h2><p>Shared interests are the beginning. The best friendships happen when you give them room to grow.</p><div class="fs-actions">'+button('post','＋ Create a post','fs-primary')+button('discover','Find my people')+'</div></div><div class="fs-orbit">✳</div></section>'+
- friendlyStoryTray(s)+
+ ''+
  '<section class="fs-composer"><span>'+avatar(currentUser,40)+'</span><button data-fs-action="post">Share a moment, a thought or something you love...</button><div><button data-fs-action="post">▧ Photo / video</button><button data-fs-action="activity">◷ Activity</button><button data-fs-action="trend">▷ Trend video</button></div></section>'+
  '<div class="fs-feed-head"><div><small class="fs-kicker">YOUR CIRCLE, YOUR DISCOVERIES</small><h3>Fresh from the circle</h3></div><small>'+feed.length+' posts</small></div>'+
  (feed.length?feed.map(post).join(''):empty('✧','Your circle starts with a hello.','Share a photo or video, tell people what you enjoy and describe the friendship you want to find.',button('post','Share your first post','fs-primary')))+
