@@ -10390,7 +10390,7 @@ function businessPostHoursLeft(post) {
   if (post?.expiryMode === 'never') return Infinity;
   const createdAt = Number(post?.at || post?.createdAt || Date.now());
   const expiryAt = Number(post?.expiresAt);
-  const endsAt = Number.isFinite(expiryAt) && expiryAt > 0 ? expiryAt : createdAt + 24 * HOUR;
+  const fallbackHours = Number(post?.expiryDurationHours); const safeFallbackHours = Number.isFinite(fallbackHours) && fallbackHours > 0 ? fallbackHours : 24; const endsAt = Number.isFinite(expiryAt) && expiryAt > 0 ? expiryAt : createdAt + safeFallbackHours * HOUR;
   return Math.max(0, (endsAt - now()) / HOUR);
 }
 
@@ -10408,7 +10408,7 @@ function businessPostLifePercent(post) {
   if (post?.expiryMode === 'never') return 100;
   const createdAt = Number(post?.at || post?.createdAt || Date.now());
   const expiryAt = Number(post?.expiresAt);
-  const duration = Number.isFinite(expiryAt) && expiryAt > createdAt ? expiryAt - createdAt : 24 * HOUR;
+  const configuredHours = Number(post?.expiryDurationHours); const fallbackDuration = Number.isFinite(configuredHours) && configuredHours > 0 ? configuredHours * HOUR : 24 * HOUR; const duration = Number.isFinite(expiryAt) && expiryAt > createdAt ? expiryAt - createdAt : fallbackDuration;
   return Math.max(2, Math.min(100, Math.round((businessPostHoursLeft(post) * HOUR / duration) * 100)));
 }
 
@@ -11491,7 +11491,15 @@ const FRIENDSHIP_TYPES = [
 function friendlyPosts(spaceId, format) {
   return contentOf(spaceId, 'friend_post')
     .filter(post => !format || post.postFormat === format)
-    .filter(post => post.postFormat !== 'story' || Number(post.expiresAt || 0) > Date.now())
+    .filter(post => {
+      if (post.expiryMode === 'never') return true;
+      const createdAt = Number(post.at || post.createdAt || Date.now());
+      const savedExpiry = Number(post.expiresAt);
+      if (Number.isFinite(savedExpiry) && savedExpiry > 0) return savedExpiry > Date.now();
+      const hours = Number(post.expiryDurationHours);
+      if (post.expiryMode === 'duration' && Number.isFinite(hours) && hours > 0) return createdAt + hours * HOUR > Date.now();
+      return post.postFormat !== 'story' || createdAt + 24 * HOUR > Date.now();
+    })
     .slice().sort((a,b) => Number(b.at || b.createdAt || 0) - Number(a.at || a.createdAt || 0));
 }
 function friendlyPostMediaMarkup(post) {
@@ -13142,7 +13150,7 @@ VIEWS.friendly.people=s=>'<div class="fs-view">'+head('THE PEOPLE IN THIS SPACE'
 VIEWS.friendly.moments=s=>'<div class="fs-view">'+head('DISAPPEARS AFTER 24 HOURS','Little moments, while they last.','A photo or video story gives your circle a glimpse of your day.',button('story','＋ Add story','fs-primary'))+friendlyStoryTray(s)+(rows(s.id,'story').map(post).join('')||empty('◌','No stories right now.','Share a little moment. It will stay here for 24 hours.',button('story','Create a story','fs-primary')))+'</div>';
 
 async function upload(files,spaceId){const uploaded=[];for(const f of files){const safe=f.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,90)||'moment',path=currentUser.id+'/friendly-'+spaceId+'/'+crypto.randomUUID()+'-'+safe;const {error}=await supabaseClient.storage.from('ming-post-media').upload(path,f,{contentType:f.type,cacheControl:'3600',upsert:false});if(error){if(uploaded.length)await supabaseClient.storage.from('ming-post-media').remove(uploaded.map(x=>x.path)).catch(()=>{});throw error;}uploaded.push({path,name:f.name,mime:f.type});}return uploaded;}
-async function save(payload,media=[]){const s=active();if(!s||s.nature!=='friendly'||!Server.can(s.id,'space.post'))throw Error('You cannot post in this Friendly Space.');const r=await Server.submit('space.post',{spaceId:s.id,kind:'friend_post',payload:{...payload,media,reacts:{},mine:{},comments:[]}});if(!r.ok){if(media.length)await supabaseClient.storage.from('ming-post-media').remove(media.map(x=>x.path)).catch(()=>{});throw Error(r.error||'Could not save this content.');}if(media.length){const urls=await Promise.all(media.map(async m=>{const {data,error}=await supabaseClient.storage.from('ming-post-media').createSignedUrl(m.path,3600);return error?'':data?.signedUrl||'';}));friendlyMediaUrlCache.set(r.data.row.id,Object.assign(urls,{expiresAt:Date.now()+3500000}));}closeSheet();renderSpace();toast('Saved to Friendly Space.','check');}
+async function save(payload,media=[]){const s=active();if(!s||s.nature!=='friendly'||!Server.can(s.id,'space.post'))throw Error('You cannot post in this Friendly Space.');const expiryMode=payload.expiryMode||'never';const expiryHours=Number(payload.expiryDurationHours);const finalPayload={...payload,expiryMode,expiryDurationHours:expiryMode==='duration'&&Number.isFinite(expiryHours)&&expiryHours>0?expiryHours:null,expiresAt:expiryMode==='duration'&&Number.isFinite(expiryHours)&&expiryHours>0?Date.now()+expiryHours*HOUR:null,media,reacts:{},mine:{},comments:[]};const r=await Server.submit('space.post',{spaceId:s.id,kind:'friend_post',payload:finalPayload});if(!r.ok){if(media.length)await supabaseClient.storage.from('ming-post-media').remove(media.map(x=>x.path)).catch(()=>{});throw Error(r.error||'Could not save this content.');}if(media.length){const urls=await Promise.all(media.map(async m=>{const {data,error}=await supabaseClient.storage.from('ming-post-media').createSignedUrl(m.path,3600);return error?'':data?.signedUrl||'';}));friendlyMediaUrlCache.set(r.data.row.id,Object.assign(urls,{expiresAt:Date.now()+3500000}));}closeSheet();renderSpace();toast('Saved to Friendly Space.','check');}
 const typeOptions=FRIENDSHIP_TYPES.map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('');
 function composer(kind,remix=''){const config={
  post:['Share a moment','Show your circle what you enjoy and the friendship you hope to find.','<div class="fs-post-intro"><span class="fs-post-intro-mark">✳</span><div><b>Your moment, your people.</b><small>Share something real and help your kind of people find you.</small></div><span class="fs-post-limit">4 MEDIA MAX</span></div><div class="field"><label>Photos or video · up to 4 files</label><input id="fs-files" type="file" accept="image/*,video/*" multiple></div><div class="field"><label>Caption</label><textarea id="fs-caption" maxlength="300"></textarea></div><div class="field"><label>Who are you hoping to meet?</label><textarea id="fs-looking" maxlength="220"></textarea></div><div class="field"><label>Friendship type</label><select id="fs-type">'+typeOptions+'</select></div><div class="field"><label>Interests · comma separated</label><input id="fs-interests" maxlength="140"></div>'],
