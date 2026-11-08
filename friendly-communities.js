@@ -14,6 +14,12 @@
   const activeSpace = () => spaceById(sp.activeId);
   const categories = ['Creative','Gaming','Study','Travel','Sports','Books','Wellbeing','Technology','Music','Photography','Entrepreneurship','Other interests'];
   const dateLabel = value => { try { return new Date(value).toLocaleDateString([], {day:'numeric',month:'short',year:'numeric'}); } catch (_) { return ''; } };
+  const isCommunityOwner = c => {
+    if (!c) return false;
+    if (['owner','creator'].includes(String(c.my_role||c.my_status||'').toLowerCase())) return true;
+    const uid = String(currentUser?.id || '');
+    return !!uid && [c.owner_id,c.creator_id,c.created_by,c.user_id].some(id => id && String(id) === uid);
+  };
   const profileAvatar = (url,name) => url
     ? '<img class="fc-avatar" src="'+esc(url)+'" alt="" loading="lazy">'
     : '<span class="fc-avatar fc-avatar--fallback">'+esc((name||'T').trim().slice(0,1).toUpperCase())+'</span>';
@@ -33,12 +39,12 @@
   }
 
   function communityCard(c) {
-    const joined=c.my_status==='approved',pending=c.my_status==='pending';
+    const owner=isCommunityOwner(c), joined=c.my_status==='approved'||owner, pending=c.my_status==='pending';
     const cover=c.cover_url?'<img src="'+esc(c.cover_url)+'" alt="" loading="lazy">':'<div class="fc-card-art"><span>✳</span><i></i><b></b></div>';
     return '<article class="fc-community-card" data-fc-search-text="'+esc((c.name+' '+c.description+' '+c.category).toLowerCase())+'">'+
       '<button class="fc-card-cover" data-fc="open" data-id="'+esc(c.id)+'">'+cover+'<span class="fc-card-category">'+esc(c.category||'INTERESTS')+'</span><span class="fc-card-lock">'+(c.privacy==='private'?'◈':'◎')+'</span></button>'+
-      '<div class="fc-card-copy"><div class="fc-card-title-row"><h3>'+esc(c.name)+'</h3>'+(joined?'<span class="fc-member-chip">MEMBER</span>':pending?'<span class="fc-pending-chip">PENDING</span>':'')+'</div><p>'+esc(c.description)+'</p><div class="fc-card-meta"><span>'+Number(c.member_count||0)+' members</span><span>'+Number(c.post_count||0)+' posts</span></div>'+
-      '<div class="fc-card-actions">'+(joined?'<button class="fc-open-btn" data-fc="open" data-id="'+esc(c.id)+'">Enter community <span>↗</span></button>':pending?'<button class="fc-open-btn is-pending" disabled>Request pending</button>':'<button class="fc-join-btn" data-fc="join" data-id="'+esc(c.id)+'">'+(c.privacy==='private'||c.require_approval?'Request to join':'Join community')+' <span>→</span></button>')+'</div></div></article>';
+      '<div class="fc-card-copy"><div class="fc-card-title-row"><h3>'+esc(c.name)+'</h3>'+(owner?'<span class="fc-owner-chip">CREATOR</span>':joined?'<span class="fc-member-chip">MEMBER</span>':pending?'<span class="fc-pending-chip">PENDING</span>':'')+'</div><p>'+esc(c.description)+'</p><div class="fc-card-meta"><span>'+Number(c.member_count||0)+' members</span><span>'+Number(c.post_count||0)+' posts</span></div>'+
+      '<div class="fc-card-actions">'+(joined?'<button class="fc-open-btn" data-fc="open" data-id="'+esc(c.id)+'">'+(owner?'Manage your community':'Enter community')+' <span>↗</span></button>':pending?'<button class="fc-open-btn is-pending" disabled>Request pending</button>':'<button class="fc-join-btn" data-fc="join" data-id="'+esc(c.id)+'">'+(c.privacy==='private'||c.require_approval?'Request to join':'Join community')+' <span>→</span></button>')+'</div></div></article>';
   }
 
   async function signedPath(path) {
@@ -52,7 +58,7 @@
     try{
       const data=await rpc('get_ming_friendly_communities',{p_space_id:spaceId});
       const rows=Array.isArray(data?.communities)?data.communities:[];
-      state.items=await Promise.all(rows.map(async c=>({...c,cover_url:await signedPath(c.cover_path)})));
+      state.items=await Promise.all(rows.map(async c=>({...c,my_role:isCommunityOwner(c)?'owner':c.my_role,cover_url:await signedPath(c.cover_path)})));
     }catch(e){console.error('Friendly Communities load failed:',e);toast(e.message||'Communities could not be loaded.','alert');}
     finally{state.loading=false;state.loaded=true;if(sp.activeId===spaceId&&sp.tab==='circles')renderSpace();}
   }
@@ -67,7 +73,7 @@
       signedPath(c.cover_path),
       Promise.all(posts.map(async p=>({...p,media_urls:await Promise.all((Array.isArray(p.media)?p.media:[]).map(m=>signedPath(m.path)))})))
     ]);
-    state.detail={community:{...c,cover_url:cover},posts:postRows,members,requests};
+    state.detail={community:{...c,my_role:isCommunityOwner(c)?'owner':c.my_role,cover_url:cover},posts:postRows,members,requests};
     state.selected=id;
   }
   function renderDetail() {
