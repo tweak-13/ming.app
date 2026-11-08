@@ -1380,7 +1380,8 @@ function avatar(p, size = 44, opts = {}) {
   const image = p.avatarUrl
     ? `<img src="${esc(p.avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;">`
     : initials(p.short || p.name);
-  return `<span class="av av--${size}" style="${avatarStyle(p.hue)}" aria-hidden="true">${image}${opts.status === false ? '' : st}</span>`;
+  const canOpenProfile = isUuidPerson(p.id) && p.id !== currentUser.id;
+  return `<span class="av av--${size}" style="${avatarStyle(p.hue)}"${canOpenProfile ? ` data-profile-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Open ${esc(p.short || p.name || 'member')}'s profile"` : ' aria-hidden="true"'}>${image}${opts.status === false ? '' : st}</span>`;
 }
 function ringAvatar(p, size = 56, live = false) {
   return `<span class="av-ring ${live ? 'live' : ''}">${avatar(p, size)}</span>`;
@@ -3175,6 +3176,50 @@ function renderNearby() {
 ------------------------------------------------------------ */
 function isConnected(id) { return connections.some(c => c.personId === id); }
 
+async function openPublicProfile(id, username = '') {
+  if (id && id === currentUser.id) { setTab('profile'); return; }
+  let profile = id ? byId(id) : null;
+  if (!profile || (!profile.interests && !profile.bio && !profile.username)) {
+    let query = supabaseClient.from('profiles')
+      .select('id, username, display_name, avatar_url, bio, headline, interests, tags, activity, discoverable, created_at');
+    query = id ? query.eq('id', id) : query.eq('username', String(username).replace(/^@/, ''));
+    const { data, error } = await query.maybeSingle();
+    if (error || !data) {
+      console.warn('Tweaklr: public profile could not be loaded.', error?.message || 'Profile not found.');
+      toast('This public profile is not available.', 'alert');
+      return;
+    }
+    profile = data;
+  }
+  if (!profile?.id) return;
+  const displayName = profile.display_name || profile.username || 'Tweaklr member';
+  const interests = Array.isArray(profile.interests) ? profile.interests : [];
+  const tags = Array.isArray(profile.tags) ? profile.tags : [];
+  const person = {
+    ...(mingConnectionProfiles.get(profile.id) || {}),
+    ...profile,
+    id: profile.id,
+    name: displayName,
+    short: displayName,
+    username: profile.username ? '@' + profile.username.replace(/^@/, '') : '',
+    avatarUrl: profile.avatar_url || profile.avatarUrl || '',
+    bio: profile.bio || '',
+    headline: profile.headline || '',
+    tag: profile.headline || tags.join(' · ') || 'Tweaklr member',
+    interests,
+    tags,
+    activity: profile.activity || '',
+    hue: 26,
+    km: null,
+    status: null,
+    visitor: false
+  };
+  mingConnectionProfiles.set(person.id, person);
+  await loadMingConnections();
+  mingConnectionProfiles.set(person.id, person);
+  openPerson(person.id);
+}
+
 function openPerson(id) {
   const p = byId(id);
   if (!p) return;
@@ -3219,8 +3264,9 @@ function openPerson(id) {
       <button class="btn btn--soft btn--block" data-action="${isBlocked ? 'unblock-user:' + p.id : 'block-user:' + p.id}">${isBlocked ? 'Unblock this person' : 'Block this person privately'}</button>
     </div>
     <div class="section">${sectionHead('Interests')}
-      <div class="tags">${p.interests.map(i => `<span class="tag-pill">${esc(i)}</span>`).join('')}</div>
+      <div class="tags">${(Array.isArray(p.interests) ? p.interests : []).map(i => `<span class="tag-pill">${esc(i)}</span>`).join('') || '<span class="u">No interests added yet.</span>'}</div>
     </div>
+    ${Array.isArray(p.tags) && p.tags.length ? `<div class="section">${sectionHead('Likes & preferences')}<div class="tags">${p.tags.map(tag => `<span class="tag-pill">${esc(tag)}</span>`).join('')}</div></div>` : ''}
     <div class="section">${sectionHead('Daily Updates', 'Gone in 24 hours')}
       ${theirUpdates.length ? theirUpdates.map(updateCard).join('') : emptyState('Nothing shared today', `${p.short} has not posted an update in the last 24 hours.`)}
     </div>
@@ -10645,11 +10691,14 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
   const renderBusinessComment = (comment, isReply = false) => {
     const anonymous = !!comment.anonymous;
     const author = anonymous ? 'Anonymous member' : (comment.author_display_name || comment.author_username || 'Space member');
+    const profileTarget = !anonymous && comment.author_username
+      ? ' data-profile-username="' + esc(comment.author_username) + '" role="button" tabindex="0" aria-label="Open ' + esc(author) + '\'s profile"'
+      : '';
     const identity = anonymous
       ? '<div class="biz-comment-avatar biz-comment-avatar--anonymous" aria-label="Anonymous member">' + icon('user-round') + '</div>'
       : (comment.author_avatar_url
-        ? '<div class="biz-comment-avatar"><div class="av" style="width:38px;height:38px;flex:0 0 38px"><img src="' + esc(comment.author_avatar_url) + '" alt="" /></div></div>'
-        : '<div class="biz-comment-avatar biz-comment-avatar--fallback">' + icon('user-round') + '</div>');
+        ? '<div class="biz-comment-avatar"' + profileTarget + '><div class="av" style="width:38px;height:38px;flex:0 0 38px"><img src="' + esc(comment.author_avatar_url) + '" alt="" /></div></div>'
+        : '<div class="biz-comment-avatar biz-comment-avatar--fallback"' + profileTarget + '>' + icon('user-round') + '</div>');
     const privacy = comment.private_to_author ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>' : '';
     const voice = comment.voice_view_once
       ? (comment.voice_viewed ? ''
@@ -12330,6 +12379,13 @@ function openDocumentMetaSheet(fileId,field){const file=Server.db.files.find(f=>
    EVENTS
 ============================================================ */
 document.addEventListener('click', async e => {
+  const profileAvatar = e.target.closest('[data-profile-id], [data-profile-username]');
+  if (profileAvatar) {
+    e.preventDefault();
+    e.stopPropagation();
+    await openPublicProfile(profileAvatar.dataset.profileId || '', profileAvatar.dataset.profileUsername || '');
+    return;
+  }
   const returnLatest = e.target.closest('[data-action="chat-return-latest"]');
   if (returnLatest) {
     const thread = document.querySelector('#chat-thread');
