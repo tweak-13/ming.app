@@ -599,3 +599,50 @@
 .friend-post-delete{border:1px solid rgba(255,65,78,.58);background:linear-gradient(135deg,#b51f32,#821426);color:#fff;border-radius:999px;padding:7px 13px;font:inherit;font-size:10px;font-weight:800;letter-spacing:.02em;cursor:pointer;box-shadow:0 4px 14px rgba(164,20,43,.24);transition:background .18s,transform .18s,box-shadow .18s}
 .friend-post-delete:hover{background:linear-gradient(135deg,#d3263d,#9d142b);box-shadow:0 6px 18px rgba(190,25,50,.34);transform:translateY(-1px)}
 .friend-post-delete:focus-visible{outline:2px solid #ff8994;outline-offset:3px}
+
+
+/* Friendship note action — bespoke discover-page treatment only. */
+#screen-space[data-nature="friendly"] .fs-heading .fs-note-update{
+  flex:0 0 auto;
+  min-height:46px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  padding:0 18px;
+  border:1px solid rgba(220,184,151,.34);
+  border-radius:14px;
+  color:#f8e8d9;
+  background:
+    radial-gradient(circle at 15% 0%,rgba(255,230,202,.16),transparent 58%),
+    linear-gradient(135deg,#56332d 0%,#38221f 58%,#251715 100%);
+  box-shadow:0 9px 22px rgba(35,17,14,.18),inset 0 1px 0 rgba(255,255,255,.12);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.01em;
+  white-space:nowrap;
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease,filter .2s ease;
+}
+#screen-space[data-nature="friendly"] .fs-heading .fs-note-update:before{
+  content:"✧";
+  display:grid;
+  place-items:center;
+  width:23px;height:23px;
+  border-radius:8px;
+  color:#f1d2ae;
+  background:rgba(241,210,174,.12);
+  font-size:14px;
+}
+#screen-space[data-nature="friendly"] .fs-heading .fs-note-update:hover{
+  transform:translateY(-2px);
+  border-color:rgba(241,210,174,.58);
+  box-shadow:0 13px 26px rgba(35,17,14,.24),0 0 0 3px rgba(241,210,174,.06);
+  filter:brightness(1.08);
+}
+#screen-space[data-nature="friendly"] .fs-heading .fs-note-update:focus-visible{
+  outline:2px solid #f1d2ae;outline-offset:3px;
+}
+@media(max-width:600px){
+  #screen-space[data-nature="friendly"] .fs-heading{align-items:flex-start;flex-direction:column}
+  #screen-space[data-nature="friendly"] .fs-heading .fs-note-update{width:100%;min-height:44px}
+}
