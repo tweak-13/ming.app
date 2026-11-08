@@ -7514,11 +7514,15 @@ document.addEventListener('click', e => {
    ACTIONS (delegated)
 ------------------------------------------------------------ */
 document.addEventListener('click', async e => {
-  const profileAvatar = e.target.closest('[data-profile-id], [data-profile-username]');
+  const profileAvatar = e.target.closest('[data-profile-id], [data-profile-username], [data-profile-self]');
   if (profileAvatar) {
     e.preventDefault();
     e.stopImmediatePropagation();
-    await openPublicProfile(profileAvatar.dataset.profileId || '', profileAvatar.dataset.profileUsername || '');
+    if (profileAvatar.hasAttribute('data-profile-self')) {
+      setTab('profile');
+    } else {
+      await openPublicProfile(profileAvatar.dataset.profileId || '', profileAvatar.dataset.profileUsername || '');
+    }
     return;
   }
   const openBtn = e.target.closest('[data-open]');
@@ -10699,11 +10703,13 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
   const renderBusinessComment = (comment, isReply = false) => {
     const anonymous = !!comment.anonymous;
     const author = anonymous ? 'Anonymous member' : (comment.author_display_name || comment.author_username || 'Space member');
-    const profileTarget = !anonymous && isUuidPerson(comment.author_id)
-      ? ' data-profile-id="' + esc(comment.author_id) + '" role="button" tabindex="0" aria-label="Open ' + esc(author) + '\'s profile"'
-      : (!anonymous && comment.author_username
-        ? ' data-profile-username="' + esc(comment.author_username) + '" role="button" tabindex="0" aria-label="Open ' + esc(author) + '\'s profile"'
-        : '');
+    const profileTarget = !anonymous && comment.is_mine
+      ? ' data-profile-self="true" role="button" tabindex="0" aria-label="Open your profile"'
+      : (!anonymous && isUuidPerson(comment.author_id)
+        ? ' data-profile-id="' + esc(comment.author_id) + '" role="button" tabindex="0" aria-label="Open ' + esc(author) + '\'s profile"'
+        : (!anonymous && comment.author_username
+          ? ' data-profile-username="' + esc(comment.author_username) + '" role="button" tabindex="0" aria-label="Open ' + esc(author) + '\'s profile"'
+          : ''));
     const identity = anonymous
       ? '<div class="biz-comment-avatar biz-comment-avatar--anonymous" aria-label="Anonymous member">' + icon('user-round') + '</div>'
       : (comment.author_avatar_url
