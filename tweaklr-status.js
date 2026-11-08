@@ -1,16 +1,17 @@
 /* Tweaklr unified Status — shared engine for Home, Friendly and Business Spaces. */
 (function(){
 'use strict';
+const app=()=>window.TweaklrStatusContext?window.TweaklrStatusContext():{};
 const HOUR=3600000,DAY=24*HOUR,BUCKET='ming-post-media';
 let cache=new Map(),activeViewer=null,progressTimer=null,paused=false,startedAt=0,remaining=0;
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const escS=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const uid=()=>window.currentUser?.id||'';
+const uid=()=>app().currentUser?.id||'';
 const profile=(id,row)=>id===uid()?window.currentUser:{id,name:row?.author_display_name||row?.display_name||row?.author_username||'Tweaklr member',short:row?.author_display_name||row?.display_name||row?.author_username||'Tweaklr member',username:row?.author_username?'@'+String(row.author_username).replace(/^@/,''):'',avatarUrl:row?.author_avatar_url||row?.avatar_url||'',hue:24};
-function toastS(t,type){if(typeof window.toast==='function')window.toast(t,type||'alert');else console.info(t);}
+function toastS(t,type){if(typeof app().toast==='function')window.toast(t,type||'alert');else console.info(t);}
 function spaceScope(s){return s?.nature==='friendly'?'friendly':s?.nature==='business'?'business':'main';}
 async function fetchStatuses(scope='main',spaceId=null){
- if(!window.supabaseClient||!uid())return [];
+ if(!app().supabaseClient||!uid())return [];
  const {data,error}=await supabaseClient.rpc('get_tweaklr_statuses',{p_scope:scope,p_space_id:spaceId});
  if(error){console.warn('Tweaklr Status load failed:',error.message);return [];}
  const rows=await Promise.all((data||[]).map(async r=>{
@@ -44,8 +45,8 @@ function applyAvatarRings(rows){
  $$('[data-profile-id]').forEach(el=>{const id=el.dataset.profileId;if(!ids.has(id))return;const personRows=rows.filter(r=>r.author_id===id);el.classList.add('tw-avatar-has-status');el.classList.toggle('tw-avatar-status-seen',personRows.every(r=>r.viewed||r.is_mine));});
 }
 function openComposer(scope,spaceId){
- const main=scope==='main',people=main?(window.connections||[]).map(c=>c.personId).filter(Boolean):[];
- const profiles=people.map(id=>window.mingConnectionProfiles?.get(id)).filter(Boolean);
+ const main=scope==='main',people=main?(app().connections||[]).map(c=>c.personId).filter(Boolean):[];
+ const profiles=people.map(id=>app().mingConnectionProfiles?.get(id)).filter(Boolean);
  const privacy=main?'<div class="tw-status-field"><label>Status privacy</label><select id="tw-status-audience"><option value="connections">My connections</option><option value="except">My connections except…</option><option value="selected">Only share with…</option></select></div><div class="tw-status-field" id="tw-status-privacy-people" hidden><label>Select people</label><div class="tw-status-people">'+profiles.map(p=>'<label><input type="checkbox" value="'+escS(p.id)+'"><span>'+(p.avatarUrl?'<img src="'+escS(p.avatarUrl)+'">':'')+escS(p.short||p.name)+'</span></label>').join('')+'</div></div>':'<p class="tw-status-note">Visible to approved members of this '+(scope==='friendly'?'Friendly':'Business')+' Space.</p>';
  const html='<div class="tw-status-compose" data-scope="'+scope+'" data-space="'+escS(spaceId||'')+'"><div class="tw-status-type-switch"><button class="on" data-tw-type="text">Text</button><button data-tw-type="media">Photo / video</button></div><div id="tw-status-text-panel"><textarea id="tw-status-caption" maxlength="700" placeholder="Type a status…"></textarea><div class="tw-status-colors">'+['#5B332A','#8B3543','#263B52','#315448','#5A4775','#202020'].map(c=>'<button style="background:'+c+'" data-tw-bg="'+c+'" aria-label="Text background"></button>').join('')+'</div></div><div id="tw-status-media-panel" hidden><input id="tw-status-file" type="file" accept="image/*,video/mp4,video/webm,video/quicktime"><div id="tw-status-preview"></div><p>Photos up to 15 MB · videos up to 50 MB and 60 seconds.</p></div>'+privacy+'</div>';
  const overlay=document.createElement('div');overlay.className='tw-status-modal';overlay.innerHTML='<div class="tw-status-dialog"><header><button data-tw-close>×</button><div><b>Create status</b><small>It disappears after 24 hours.</small></div></header><div class="tw-status-compose-body">'+html+'</div><footer><button class="tw-status-publish" data-tw-publish>Share status</button></footer></div>';document.body.append(overlay);
@@ -69,7 +70,7 @@ async function publish(overlay,scope,spaceId){
  const {data,error}=await supabaseClient.rpc('create_tweaklr_status',{p_scope:scope,p_space_id:spaceId||null,p_status_type:type==='text'?'text':file.type.startsWith('video/')?'video':'image',p_caption:caption,p_media_path:path,p_media_mime:mime,p_text_background:overlay.dataset.bg||'#5B332A',p_audience:audience,p_included_user_ids:audience==='selected'?selected:[],p_excluded_user_ids:audience==='except'?selected:[]});
  if(error){if(path)await supabaseClient.storage.from(BUCKET).remove([path]);throw error;}
  toastS('Status shared.','check');
- if(scope==='main')await mountHome();else{const s=window.spaceById?.(spaceId);if(s)await mountSpace(s);}
+ if(scope==='main')await mountHome();else{const s=app().spaceById?.(spaceId);if(s)await mountSpace(s);}
 }
 function closeViewer(){if(progressTimer)clearInterval(progressTimer);progressTimer=null;activeViewer=null;paused=false;$('.tw-status-viewer')?.remove();}
 async function openViewer(authorId,scope,spaceId){
@@ -101,5 +102,5 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{if(e.target.id==='tw-status-audience'){const p=$('#tw-status-privacy-people');if(p)p.hidden=!['except','selected'].includes(e.target.value);}});
 const observer=new MutationObserver(()=>{const rows=[...cache.values()].flat();if(rows.length)applyAvatarRings(rows);});observer.observe(document.body,{subtree:true,childList:true});
-window.TweaklrStatus={mountHome,mountSpace,refresh:async()=>{await mountHome();const s=window.spaceById?.(window.sp?.activeId);if(s)await mountSpace(s);}};
+window.TweaklrStatus={mountHome,mountSpace,refresh:async()=>{await mountHome();const s=window.spaceById?.(app().sp?.activeId);if(s)await mountSpace(s);}};
 })();
