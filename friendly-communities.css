@@ -182,3 +182,6 @@
   #screen-space[data-nature="friendly"] .fc-post-actions{gap:13px!important}
   #screen-space[data-nature="friendly"] .fc-post-actions>span{width:100%;margin-left:0}
 }
+
+/* Distinguish community creators from approved members in the directory. */
+#screen-space[data-nature="friendly"] .fc-owner-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid rgba(241,210,174,.38);border-radius:999px;background:rgba(73,50,36,.22);color:#f1d2ae;font-size:8px;font-weight:800;letter-spacing:.1em;}
