@@ -3580,3 +3580,30 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
   #sheet .fs-post-limit{font-size:7px;padding:5px 6px}
   #sheet:has(.fs-form) .sheet-foot{padding-inline:15px}
 }
+
+
+/* FRIENDLY MOMENT — interactive photo/video attachment picker */
+#sheet .fs-media-field{gap:9px}
+#sheet .fs-media-field>label:first-child{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#sheet .fs-media-count{color:#c5a572;font-size:8px;font-weight:850;letter-spacing:.13em;white-space:nowrap}
+#sheet .fs-media-input{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+#sheet .fs-media-drop{
+ display:flex;align-items:center;gap:12px;min-width:0;padding:15px;
+ border:1px dashed rgba(197,165,114,.48);border-radius:17px;
+ background:radial-gradient(170px 100px at 0% 0%,rgba(197,165,114,.12),transparent 75%),linear-gradient(135deg,rgba(197,165,114,.07),rgba(139,53,67,.075));
+ cursor:pointer;transition:border-color .18s,background .18s,box-shadow .18s;
+}
+#sheet .fs-media-drop:hover,#sheet .fs-media-input:focus-visible+.fs-media-drop{border-color:#c5a572;box-shadow:0 0 0 3px rgba(197,165,114,.1)}
+#sheet .fs-media-drop-icon{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border:1px solid rgba(197,165,114,.24);border-radius:14px;background:rgba(197,165,114,.13);color:#e3c69b;font-size:24px;line-height:1}
+#sheet .fs-media-drop-copy{display:grid;gap:4px;flex:1;min-width:0}
+#sheet .fs-media-drop-copy b{color:#fff0df;font-size:11px;font-weight:800}
+#sheet .fs-media-drop-copy small{color:rgba(255,241,223,.55);font-size:9px;line-height:1.5}
+#sheet .fs-media-browse{padding:8px 10px;border:1px solid rgba(197,165,114,.24);border-radius:10px;background:#493224;color:#fff0df;font-size:9px;font-weight:800;white-space:nowrap}
+#sheet .fs-media-preview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+#sheet .fs-media-preview:empty{display:none}
+#sheet .fs-media-thumb{position:relative;min-width:0;overflow:hidden;aspect-ratio:1/1;border:1px solid rgba(197,165,114,.22);border-radius:13px;background:#100c0a}
+#sheet .fs-media-thumb img,#sheet .fs-media-thumb video{display:block;width:100%;height:100%;object-fit:cover}
+#sheet .fs-media-kind{position:absolute;left:5px;bottom:5px;padding:4px 5px;border-radius:6px;background:rgba(10,8,7,.75);color:#fff0df;font-size:7px;font-weight:850;letter-spacing:.08em}
+#sheet .fs-media-remove{position:absolute;top:5px;right:5px;display:grid;place-items:center;width:24px;height:24px;padding:0;border:1px solid rgba(255,255,255,.25);border-radius:50%;background:rgba(15,10,8,.82);color:#fff;font-size:17px;line-height:1;cursor:pointer}
+#sheet .fs-media-thumb>small{position:absolute;left:0;right:0;bottom:0;overflow:hidden;padding:20px 5px 5px;background:linear-gradient(transparent,rgba(0,0,0,.82));color:#fff;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:420px){#sheet .fs-media-drop{gap:9px;padding:12px}#sheet .fs-media-drop-icon{flex-basis:36px;width:36px;height:36px}#sheet .fs-media-browse{padding:7px 8px}#sheet .fs-media-preview{grid-template-columns:repeat(3,minmax(0,1fr))}}
