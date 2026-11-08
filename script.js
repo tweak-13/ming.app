@@ -7517,7 +7517,7 @@ document.addEventListener('click', async e => {
   const profileAvatar = e.target.closest('[data-profile-id], [data-profile-username]');
   if (profileAvatar) {
     e.preventDefault();
-    e.stopPropagation();
+    e.stopImmediatePropagation();
     await openPublicProfile(profileAvatar.dataset.profileId || '', profileAvatar.dataset.profileUsername || '');
     return;
   }
@@ -12387,13 +12387,6 @@ function openDocumentMetaSheet(fileId,field){const file=Server.db.files.find(f=>
    EVENTS
 ============================================================ */
 document.addEventListener('click', async e => {
-  const profileAvatar = e.target.closest('[data-profile-id], [data-profile-username]');
-  if (profileAvatar) {
-    e.preventDefault();
-    e.stopPropagation();
-    await openPublicProfile(profileAvatar.dataset.profileId || '', profileAvatar.dataset.profileUsername || '');
-    return;
-  }
   const returnLatest = e.target.closest('[data-action="chat-return-latest"]');
   if (returnLatest) {
     const thread = document.querySelector('#chat-thread');
