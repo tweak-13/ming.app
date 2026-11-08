@@ -940,6 +940,12 @@ let connectionRequests = [
 ];
 let connectionOutgoingRequests = [];
 
+/* Read-only bridge for the separately loaded unified Status feature. */
+window.TweaklrStatusContext = () => ({
+  supabaseClient, currentUser, connections, mingConnectionProfiles,
+  toast, spaceById, sp
+});
+
 async function loadMingConnections() {
   try {
     const { data: { session }, error: sessionError } =
@@ -13697,13 +13703,3 @@ window.location.href = 'app.html';
   console.log('Tweaklr: authenticated session detected.');
 
 })();
-/* Unified Status module bridge: expose read-only app state to the isolated feature module. */
-try {
-  if (!Object.getOwnPropertyDescriptor(window, 'supabaseClient')) Object.defineProperty(window, 'supabaseClient', { configurable: true, get: () => supabaseClient });
-  if (!Object.getOwnPropertyDescriptor(window, 'currentUser')) Object.defineProperty(window, 'currentUser', { configurable: true, get: () => currentUser });
-  if (!Object.getOwnPropertyDescriptor(window, 'connections')) Object.defineProperty(window, 'connections', { configurable: true, get: () => connections });
-  if (!Object.getOwnPropertyDescriptor(window, 'mingConnectionProfiles')) Object.defineProperty(window, 'mingConnectionProfiles', { configurable: true, get: () => mingConnectionProfiles });
-  if (!Object.getOwnPropertyDescriptor(window, 'sp')) Object.defineProperty(window, 'sp', { configurable: true, get: () => sp });
-  window.toast = window.toast || toast;
-  window.spaceById = window.spaceById || spaceById;
-} catch (statusBridgeError) { console.warn('Tweaklr Status bridge unavailable:', statusBridgeError); }
