@@ -43,7 +43,10 @@ function trayHTML(rows,scope,spaceId){
 }
 async function mountHome(){
  const host=$('#home-status-tray');if(!host)return;
- const rows=await fetchStatuses('main',null);host.innerHTML=trayHTML(rows,'main',null);
+ let rows=[];
+ try{rows=await fetchStatuses('main',null);}catch(error){console.warn('Tweaklr Status: Home load failed; showing the tray anyway.',error);}
+ host.innerHTML=trayHTML(rows,'main',null);
+ host.style.display='block';host.style.visibility='visible';
  applyAvatarRings();
 }
 async function mountSpace(space){
@@ -150,6 +153,11 @@ document.addEventListener('change',e=>{if(e.target.id==='tw-status-audience'){co
 document.addEventListener('click',e=>{const el=e.target.closest('.tw-avatar-has-status[data-profile-id]');if(!el)return;const scope=el.dataset.twStatusScope||'main',spaceId=el.dataset.twStatusSpace||null,group=groups(cache.get(scope+':'+(spaceId||''))||[]).find(g=>g.authorId===el.dataset.profileId);if(!group)return;e.preventDefault();e.stopImmediatePropagation();openViewer(group.authorId,scope,spaceId);},true);
 const observer=new MutationObserver(()=>{if(cache.size)applyAvatarRings();const host=$('#home-status-tray');if(host&&!host.querySelector('.tw-status-tray')&&uid()&&!host.dataset.twStatusLoading){host.dataset.twStatusLoading='1';void mountHome().finally(()=>{delete host.dataset.twStatusLoading;});}});observer.observe(document.body,{subtree:true,childList:true});
 /* Recover the Home strip if the app rendered before this module finished loading. */
-setTimeout(()=>{const host=$('#home-status-tray');if(host&&uid()&&!host.querySelector('.tw-status-tray'))void mountHome();},250);
+let homeRetryCount=0;
+const homeRetry=setInterval(()=>{const host=$('#home-status-tray');if(!host){if(++homeRetryCount>60)clearInterval(homeRetry);return;}
+ if(!host.querySelector('.tw-status-tray'))void mountHome();
+ if(host.querySelector('.tw-status-tray')||++homeRetryCount>60)clearInterval(homeRetry);
+},500);
+window.addEventListener('load',()=>{const host=$('#home-status-tray');if(host&&!host.querySelector('.tw-status-tray'))void mountHome();});
 window.TweaklrStatus={mountHome,mountSpace,refresh:async()=>{await mountHome();const screen=document.getElementById('screen-space');const id=screen?.dataset.spaceId;const nature=screen?.dataset.nature;if(id&&['friendly','business'].includes(nature))await mountSpace({id,nature});}};
 })();
