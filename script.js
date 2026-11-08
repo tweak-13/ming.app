@@ -1380,7 +1380,7 @@ function avatar(p, size = 44, opts = {}) {
   const image = p.avatarUrl
     ? `<img src="${esc(p.avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;">`
     : initials(p.short || p.name);
-  const canOpenProfile = isUuidPerson(p.id) && p.id !== currentUser.id;
+  const canOpenProfile = isUuidPerson(p.id);
   return `<span class="av av--${size}" style="${avatarStyle(p.hue)}${canOpenProfile ? ';cursor:pointer' : ''}"${canOpenProfile ? ` data-profile-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Open ${esc(p.short || p.name || 'member')}'s profile"` : ' aria-hidden="true"'}>${image}${opts.status === false ? '' : st}</span>`;
 }
 function ringAvatar(p, size = 56, live = false) {
