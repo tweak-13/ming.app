@@ -7009,25 +7009,52 @@ function openComposer(type) {
   setTimeout(() => title.focus(), 260);
 }
 
-function openActivitySheet(id) {
-  const a = discoverActivities.find(x => x.id === id);
+async function openActivitySheet(id) {
+  const a = discoverActivities.find(x => x.id === id) || mingNearbyActivities.find(x => x.id === id);
   if (!a) return;
-  const p = byId(a.authorId);
+  const p = byId(a.authorId) || mingConnectionProfiles.get(a.authorId);
   if (!p) return;
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const userId = session?.user?.id;
+  const isHost = !!userId && a.authorId === userId;
+  let joined = !!a.joined || isHost;
+  if (userId && !joined) {
+    const { data: membership, error: membershipError } = await supabaseClient
+      .from('daily_update_participants').select('user_id')
+      .eq('update_id', a.id).eq('user_id', userId).maybeSingle();
+    if (!membershipError && membership) joined = true;
+  }
+  a.joined = joined;
+  let comments = [];
+  let commentsError = null;
+  if (joined) {
+    const { data, error } = await supabaseClient.rpc('get_daily_update_activity_comments', { p_update_id: a.id });
+    commentsError = error;
+    if (!error) comments = data || [];
+  }
+  const discussion = joined
+    ? (commentsError
+      ? '<div class="privacy-note" style="margin:12px 0"><p>Activity discussion is not ready yet. Please apply the activity discussion database migration.</p></div>'
+      : '<div style="margin-top:20px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><b style="font-size:14px">Discussion</b><span style="font-size:12px;color:var(--muted)">' + comments.length + ' comments</span></div>' +
+        (comments.map(c => '<div style="display:flex;gap:9px;padding:10px 0;border-bottom:1px solid var(--line,#eee)"><div style="width:30px;height:30px;border-radius:50%;background:#eee;overflow:hidden;flex:0 0 30px">' + (c.author_avatar_url ? '<img src="' + esc(c.author_avatar_url) + '" alt="" style="width:100%;height:100%;object-fit:cover">' : '<span style="display:grid;place-items:center;height:100%;font-size:12px">' + esc((c.author_display_name || 'T').slice(0,1)) + '</span>') + '</div><div style="min-width:0;flex:1"><div style="font-size:12px;font-weight:650">' + esc(c.author_display_name || 'Tweaklr member') + '<span style="font-weight:400;color:var(--muted);margin-left:7px">' + esc(timeAgo(new Date(c.created_at).getTime())) + '</span></div><div style="font-size:13px;line-height:1.45;margin-top:3px;overflow-wrap:anywhere">' + esc(c.body) + '</div></div></div>').join('') || '<div style="padding:14px 0;color:var(--muted);font-size:13px">No comments yet. Start the conversation.</div>') +
+        '<div style="display:flex;gap:8px;align-items:flex-end;margin-top:12px"><textarea id="activity-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…" style="flex:1;min-width:0;resize:vertical;border:1px solid var(--line,#ddd);border-radius:14px;padding:11px;font:inherit;background:var(--surface,#fff);color:inherit"></textarea><button class="btn btn--primary" data-action="activity-comment-send:' + a.id + '" style="min-height:42px">Send</button></div>')
+    : '<div class="privacy-note" style="margin:18px 0 0">' + icon('lock') + '<p>Join this activity to unlock its private discussion and talk with the people attending.</p></div>';
   openSheet({
     title: a.title,
-    sub: (a.startsAt ? new Date(a.startsAt).toLocaleString([], { weekday: 'long', hour: 'numeric', minute: '2-digit' }) : timeAgo(a.createdAt)) + ' · ' + a.going + ' going',
+    sub: (a.startsAt ? new Date(a.startsAt).toLocaleString([], { weekday: 'long', hour: 'numeric', minute: '2-digit' }) : timeAgo(a.createdAt)) + ' · ' + (a.going || 0) + ' going',
     body: '<div style="display:flex;align-items:center;gap:12px;padding:6px 0 14px">' +
       avatar(p, 44) +
-      '<div style="flex:1"><div style="font-size:14.5px;font-weight:560">' + esc(p.short) + ' shared this activity</div>' +
+      '<div style="flex:1"><div style="font-size:14.5px;font-weight:560">' + esc(p.short || p.name || 'Tweaklr member') + ' shared this activity</div>' +
       '<div style="font-size:12.5px;color:var(--muted)">' + esc(p.km == null ? 'Local activity' : distLabel(p.km)) + '</div></div></div>' +
       '<p style="font-size:14px;line-height:1.55;color:#4A3B32">' + esc(a.body || 'Activity shared on Tweaklr.') + '</p>' +
       '<div style="font-size:13px;color:var(--muted);margin-top:10px">' + esc(a.place || 'Nearby') + ' · ' + esc(a.startsAt ? new Date(a.startsAt).toLocaleString([], { weekday: 'long', hour: 'numeric', minute: '2-digit' }) : 'Time not set') + '</div>' +
-      '<div class="privacy-note" style="margin:16px 0 0">' + icon('shield') + '<p>Exact meeting details should be shared privately after people connect or join.</p></div>',
-    foot: '<div style="display:flex;gap:10px"><button class="btn btn--primary" style="flex:1" data-action="join:' + a.id + '">' +
-      (a.joined ? 'Joined' : 'Join') + '</button><button class="btn btn--soft" style="flex:1" data-action="person:' + p.id + '">View host</button></div>'
+      '<div class="privacy-note" style="margin:16px 0 0">' + icon('shield') + '<p>Exact meeting details should be shared privately after people connect or join.</p></div>' +
+      discussion,
+    foot: '<div style="display:flex;gap:10px">' + (!joined ? '<button class="btn btn--primary" style="flex:1" data-action="join:' + a.id + '">Join activity</button>' : '<button class="btn btn--primary" style="flex:1" disabled>Joined · ' + (comments.length) + ' comments</button>') +
+      '<button class="btn btn--soft" style="flex:1" data-action="person:' + p.id + '">View host</button></div>'
   });
 }
+
 
 function openPlaceSheet(id) {
   const pl = discoverPlaces.find(x => x.id === id);
@@ -7708,10 +7735,32 @@ document.addEventListener('click', async e => {
         break;
       }
       a.joined = true;
+      const nearbyActivity = mingNearbyActivities.find(x => x.id === a.id);
+      if (nearbyActivity) nearbyActivity.joined = true;
       if (!error) a.going += 1;
-      closeSheet();
       toast('You joined the activity.', 'check');
       if (state.loaded.discover) renderDiscover();
+      await openActivitySheet(a.id);
+      break;
+    }
+    case 'activity-comment-send': {
+      const input = $('#activity-comment-input');
+      const body = String(input?.value || '').trim();
+      if (!body) { toast('Write a comment first.', 'alert'); break; }
+      if (body.length > 1000) { toast('Comments must be 1,000 characters or fewer.', 'alert'); break; }
+      const sendButton = document.querySelector('[data-action="activity-comment-send:' + arg + '"]');
+      if (sendButton) { sendButton.disabled = true; sendButton.textContent = 'Sending…'; }
+      const { data, error } = await supabaseClient.rpc('add_daily_update_activity_comment', { p_update_id: arg, p_body: body });
+      if (error) {
+        console.warn('Tweaklr: activity comment failed:', error.message);
+        toast(error.message || 'Could not send your comment.', 'alert');
+        if (sendButton) { sendButton.disabled = false; sendButton.textContent = 'Send'; }
+        break;
+      }
+      const activity = discoverActivities.find(x => x.id === arg) || mingNearbyActivities.find(x => x.id === arg);
+      if (activity) activity.commentsCount = Number(activity.commentsCount || 0) + 1;
+      await openActivitySheet(arg);
+      toast('Comment added.', 'check');
       break;
     }
     case 'place': openPlaceSheet(arg); break;
