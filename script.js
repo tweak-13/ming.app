@@ -1381,7 +1381,7 @@ function avatar(p, size = 44, opts = {}) {
     ? `<img src="${esc(p.avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;">`
     : initials(p.short || p.name);
   const canOpenProfile = isUuidPerson(p.id) && p.id !== currentUser.id;
-  return `<span class="av av--${size}" style="${avatarStyle(p.hue)}"${canOpenProfile ? ` data-profile-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Open ${esc(p.short || p.name || 'member')}'s profile"` : ' aria-hidden="true"'}>${image}${opts.status === false ? '' : st}</span>`;
+  return `<span class="av av--${size}" style="${avatarStyle(p.hue)}${canOpenProfile ? ';cursor:pointer' : ''}"${canOpenProfile ? ` data-profile-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Open ${esc(p.short || p.name || 'member')}'s profile"` : ' aria-hidden="true"'}>${image}${opts.status === false ? '' : st}</span>`;
 }
 function ringAvatar(p, size = 56, live = false) {
   return `<span class="av-ring ${live ? 'live' : ''}">${avatar(p, size)}</span>`;
@@ -3178,19 +3178,16 @@ function isConnected(id) { return connections.some(c => c.personId === id); }
 
 async function openPublicProfile(id, username = '') {
   if (id && id === currentUser.id) { setTab('profile'); return; }
-  let profile = id ? byId(id) : null;
-  if (!profile || (!profile.interests && !profile.bio && !profile.username)) {
-    let query = supabaseClient.from('profiles')
-      .select('id, username, display_name, avatar_url, bio, headline, interests, tags, activity, discoverable, created_at');
-    query = id ? query.eq('id', id) : query.eq('username', String(username).replace(/^@/, ''));
-    const { data, error } = await query.maybeSingle();
-    if (error || !data) {
-      console.warn('Tweaklr: public profile could not be loaded.', error?.message || 'Profile not found.');
-      toast('This public profile is not available.', 'alert');
-      return;
-    }
-    profile = data;
+  let query = supabaseClient.from('profiles')
+    .select('id, username, display_name, avatar_url, bio, headline, interests, tags, activity, discoverable, created_at');
+  query = id ? query.eq('id', id) : query.eq('username', String(username).replace(/^@/, ''));
+  const { data: fetchedProfile, error } = await query.maybeSingle();
+  if (error || !fetchedProfile) {
+    console.warn('Tweaklr: public profile could not be loaded.', error?.message || 'Profile not found.');
+    toast('This public profile is not available.', 'alert');
+    return;
   }
+  const profile = fetchedProfile;
   if (!profile?.id) return;
   const displayName = profile.display_name || profile.username || 'Tweaklr member';
   const interests = Array.isArray(profile.interests) ? profile.interests : [];
@@ -7513,6 +7510,13 @@ document.addEventListener('click', e => {
    ACTIONS (delegated)
 ------------------------------------------------------------ */
 document.addEventListener('click', async e => {
+  const profileAvatar = e.target.closest('[data-profile-id], [data-profile-username]');
+  if (profileAvatar) {
+    e.preventDefault();
+    e.stopPropagation();
+    await openPublicProfile(profileAvatar.dataset.profileId || '', profileAvatar.dataset.profileUsername || '');
+    return;
+  }
   const openBtn = e.target.closest('[data-open]');
   if (openBtn) {
     const k = openBtn.dataset.open;
@@ -10697,8 +10701,8 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
     const identity = anonymous
       ? '<div class="biz-comment-avatar biz-comment-avatar--anonymous" aria-label="Anonymous member">' + icon('user-round') + '</div>'
       : (comment.author_avatar_url
-        ? '<div class="biz-comment-avatar"' + profileTarget + '><div class="av" style="width:38px;height:38px;flex:0 0 38px"><img src="' + esc(comment.author_avatar_url) + '" alt="" /></div></div>'
-        : '<div class="biz-comment-avatar biz-comment-avatar--fallback"' + profileTarget + '>' + icon('user-round') + '</div>');
+        ? '<div class="biz-comment-avatar"' + profileTarget + ' style="cursor:pointer"><div class="av" style="width:38px;height:38px;flex:0 0 38px"><img src="' + esc(comment.author_avatar_url) + '" alt="" /></div></div>'
+        : '<div class="biz-comment-avatar biz-comment-avatar--fallback"' + profileTarget + ' style="cursor:pointer">' + icon('user-round') + '</div>');
     const privacy = comment.private_to_author ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>' : '';
     const voice = comment.voice_view_once
       ? (comment.voice_viewed ? ''
