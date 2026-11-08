@@ -2088,6 +2088,7 @@ function renderHome() {
   renderHomeSpaces();
   renderHomeFeed();
   renderHomeOpps();
+  if (window.TweaklrStatus) void window.TweaklrStatus.mountHome();
   updateNotifDot();
 }
 
@@ -10135,6 +10136,7 @@ function renderSpace() {
     <button class="${sp.tab === k ? 'on' : ''}" data-sp="tab:${k}" aria-current="${sp.tab === k}">
       ${icon(ic)}<span>${label}</span></button>`).join('');
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
+  if (window.TweaklrStatus && ['business','friendly'].includes(s.nature)) void window.TweaklrStatus.mountSpace(s);
   if (s.nature === 'business' && sp.tab === 'home') {
     renderBusinessHome(s);
     void hydrateBusinessHomeMedia(s.id);
@@ -10146,6 +10148,7 @@ function renderSpace() {
 function refreshSpace() {
   const s = spaceById(sp.activeId);
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
+  if (window.TweaklrStatus && ['business','friendly'].includes(s.nature)) void window.TweaklrStatus.mountSpace(s);
   if (s.nature === 'business' && sp.tab === 'home') {
     renderBusinessHome(s);
     void hydrateBusinessPostCommentCounts(s.id);
@@ -13694,3 +13697,13 @@ window.location.href = 'app.html';
   console.log('Tweaklr: authenticated session detected.');
 
 })();
+/* Unified Status module bridge: expose read-only app state to the isolated feature module. */
+try {
+  if (!Object.getOwnPropertyDescriptor(window, 'supabaseClient')) Object.defineProperty(window, 'supabaseClient', { configurable: true, get: () => supabaseClient });
+  if (!Object.getOwnPropertyDescriptor(window, 'currentUser')) Object.defineProperty(window, 'currentUser', { configurable: true, get: () => currentUser });
+  if (!Object.getOwnPropertyDescriptor(window, 'connections')) Object.defineProperty(window, 'connections', { configurable: true, get: () => connections });
+  if (!Object.getOwnPropertyDescriptor(window, 'mingConnectionProfiles')) Object.defineProperty(window, 'mingConnectionProfiles', { configurable: true, get: () => mingConnectionProfiles });
+  if (!Object.getOwnPropertyDescriptor(window, 'sp')) Object.defineProperty(window, 'sp', { configurable: true, get: () => sp });
+  window.toast = window.toast || toast;
+  window.spaceById = window.spaceById || spaceById;
+} catch (statusBridgeError) { console.warn('Tweaklr Status bridge unavailable:', statusBridgeError); }
