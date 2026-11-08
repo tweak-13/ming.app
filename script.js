@@ -3214,6 +3214,10 @@ async function openPublicProfile(id, username = '') {
   mingConnectionProfiles.set(person.id, person);
   await loadMingConnections();
   mingConnectionProfiles.set(person.id, person);
+  [people, mingDiscoverPeople].forEach(group => {
+    const cached = group.find(item => item.id === person.id);
+    if (cached) Object.assign(cached, person);
+  });
   openPerson(person.id);
 }
 
