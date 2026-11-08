@@ -10169,6 +10169,7 @@ function openSpace(id, tab) {
 }
 function renderSpace() {
   const s = spaceById(sp.activeId);
+  if (s?.nature === 'friendly' && sp.tab === 'play') sp.tab = 'home';
   const n = NATURES[s.nature];
   $('#sp-head').innerHTML = HEADERS[s.nature](s);
   $('#sp-tabs').innerHTML = s.nature === 'business'
@@ -10183,7 +10184,6 @@ function renderSpace() {
           ];
           const secondary = [
             ['activities','Activities','cal'],
-            ['play','Play','sp-game'],
             ['people','People','users'],
             ['moments','Statuses','sp-camera']
           ];
