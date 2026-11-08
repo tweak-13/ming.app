@@ -10980,10 +10980,17 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
       }
 
       if (claimed !== true) {
+        comment.voice_viewed = true;
+        comment.voiceUrl = '';
         holder?.classList.add('is-consumed');
         holder?.replaceChildren(document.createTextNode('This voice note has already been played.'));
         return;
       }
+
+      // Keep the per-user consumed state in the open comments view as well as
+      // in Supabase, so a re-render cannot make this listener's note playable again.
+      comment.voice_viewed = true;
+      comment.voiceUrl = '';
 
       if (!holder) {
         toast('The voice note player is no longer available. Reopen the comments.', 'alert');
@@ -10993,6 +11000,11 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
       holder.innerHTML = '<span>' + icon('headphones') + '</span><audio controls autoplay preload="auto" src="' + esc(signed.signedUrl) + '"></audio>';
       const audio = holder.querySelector('audio');
       audio.addEventListener('ended', () => {
+        // Remove the completed media source immediately; only this listener's
+        // account is marked consumed by the claim RPC above.
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
         const thread = holder.closest('.biz-comment-thread');
         const commentCard = holder.closest('.biz-comment-card');
         const hasText = !!commentCard?.querySelector('.biz-comment-bubble')?.textContent?.trim();
