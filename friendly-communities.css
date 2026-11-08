@@ -185,3 +185,38 @@
 
 /* Distinguish community creators from approved members in the directory. */
 #screen-space[data-nature="friendly"] .fc-owner-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid rgba(241,210,174,.38);border-radius:999px;background:rgba(73,50,36,.22);color:#f1d2ae;font-size:8px;font-weight:800;letter-spacing:.1em;}
+
+/* Dedicated creator-only Friendly Community admin workspace. */
+#screen-space[data-nature="friendly"] .fc-admin-panel{display:grid;gap:15px}
+#screen-space[data-nature="friendly"] .fc-admin-welcome{padding:20px;border:1px solid rgba(241,210,174,.22);border-radius:20px;background:radial-gradient(circle at 90% 5%,rgba(139,53,67,.22),transparent 42%),linear-gradient(135deg,#211510,#120d0b);color:#f8e9dc}
+#screen-space[data-nature="friendly"] .fc-admin-welcome h3{margin:7px 0;font-size:22px;letter-spacing:-.04em}
+#screen-space[data-nature="friendly"] .fc-admin-welcome p{max-width:520px;color:#c8b5a7;font-size:10px;line-height:1.6}
+#screen-space[data-nature="friendly"] .fc-admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:17px}
+#screen-space[data-nature="friendly"] .fc-admin-stats>div{padding:11px;border:1px solid rgba(241,210,174,.16);border-radius:12px;background:rgba(255,255,255,.045)}
+#screen-space[data-nature="friendly"] .fc-admin-stats b,#screen-space[data-nature="friendly"] .fc-admin-stats small{display:block}
+#screen-space[data-nature="friendly"] .fc-admin-stats b{font-size:20px;color:#f1d2ae}
+#screen-space[data-nature="friendly"] .fc-admin-stats small{margin-top:4px;color:#c8b5a7;font-size:7px;letter-spacing:.12em}
+#screen-space[data-nature="friendly"] .fc-admin-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+#screen-space[data-nature="friendly"] .fc-admin-actions button{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;padding:13px;border:1px solid var(--fs-line);border-radius:14px;background:var(--surface);color:var(--text);text-align:left}
+#screen-space[data-nature="friendly"] .fc-admin-actions button>span{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:#493224;color:#f1d2ae;font-size:15px}
+#screen-space[data-nature="friendly"] .fc-admin-actions b{font-size:9px}
+#screen-space[data-nature="friendly"] .fc-admin-actions small{color:var(--muted);font-size:8px;line-height:1.45}
+#screen-space[data-nature="friendly"] .fc-admin-clear{display:flex;align-items:center;gap:11px;padding:13px;border:1px solid var(--fs-line);border-radius:14px;background:var(--surface)}
+#screen-space[data-nature="friendly"] .fc-admin-clear>span{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:rgba(73,50,36,.12);color:#9a7459}
+#screen-space[data-nature="friendly"] .fc-admin-clear b,#screen-space[data-nature="friendly"] .fc-admin-clear small{display:block}
+#screen-space[data-nature="friendly"] .fc-admin-clear b{font-size:10px}
+#screen-space[data-nature="friendly"] .fc-admin-clear small{margin-top:3px;color:var(--muted);font-size:8px}
+#screen-space[data-nature="friendly"] .fc-admin-publishing{display:grid;gap:8px}
+#screen-space[data-nature="friendly"] .fc-admin-publishing h3{margin:0;font-size:17px}
+#screen-space[data-nature="friendly"] .fc-admin-danger{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid rgba(180,95,88,.25);border-radius:14px;background:rgba(180,95,88,.045)}
+#screen-space[data-nature="friendly"] .fc-admin-danger b,#screen-space[data-nature="friendly"] .fc-admin-danger small{display:block}
+#screen-space[data-nature="friendly"] .fc-admin-danger b{font-size:10px}
+#screen-space[data-nature="friendly"] .fc-admin-danger small{max-width:390px;margin-top:4px;color:var(--muted);font-size:8px;line-height:1.5}
+#screen-space[data-nature="friendly"] .fc-admin-danger button{flex:0 0 auto;padding:9px 11px;border:1px solid rgba(180,95,88,.35);border-radius:10px;background:transparent;color:#b45f58;font-size:8px;font-weight:800}
+@media(max-width:520px){
+ #screen-space[data-nature="friendly"] .fc-admin-actions{grid-template-columns:1fr}
+ #screen-space[data-nature="friendly"] .fc-admin-actions button{display:grid;grid-template-columns:32px 1fr;align-items:center;column-gap:9px}
+ #screen-space[data-nature="friendly"] .fc-admin-actions button>span{grid-row:span 2}
+ #screen-space[data-nature="friendly"] .fc-admin-actions small{grid-column:2}
+ #screen-space[data-nature="friendly"] .fc-admin-danger{align-items:flex-start;flex-direction:column}
+}
