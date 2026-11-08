@@ -502,3 +502,86 @@
  #screen-space[data-nature="friendly"] .fc-card-cover>img,
  #screen-space[data-nature="friendly"] .fc-admin-actions button{transition:none}
 }
+
+
+/* TWEAKLR COMMUNITY CLUB — high-contrast visual reset */
+#screen-space.sp[data-nature="friendly"] .fc-shell{
+  width:min(100%,1120px)!important;margin:0 auto!important;padding:18px clamp(16px,3vw,34px) 64px!important;
+  gap:26px!important;color:var(--text)!important
+}
+#screen-space.sp[data-nature="friendly"] .fc-hero{
+  min-height:320px!important;padding:clamp(28px,5vw,54px)!important;border-radius:30px!important;
+  border:1px solid rgba(226,195,153,.32)!important;
+  background:
+   radial-gradient(ellipse at 78% 20%,rgba(139,53,67,.55),transparent 32%),
+   radial-gradient(ellipse at 12% 100%,rgba(190,145,99,.2),transparent 42%),
+   linear-gradient(120deg,#090808 0%,#211414 54%,#090808 100%)!important;
+  box-shadow:0 30px 90px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.12)!important
+}
+#screen-space.sp[data-nature="friendly"] .fc-hero:before{
+  content:"THE INNER CIRCLE";position:absolute;right:28px;top:24px;color:rgba(241,210,174,.7);
+  font-size:8px;font-weight:900;letter-spacing:.28em
+}
+#screen-space.sp[data-nature="friendly"] .fc-hero h2{
+  max-width:650px!important;font-family:Georgia,"Times New Roman",serif!important;
+  font-size:clamp(42px,7vw,76px)!important;line-height:.94!important;letter-spacing:-.065em!important;
+  font-weight:500!important;color:#fff5e9!important
+}
+#screen-space.sp[data-nature="friendly"] .fc-hero h2 em{color:#d9b78d!important;font-style:italic!important}
+#screen-space.sp[data-nature="friendly"] .fc-hero p{max-width:440px!important;font-size:13px!important;line-height:1.8!important;color:rgba(255,245,233,.72)!important}
+#screen-space.sp[data-nature="friendly"] .fc-hero-stats{margin-top:27px!important;gap:28px!important;font-size:10px!important;letter-spacing:.08em!important;text-transform:uppercase}
+#screen-space.sp[data-nature="friendly"] .fc-hero-stats b{font-family:Georgia,serif!important;font-size:22px!important;color:#f1d2ae!important}
+#screen-space.sp[data-nature="friendly"] .fc-hero-orbit{width:176px!important;height:176px!important;right:9%!important;border-color:rgba(241,210,174,.36)!important;box-shadow:0 0 0 18px rgba(241,210,174,.055),0 0 0 40px rgba(241,210,174,.035),0 0 80px rgba(139,53,67,.28)!important}
+#screen-space.sp[data-nature="friendly"] .fc-hero-orbit i{font-size:58px!important}
+#screen-space.sp[data-nature="friendly"] .fc-index-head{align-items:end!important}
+#screen-space.sp[data-nature="friendly"] .fc-index-head h3{font-family:Georgia,serif!important;font-size:34px!important;font-weight:500!important;letter-spacing:-.04em!important}
+#screen-space.sp[data-nature="friendly"] .fc-index-head p{font-size:12px!important}
+#screen-space.sp[data-nature="friendly"] .fc-eyebrow{font-size:9px!important;letter-spacing:.24em!important;color:#a98765!important}
+#screen-space.sp[data-nature="friendly"] .fc-create{
+  min-height:48px!important;padding:0 21px!important;border:1px solid rgba(241,210,174,.3)!important;
+  border-radius:999px!important;background:linear-gradient(135deg,#704c3a,#493224 70%,#291a16)!important;
+  box-shadow:0 9px 25px rgba(73,50,36,.25)!important;font-size:11px!important;letter-spacing:.04em
+}
+#screen-space.sp[data-nature="friendly"] .fc-search{height:54px!important;border-radius:16px!important;padding:0 18px!important}
+#screen-space.sp[data-nature="friendly"] .fc-search input{font-size:13px!important}
+#screen-space.sp[data-nature="friendly"] .fc-filters{gap:9px!important;padding:5px 0 9px!important}
+#screen-space.sp[data-nature="friendly"] .fc-filters button{padding:10px 15px!important;font-size:10px!important;border-radius:999px!important}
+#screen-space.sp[data-nature="friendly"] .fc-filters button.is-active{background:#493224!important;border-color:#b18a68!important;color:#fff2e5!important}
+#screen-space.sp[data-nature="friendly"] .fc-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:20px!important}
+#screen-space.sp[data-nature="friendly"] .fc-community-card{
+  border:1px solid rgba(177,145,113,.25)!important;border-radius:22px!important;
+  background:linear-gradient(155deg,var(--surface),color-mix(in srgb,var(--surface-2) 82%,#493224 18%))!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.08)!important;transition:transform .25s,border-color .25s,box-shadow .25s!important
+}
+#screen-space.sp[data-nature="friendly"] .fc-community-card:hover{transform:translateY(-5px)!important;border-color:rgba(177,145,113,.62)!important;box-shadow:0 22px 48px rgba(0,0,0,.15)!important}
+#screen-space.sp[data-nature="friendly"] .fc-card-cover{height:190px!important;background:#100d0c!important}
+#screen-space.sp[data-nature="friendly"] .fc-card-copy{padding:19px!important}
+#screen-space.sp[data-nature="friendly"] .fc-card-title-row h3{font-family:Georgia,serif!important;font-size:21px!important;font-weight:500!important;letter-spacing:-.035em!important}
+#screen-space.sp[data-nature="friendly"] .fc-card-copy>p{font-size:12px!important;line-height:1.7!important;min-height:42px!important}
+#screen-space.sp[data-nature="friendly"] .fc-card-meta{font-size:10px!important;padding:12px 0!important}
+#screen-space.sp[data-nature="friendly"] .fc-open-btn,#screen-space.sp[data-nature="friendly"] .fc-join-btn{min-height:44px!important;padding:0 15px!important;border-radius:12px!important;font-size:10px!important}
+#screen-space.sp[data-nature="friendly"] .fc-detail-hero{min-height:360px!important;border-radius:28px!important}
+#screen-space.sp[data-nature="friendly"] .fc-detail-title{left:32px!important;bottom:30px!important}
+#screen-space.sp[data-nature="friendly"] .fc-detail-title h2{font-family:Georgia,serif!important;font-size:clamp(38px,6vw,58px)!important;font-weight:500!important}
+#screen-space.sp[data-nature="friendly"] .fc-tabs button{padding:16px 18px!important;font-size:11px!important}
+#screen-space.sp[data-nature="friendly"] .fc-compose,#screen-space.sp[data-nature="friendly"] .fc-post-card,
+#screen-space.sp[data-nature="friendly"] .fc-members-panel,#screen-space.sp[data-nature="friendly"] .fc-about-panel{
+  border-radius:20px!important;border-color:rgba(177,145,113,.23)!important;box-shadow:0 12px 32px rgba(0,0,0,.06)!important
+}
+#screen-space.sp[data-nature="friendly"] .fc-post-card{padding:19px!important}
+#screen-space.sp[data-nature="friendly"] .fc-post-body{font-size:13px!important;line-height:1.8!important}
+#screen-space.sp[data-nature="friendly"] .fc-admin-welcome{min-height:230px!important;padding:34px!important;border-radius:26px!important}
+#screen-space.sp[data-nature="friendly"] .fc-admin-welcome h3{font-family:Georgia,serif!important;font-size:clamp(34px,5vw,52px)!important}
+#screen-space.sp[data-nature="friendly"] .fc-admin-actions button{border-radius:19px!important;padding:20px!important}
+@media(max-width:680px){
+ #screen-space.sp[data-nature="friendly"] .fc-shell{padding:12px 13px 48px!important;gap:20px!important}
+ #screen-space.sp[data-nature="friendly"] .fc-hero{min-height:300px!important;padding:25px 21px!important}
+ #screen-space.sp[data-nature="friendly"] .fc-hero h2{font-size:clamp(42px,12vw,58px)!important}
+ #screen-space.sp[data-nature="friendly"] .fc-hero-orbit{right:-48px!important;width:138px!important;height:138px!important;opacity:.42}
+ #screen-space.sp[data-nature="friendly"] .fc-grid{grid-template-columns:1fr!important;gap:15px!important}
+ #screen-space.sp[data-nature="friendly"] .fc-card-cover{height:180px!important}
+ #screen-space.sp[data-nature="friendly"] .fc-index-head h3{font-size:29px!important}
+ #screen-space.sp[data-nature="friendly"] .fc-detail-hero{min-height:300px!important}
+ #screen-space.sp[data-nature="friendly"] .fc-detail-title{left:18px!important;bottom:20px!important}
+ #screen-space.sp[data-nature="friendly"] .fc-detail-title h2{font-size:39px!important}
+}
