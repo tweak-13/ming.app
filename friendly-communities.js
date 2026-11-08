@@ -216,7 +216,7 @@
     if(action==='demote'){await memberAction(user,'demote');closeSheet();return;}
     if(action==='delete-community'){
       if(!confirm('Delete this community and permanently remove its posts, comments and memberships?'))return;
-      try{await rpc('delete_ming_friendly_community',{p_community_id:state.selected});state.selected=null;state.detail=null;await loadIndex(state.spaceId);renderSpace();toast('Community deleted.','check');}catch(err){toast(err.message||'Could not delete this community.','alert');}return;
+      try{const paths=[state.detail?.community?.cover_path,...(state.detail?.posts||[]).flatMap(p=>(p.media||[]).map(m=>m.path))].filter(Boolean);await rpc('delete_ming_friendly_community',{p_community_id:state.selected});if(paths.length){const {error}=await supabaseClient.storage.from('ming-post-media').remove(paths);if(error)console.warn('Community media cleanup failed:',error.message);}state.selected=null;state.detail=null;await loadIndex(state.spaceId);renderSpace();toast('Community deleted.','check');}catch(err){toast(err.message||'Could not delete this community.','alert');}return;
     }
     if(action==='leave'){
       if(!confirm('Leave this community? You will need to join again to see its private discussions.'))return;
@@ -224,7 +224,7 @@
     }
     if(action==='delete-post'){
       if(!confirm('Delete this community post?'))return;
-      try{await rpc('delete_ming_friendly_community_post',{p_post_id:id});await reloadDetail();toast('Post deleted.','check');}catch(err){toast(err.message||'Could not delete post.','alert');}return;
+      try{const post=state.detail?.posts?.find(p=>p.id===id);await rpc('delete_ming_friendly_community_post',{p_post_id:id});const paths=(post?.media||[]).map(m=>m.path).filter(Boolean);if(paths.length){const {error}=await supabaseClient.storage.from('ming-post-media').remove(paths);if(error)console.warn('Community post media cleanup failed:',error.message);}await reloadDetail();toast('Post deleted.','check');}catch(err){toast(err.message||'Could not delete post.','alert');}return;
     }
   });
   document.addEventListener('input',e=>{
@@ -237,5 +237,7 @@
     if(!state.items.length&&!state.loading)void loadIndex(s.id);
     return html;
   };
+  // Repaint only when the module loads into an already-open Friendly Communities tab.
+  try{const s=spaceById(sp.activeId);if(s&&s.nature==='friendly'&&sp.tab==='circles')renderSpace();}catch(_){}
   // Keep community actions in the Friendly tab only; other Space types are untouched.
 })();
