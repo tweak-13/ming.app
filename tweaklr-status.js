@@ -31,18 +31,15 @@ function statusTime(r){
  return 'Yesterday';
 }
 function ringMarkup(g,add=false){
- const p=g.author||app().currentUser||{},latest=g.statuses?.[g.statuses.length-1];
- const label=g.mine?'Your status':(p.short||p.name||'Tweaklr member');
+ const p=g.author||app().currentUser||{},label=g.mine?'Your status':(p.short||p.name||'Tweaklr member');
  const img=p.avatarUrl?'<img src="'+escS(p.avatarUrl)+'" alt="">':'<span>'+escS((label||'T').split(/\\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())+'</span>';
- const detail=g.mine?(g.statuses?.length?g.statuses.length+' update'+(g.statuses.length===1?'':'s')+' · Tap to view':'Tap to add a status'):(latest?statusTime(latest):'New update');
- return '<button class="tw-status-person '+(g.allViewed?'is-seen':'is-new')+(g.mine?' is-mine':'')+'" data-tw-status-open="'+escS(g.authorId)+'" aria-label="'+(g.mine?'Your status':'View '+escS(label)+' status')+'"><span class="tw-status-ring"><span class="tw-status-avatar">'+img+'</span>'+(add?'<i>＋</i>':'')+'</span><span class="tw-status-person-copy"><b>'+escS(g.mine?'My status':label)+'</b><small>'+escS(detail)+'</small></span>'+(g.statuses?.length>1?'<em>'+g.statuses.length+'</em>':'')+'</button>';
+ return '<button type="button" class="tw-status-person '+(g.allViewed?'is-seen':'is-new')+(g.mine?' is-mine':'')+'" data-tw-status-open="'+escS(g.authorId)+'" aria-label="'+(g.mine?'Add or view your status':'View '+escS(label)+' status')+'"><span class="tw-status-ring"><span class="tw-status-avatar">'+img+'</span>'+(add?'<i aria-hidden="true">+</i>':'')+'</span></button>';
 }
 function trayHTML(rows,scope,spaceId){
  const gs=groups(rows),mine=gs.find(g=>g.mine),others=gs.filter(g=>!g.mine);
- const recent=others.filter(g=>!g.allViewed),viewed=others.filter(g=>g.allViewed);
  const add=mine||{authorId:uid(),author:app().currentUser,statuses:[],mine:true,allViewed:true};
- const section=(title,list,empty)=>'<section class="tw-status-list-section"><h4>'+title+'</h4>'+(list.length?list.map(g=>ringMarkup(g)).join(''):'<p class="tw-status-empty">'+empty+'</p>')+'</section>';
- return '<section class="tw-status-tray" data-tw-status-scope="'+scope+'" data-tw-status-space="'+escS(spaceId||'')+'"><div class="tw-status-tray-head"><div><span>THE MOMENTS THAT MATTER</span><h3>Statuses</h3></div><div class="tw-status-head-actions"><button data-tw-status-privacy>Privacy</button><button data-tw-status-compose="'+scope+'" data-tw-status-space="'+escS(spaceId||'')+'">＋ Add status</button></div></div><div class="tw-status-self">'+ringMarkup(add,true)+'</div>'+section('Recent updates',recent,'You’re all caught up.')+section('Viewed updates',viewed,'No viewed updates yet.')+'</section>';
+ const ordered=[add,...others];
+ return '<section class="tw-status-tray tw-status-tray-compact" data-tw-status-scope="'+scope+'" data-tw-status-space="'+escS(spaceId||'')+'"><div class="tw-status-row">'+ordered.map(g=>ringMarkup(g,g.mine)).join('')+'</div></section>';
 }
 async function mountHome(){
  const host=$('#home-status-tray');if(!host)return;
