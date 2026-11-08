@@ -73,7 +73,10 @@
       signedPath(c.cover_path),
       Promise.all(posts.map(async p=>({...p,media_urls:await Promise.all((Array.isArray(p.media)?p.media:[]).map(m=>signedPath(m.path)))})))
     ]);
-    state.detail={community:{...c,my_role:isCommunityOwner(c)?'owner':c.my_role,cover_url:cover},posts:postRows,members,requests};
+    const memberRecord=members.find(m=>String(m.user_id||m.id||'')===String(currentUser?.id||''));
+    const memberIsOwner=String(memberRecord?.role||memberRecord?.my_role||'').toLowerCase()==='owner';
+    const confirmedOwner=isCommunityOwner(c)||memberIsOwner;
+    state.detail={community:{...c,my_role:confirmedOwner?'owner':(c.my_role||memberRecord?.role||'member'),cover_url:cover},posts:postRows,members,requests};
     state.selected=id;
   }
   function renderDetail() {
@@ -82,10 +85,19 @@
     return '<div class="fs-view fc-shell fc-detail">'+
       '<button class="fc-back" data-fc="back">← <span>All communities</span></button>'+
       '<section class="fc-detail-hero">'+cover+'<div class="fc-detail-shade"></div><div class="fc-detail-title"><span class="fc-eyebrow">'+esc(c.category)+' · '+(c.privacy==='private'?'PRIVATE COMMUNITY':'OPEN COMMUNITY')+'</span><h2>'+esc(c.name)+'</h2><p>'+esc(c.description)+'</p><div class="fc-detail-stats"><span><b>'+Number(c.member_count||0)+'</b> members</span><span><b>'+d.posts.length+'</b> posts</span><span>Created '+dateLabel(c.created_at)+'</span></div></div></section>'+
-      '<div class="fc-detail-toolbar"><div class="fc-tabs"><button data-fc-tab="feed" class="'+(state.tab==='feed'?'is-active':'')+'">Feed</button><button data-fc-tab="members" class="'+(state.tab==='members'?'is-active':'')+'">Members <i>'+d.members.length+'</i></button><button data-fc-tab="about" class="'+(state.tab==='about'?'is-active':'')+'">About</button></div>'+
-      (c.my_role==='owner'?'<button class="fc-manage" data-fc="settings">Manage <span>⌄</span></button>':'')+'</div>'+
-      (state.tab==='feed'?renderFeed(d):state.tab==='members'?renderMembers(d,canManage):renderAbout(d,canManage))+
+      '<div class="fc-detail-toolbar"><div class="fc-tabs"><button data-fc-tab="feed" class="'+(state.tab==='feed'?'is-active':'')+'">Feed</button><button data-fc-tab="members" class="'+(state.tab==='members'?'is-active':'')+'">Members <i>'+d.members.length+'</i></button><button data-fc-tab="about" class="'+(state.tab==='about'?'is-active':'')+'">About</button>'+(c.my_role==='owner'?'<button data-fc-tab="admin" class="'+(state.tab==='admin'?'is-active':'')+'">Admin panel</button>':'')+'</div></div>'+
+      (state.tab==='admin'&&c.my_role==='owner'?renderAdminPanel(d):state.tab==='feed'?renderFeed(d):state.tab==='members'?renderMembers(d,canManage):renderAbout(d,canManage))+
       '</div>';
+  }
+  function renderAdminPanel(d) {
+    const c=d.community, pending=d.requests.length;
+    return '<section class="fc-admin-panel">'+
+      '<div class="fc-admin-welcome"><span class="fc-eyebrow">COMMUNITY CONTROL CENTRE</span><h3>Manage your community.</h3><p>Publish updates, look after members and control how your community runs.</p><div class="fc-admin-stats"><div><b>'+Number(c.member_count||d.members.length)+'</b><small>MEMBERS</small></div><div><b>'+d.posts.length+'</b><small>POSTS</small></div><div><b>'+pending+'</b><small>JOIN REQUESTS</small></div></div></div>'+
+      '<div class="fc-admin-actions"><button data-fc="settings"><span>⚙</span><b>Community settings</b><small>Edit name, description, privacy and approvals</small></button><button data-fc-tab="members"><span>♙</span><b>Manage members</b><small>Approve requests and manage moderators</small></button><button data-fc-tab="about"><span>ⓘ</span><b>Community details</b><small>Review your community information</small></button></div>'+
+      (pending?'<div class="fc-request-box"><div class="fc-section-heading"><div><span class="fc-eyebrow">NEEDS YOUR ATTENTION</span><h3>Pending join requests</h3></div><span>'+pending+' waiting</span></div>'+d.requests.slice(0,4).map(m=>'<article class="fc-person-row">'+profileAvatar(m.avatar_url,m.display_name)+'<div><b>'+esc(m.display_name||'Tweaklr member')+'</b><small>@'+esc(m.username||'member')+'</small></div><button data-fc="approve" data-user="'+esc(m.user_id)+'">Approve</button><button data-fc="remove-member" data-user="'+esc(m.user_id)+'">Decline</button></article>').join('')+'</div>':'<div class="fc-admin-clear"><span>✓</span><div><b>You are all caught up.</b><small>There are no pending join requests.</small></div></div>')+
+      '<div class="fc-admin-publishing"><span class="fc-eyebrow">PUBLISHING DESK</span><h3>Post as the community</h3>'+renderFeed(d)+'</div>'+
+      '<div class="fc-admin-danger"><div><b>Delete this community</b><small>Permanently remove its posts, comments, memberships and uploaded community media.</small></div><button data-fc="delete-community">Delete community</button></div>'+
+      '</section>';
   }
   function renderFeed(d) {
     const c=d.community, isCreator=c.my_role==='owner';
@@ -222,7 +234,7 @@
   document.addEventListener('click',async e=>{
     const el=e.target.closest('[data-fc],[data-fc-tab],[data-fc-category]');if(!el)return;
     if(el.dataset.fcCategory!==undefined){state.category=el.dataset.fcCategory;renderSpace();return;}
-    if(el.dataset.fcTab){state.tab=el.dataset.fcTab;renderSpace();return;}
+    if(el.dataset.fcTab){if(el.dataset.fcTab==='admin'&&state.detail?.community?.my_role!=='owner'){toast('Only the community creator can access the admin panel.','alert');return;}state.tab=el.dataset.fcTab;renderSpace();return;}
     const action=el.dataset.fc,id=el.dataset.id,user=el.dataset.user;
     if(action==='create'){showCreate();return;}
     if(action==='create-submit'){await createCommunity();return;}
