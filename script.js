@@ -943,7 +943,7 @@ let connectionOutgoingRequests = [];
 /* Read-only bridge for the separately loaded unified Status feature. */
 window.TweaklrStatusContext = () => ({
   supabaseClient, currentUser, connections, mingConnectionProfiles,
-  toast, openChat, sp
+  toast, openChat, sendMessage, sp
 });
 
 async function loadMingConnections() {
