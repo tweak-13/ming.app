@@ -281,7 +281,7 @@
       <div id="home-status-tray" style="display:block!important;visibility:visible!important;min-height:62px;width:100%">
         <section class="tw-status-tray tw-status-tray-compact" data-tw-status-scope="main" data-tw-status-space="">
           <div class="tw-status-row">
-            <button type="button" class="tw-status-person is-mine is-seen" data-tw-status-compose="main" aria-label="Add a status">
+            <button type="button" class="tw-status-person is-mine is-seen" data-tw-status-compose="main" onclick="window.openTweaklrStatusComposer && window.openTweaklrStatusComposer('main',null)" aria-label="Add a status">
               <span class="tw-status-ring"><span class="tw-status-avatar"><span>+</span></span><i aria-hidden="true">+</i></span>
             </button>
           </div>
@@ -989,7 +989,7 @@
 <script src="friendly-space-integration.js?v=status-20261109-2"></script>
 <script src="chat-media-fix.js?v=20261006-1"></script>
 <script src="spaces-enhancements.js?v=20261017-deal-studio-1"></script>
-<script src="tweaklr-status.js?v=20261109-4"></script>
+<script src="tweaklr-status.js?v=20261109-5"></script>
 <!-- Friendly Space is now provided by friendly-space-integration.js. -->
 
 <!-- Spaces/Wallet DOM fallback: guarantees their stack screens exist even if
