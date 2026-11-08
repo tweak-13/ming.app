@@ -10154,6 +10154,7 @@ function renderSpace() {
     void hydrateBusinessPostCommentCounts(s.id);
   }
   if (s.nature === 'friendly' && ['home','moments','circles'].includes(sp.tab)) void hydrateFriendlyMedia(s.id);
+  if (s.nature === 'friendly' && sp.tab === 'home') void hydrateFriendlyPostCommentCounts(s.id);
   $('#sp-scroll').scrollTop = 0;
 }
 function refreshSpace() {
@@ -10165,6 +10166,7 @@ function refreshSpace() {
     void hydrateBusinessPostCommentCounts(s.id);
   }
   if (s.nature === 'friendly' && ['home','moments','circles'].includes(sp.tab)) void hydrateFriendlyMedia(s.id);
+  if (s.nature === 'friendly' && sp.tab === 'home') void hydrateFriendlyPostCommentCounts(s.id);
 }
 
 function spBar(s, opts = {}) {
@@ -10516,6 +10518,36 @@ async function hydrateBusinessPostCommentCounts(spaceId) {
     }
   }));
 
+  if (changed && sp.activeId === spaceId && sp.tab === 'home') refreshSpace();
+}
+
+// Friendly post comment totals are loaded from the Friendship-only visibility-aware RPC.
+const friendlyPostCommentCountLoads = new Set();
+
+async function hydrateFriendlyPostCommentCounts(spaceId) {
+  const posts = contentOf(spaceId, 'friend_post');
+  const pending = posts.filter(post => !friendlyPostCommentCountLoads.has(post.id));
+  if (!pending.length) return;
+  pending.forEach(post => friendlyPostCommentCountLoads.add(post.id));
+  let changed = false;
+  await Promise.all(pending.map(async post => {
+    try {
+      const { data: rows, error } = await supabaseClient.rpc(
+        'get_ming_friendship_space_post_comments',
+        { p_content_id: post.id }
+      );
+      if (error) {
+        friendlyPostCommentCountLoads.delete(post.id);
+        console.warn('Tweaklr: Friendly post comment count could not be loaded.', error.message);
+        return;
+      }
+      post.commentsCount = (Array.isArray(post.comments) ? post.comments.length : 0) + (rows || []).length;
+      changed = true;
+    } catch (error) {
+      friendlyPostCommentCountLoads.delete(post.id);
+      console.warn('Tweaklr: Friendly post comment count request failed.', error);
+    }
+  }));
   if (changed && sp.activeId === spaceId && sp.tab === 'home') refreshSpace();
 }
 
@@ -11172,7 +11204,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     releaseRecording();
     await refreshSpace();
-    await openBusinessPostComments(postId);
+    await openSpacePostComments(postId, postKind);
     toast('Comment posted', 'check');
   });
 }
@@ -11627,7 +11659,7 @@ function friendlyPostCard(post) {
     (post.lookingFor ? '<div class="friend-looking"><span>✧ LOOKING TO MEET</span><p>'+esc(post.lookingFor)+'</p><small>'+esc(FRIENDSHIP_TYPES.find(x=>x[0]===post.friendshipType)?.[1]||'Open to friendship')+'</small></div>' : '')+
     (interests.length ? '<div class="friend-interest-tags">'+interests.map(t=>'<span>#'+esc(t)+'</span>').join('')+'</div>' : '')+
     '<footer class="friend-post-actions"><button class="'+(liked?'is-liked':'')+'" data-sp="friend-like:'+post.id+'" aria-pressed="'+liked+'">♥ <span>'+likes+'</span></button>'+
-    '<button data-sp="friend-comments:'+post.id+'">Comments · '+(Array.isArray(post.comments)?post.comments.length:0)+'</button>'+
+    '<button data-sp="friend-comments:'+post.id+'">Comments · '+Number(post.commentsCount ?? (Array.isArray(post.comments)?post.comments.length:0))+'</button>'+
 
     (!mine && isUuidPerson(post.authorId) && !isConnected(post.authorId) ? '<button data-sp="friend-connect:'+post.authorId+'">Connect ↗</button>' : '')+
     (mine ? '<button type="button" class="friend-post-delete" data-fs-delete="'+esc(post.id)+'" aria-label="Delete your post">Delete</button>' : '')+'</footer></article>';
