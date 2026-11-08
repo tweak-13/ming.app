@@ -11000,19 +11000,13 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
       holder.innerHTML = '<span>' + icon('headphones') + '</span><audio controls autoplay preload="auto" src="' + esc(signed.signedUrl) + '"></audio>';
       const audio = holder.querySelector('audio');
       audio.addEventListener('ended', () => {
-        // Remove the completed media source immediately; only this listener's
-        // account is marked consumed by the claim RPC above.
+        // The database claim permanently hides this view-once comment for this
+        // listener. Remove the whole comment thread from the current view too.
         audio.pause();
         audio.removeAttribute('src');
         audio.load();
         const thread = holder.closest('.biz-comment-thread');
-        const commentCard = holder.closest('.biz-comment-card');
-        const hasText = !!commentCard?.querySelector('.biz-comment-bubble')?.textContent?.trim();
-        if (!hasText) {
-          thread?.remove();
-        } else {
-          holder.remove();
-        }
+        thread?.remove();
         const count = $('#sheet .biz-comments-count');
         if (count && !$('#sheet .biz-comment-thread')) {
           const empty = $('#sheet .biz-comment-list');
