@@ -191,6 +191,215 @@ begin
   for v_item in select value from jsonb_array_elements(coalesce(p_media,'[]'::jsonb)) loop
     v_path := v_item->>'path';
     if v_path is null or v_path !~ ('^' || v_user::text || '/friendly-' || v_space_id::text || '/community-' || p_community_id::text || '-[A-Za-z0-9._-]+
+  return jsonb_build_object('id',v_post.id,'community_id',v_post.community_id,'author_id',v_post.author_id,'body',v_post.body,'media',v_post.media,'created_at',v_post.created_at,'comment_count',0);
+end;
+$function$;
+
+create or replace function public.add_ming_friendly_community_comment(p_post_id uuid,p_body text)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare v_user uuid := (select auth.uid()); v_comment public.ming_friendly_community_comments; v_community uuid;
+begin
+  if v_user is null then raise exception 'Authentication required'; end if;
+  select community_id into v_community from public.ming_friendly_community_posts where id=p_post_id;
+  if not found or not exists(select 1 from public.ming_friendly_community_members where community_id=v_community and user_id=v_user and status='approved') then raise exception 'Post unavailable or membership required'; end if;
+  if char_length(btrim(coalesce(p_body,''))) not between 1 and 1000 then raise exception 'Comment must be 1–1000 characters'; end if;
+  insert into public.ming_friendly_community_comments(post_id,author_id,body) values(p_post_id,v_user,btrim(p_body)) returning * into v_comment;
+  return jsonb_build_object('id',v_comment.id,'post_id',v_comment.post_id,'author_id',v_comment.author_id,'body',v_comment.body,'created_at',v_comment.created_at);
+end;
+$function$;
+
+create or replace function public.manage_ming_friendly_community_member(p_community_id uuid,p_user_id uuid,p_action text)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare v_user uuid := (select auth.uid()); v_role text; v_target public.ming_friendly_community_members;
+begin
+  if v_user is null then raise exception 'Authentication required'; end if;
+  select role into v_role from public.ming_friendly_community_members where community_id=p_community_id and user_id=v_user and status='approved';
+  if coalesce(v_role,'') not in ('owner','moderator') then raise exception 'Community moderation permission required'; end if;
+  select * into v_target from public.ming_friendly_community_members where community_id=p_community_id and user_id=p_user_id for update;
+  if not found then raise exception 'Member not found'; end if;
+  if v_target.role='owner' then raise exception 'The community owner cannot be changed here'; end if;
+  if v_role='moderator' and v_target.role='moderator' then raise exception 'Only the community owner can manage moderators'; end if;
+  if p_action='approve' and v_target.status='pending' then update public.ming_friendly_community_members set status='approved',joined_at=now() where id=v_target.id;
+  elsif p_action='remove' then delete from public.ming_friendly_community_members where id=v_target.id;
+  elsif p_action='promote' and v_role='owner' and v_target.status='approved' then update public.ming_friendly_community_members set role='moderator' where id=v_target.id;
+  elsif p_action='demote' and v_role='owner' and v_target.role='moderator' then update public.ming_friendly_community_members set role='member' where id=v_target.id;
+  else raise exception 'This membership action is not allowed'; end if;
+  return jsonb_build_object('success',true);
+end;
+$function$;
+
+create or replace function public.update_ming_friendly_community(p_community_id uuid,p_name text,p_description text,p_category text,p_privacy text,p_require_approval boolean)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare v_user uuid := (select auth.uid()); v_row public.ming_friendly_communities;
+begin
+  if v_user is null or not exists(select 1 from public.ming_friendly_community_members where community_id=p_community_id and user_id=v_user and role='owner' and status='approved') then raise exception 'Only the community owner can edit its settings'; end if;
+  if char_length(btrim(coalesce(p_name,''))) not between 3 and 70 or char_length(btrim(coalesce(p_description,''))) not between 8 and 600 then raise exception 'Check the community name and description'; end if;
+  update public.ming_friendly_communities set name=btrim(p_name),description=btrim(p_description),category=coalesce(nullif(btrim(p_category),''),'Other interests'),
+    privacy=coalesce(p_privacy,'public'),require_approval=coalesce(p_require_approval,false) or p_privacy='private',updated_at=now()
+  where id=p_community_id returning * into v_row;
+  return jsonb_build_object('id',v_row.id,'name',v_row.name,'description',v_row.description,'category',v_row.category,'privacy',v_row.privacy,'require_approval',v_row.require_approval);
+end;
+$function$;
+
+create or replace function public.leave_ming_friendly_community(p_community_id uuid)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare v_user uuid := (select auth.uid()); v_role text;
+begin
+  if v_user is null then raise exception 'Authentication required'; end if;
+  select role into v_role from public.ming_friendly_community_members where community_id=p_community_id and user_id=v_user and status='approved';
+  if not found then raise exception 'You are not an approved member'; end if;
+  if v_role='owner' then raise exception 'Transfer ownership or delete the community before leaving'; end if;
+  delete from public.ming_friendly_community_members where community_id=p_community_id and user_id=v_user;
+  return jsonb_build_object('success',true);
+end;
+$function$;
+
+create or replace function public.delete_ming_friendly_community_post(p_post_id uuid)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare v_user uuid := (select auth.uid()); v_author uuid; v_community uuid;
+begin
+  if v_user is null then raise exception 'Authentication required'; end if;
+  select author_id,community_id into v_author,v_community from public.ming_friendly_community_posts where id=p_post_id;
+  if not found then raise exception 'Post not found'; end if;
+  if v_author<>v_user and not exists(select 1 from public.ming_friendly_community_members where community_id=v_community and user_id=v_user and role in ('owner','moderator') and status='approved') then raise exception 'Only the author or a moderator can remove this post'; end if;
+  delete from public.ming_friendly_community_posts where id=p_post_id;
+  return jsonb_build_object('success',true);
+end;
+$function$;
+
+revoke all on function public.get_ming_friendly_communities(uuid) from public,anon;
+revoke all on function public.create_ming_friendly_community(uuid,text,text,text,text,boolean,text) from public,anon;
+revoke all on function public.join_ming_friendly_community(uuid) from public,anon;
+revoke all on function public.get_ming_friendly_community_space(uuid) from public,anon;
+revoke all on function public.create_ming_friendly_community_post(uuid,text,jsonb) from public,anon;
+revoke all on function public.add_ming_friendly_community_comment(uuid,text) from public,anon;
+revoke all on function public.manage_ming_friendly_community_member(uuid,uuid,text) from public,anon;
+revoke all on function public.update_ming_friendly_community(uuid,text,text,text,text,boolean) from public,anon;
+revoke all on function public.leave_ming_friendly_community(uuid) from public,anon;
+revoke all on function public.delete_ming_friendly_community_post(uuid) from public,anon;
+grant execute on function public.get_ming_friendly_communities(uuid) to authenticated;
+grant execute on function public.create_ming_friendly_community(uuid,text,text,text,text,boolean,text) to authenticated;
+grant execute on function public.join_ming_friendly_community(uuid) to authenticated;
+grant execute on function public.get_ming_friendly_community_space(uuid) to authenticated;
+grant execute on function public.create_ming_friendly_community_post(uuid,text,jsonb) to authenticated;
+grant execute on function public.add_ming_friendly_community_comment(uuid,text) to authenticated;
+grant execute on function public.manage_ming_friendly_community_member(uuid,uuid,text) to authenticated;
+grant execute on function public.update_ming_friendly_community(uuid,text,text,text,text,boolean) to authenticated;
+grant execute on function public.leave_ming_friendly_community(uuid) to authenticated;
+grant execute on function public.delete_ming_friendly_community_post(uuid) to authenticated;
+
+notify pgrst,'reload schema';
+commit;
+
+create or replace function public.add_ming_friendly_community_comment(p_post_id uuid,p_body text)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare v_user uuid := (select auth.uid()); v_comment public.ming_friendly_community_comments; v_community uuid;
+begin
+  if v_user is null then raise exception 'Authentication required'; end if;
+  select community_id into v_community from public.ming_friendly_community_posts where id=p_post_id;
+  if not found or not exists(select 1 from public.ming_friendly_community_members where community_id=v_community and user_id=v_user and status='approved') then raise exception 'Post unavailable or membership required'; end if;
+  if char_length(btrim(coalesce(p_body,''))) not between 1 and 1000 then raise exception 'Comment must be 1–1000 characters'; end if;
+  insert into public.ming_friendly_community_comments(post_id,author_id,body) values(p_post_id,v_user,btrim(p_body)) returning * into v_comment;
+  return jsonb_build_object('id',v_comment.id,'post_id',v_comment.post_id,'author_id',v_comment.author_id,'body',v_comment.body,'created_at',v_comment.created_at);
+end;
+$function$;
+
+create or replace function public.manage_ming_friendly_community_member(p_community_id uuid,p_user_id uuid,p_action text)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare v_user uuid := (select auth.uid()); v_role text; v_target public.ming_friendly_community_members;
+begin
+  if v_user is null then raise exception 'Authentication required'; end if;
+  select role into v_role from public.ming_friendly_community_members where community_id=p_community_id and user_id=v_user and status='approved';
+  if coalesce(v_role,'') not in ('owner','moderator') then raise exception 'Community moderation permission required'; end if;
+  select * into v_target from public.ming_friendly_community_members where community_id=p_community_id and user_id=p_user_id for update;
+  if not found then raise exception 'Member not found'; end if;
+  if v_target.role='owner' then raise exception 'The community owner cannot be changed here'; end if;
+  if p_action='approve' and v_target.status='pending' then update public.ming_friendly_community_members set status='approved',joined_at=now() where id=v_target.id;
+  elsif p_action='remove' then delete from public.ming_friendly_community_members where id=v_target.id;
+  elsif p_action='promote' and v_role='owner' and v_target.status='approved' then update public.ming_friendly_community_members set role='moderator' where id=v_target.id;
+  elsif p_action='demote' and v_role='owner' and v_target.role='moderator' then update public.ming_friendly_community_members set role='member' where id=v_target.id;
+  else raise exception 'This membership action is not allowed'; end if;
+  return jsonb_build_object('success',true);
+end;
+$function$;
+
+create or replace function public.update_ming_friendly_community(p_community_id uuid,p_name text,p_description text,p_category text,p_privacy text,p_require_approval boolean)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare v_user uuid := (select auth.uid()); v_row public.ming_friendly_communities;
+begin
+  if v_user is null or not exists(select 1 from public.ming_friendly_community_members where community_id=p_community_id and user_id=v_user and role='owner' and status='approved') then raise exception 'Only the community owner can edit its settings'; end if;
+  if char_length(btrim(coalesce(p_name,''))) not between 3 and 70 or char_length(btrim(coalesce(p_description,''))) not between 8 and 600 then raise exception 'Check the community name and description'; end if;
+  update public.ming_friendly_communities set name=btrim(p_name),description=btrim(p_description),category=coalesce(nullif(btrim(p_category),''),'Other interests'),
+    privacy=coalesce(p_privacy,'public'),require_approval=coalesce(p_require_approval,false) or p_privacy='private',updated_at=now()
+  where id=p_community_id returning * into v_row;
+  return jsonb_build_object('id',v_row.id,'name',v_row.name,'description',v_row.description,'category',v_row.category,'privacy',v_row.privacy,'require_approval',v_row.require_approval);
+end;
+$function$;
+
+create or replace function public.leave_ming_friendly_community(p_community_id uuid)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare v_user uuid := (select auth.uid()); v_role text;
+begin
+  if v_user is null then raise exception 'Authentication required'; end if;
+  select role into v_role from public.ming_friendly_community_members where community_id=p_community_id and user_id=v_user and status='approved';
+  if not found then raise exception 'You are not an approved member'; end if;
+  if v_role='owner' then raise exception 'Transfer ownership or delete the community before leaving'; end if;
+  delete from public.ming_friendly_community_members where community_id=p_community_id and user_id=v_user;
+  return jsonb_build_object('success',true);
+end;
+$function$;
+
+create or replace function public.delete_ming_friendly_community_post(p_post_id uuid)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare v_user uuid := (select auth.uid()); v_author uuid; v_community uuid;
+begin
+  if v_user is null then raise exception 'Authentication required'; end if;
+  select author_id,community_id into v_author,v_community from public.ming_friendly_community_posts where id=p_post_id;
+  if not found then raise exception 'Post not found'; end if;
+  if v_author<>v_user and not exists(select 1 from public.ming_friendly_community_members where community_id=v_community and user_id=v_user and role in ('owner','moderator') and status='approved') then raise exception 'Only the author or a moderator can remove this post'; end if;
+  delete from public.ming_friendly_community_posts where id=p_post_id;
+  return jsonb_build_object('success',true);
+end;
+$function$;
+
+revoke all on function public.get_ming_friendly_communities(uuid) from public,anon;
+revoke all on function public.create_ming_friendly_community(uuid,text,text,text,text,boolean,text) from public,anon;
+revoke all on function public.join_ming_friendly_community(uuid) from public,anon;
+revoke all on function public.get_ming_friendly_community_space(uuid) from public,anon;
+revoke all on function public.create_ming_friendly_community_post(uuid,text,jsonb) from public,anon;
+revoke all on function public.add_ming_friendly_community_comment(uuid,text) from public,anon;
+revoke all on function public.manage_ming_friendly_community_member(uuid,uuid,text) from public,anon;
+revoke all on function public.update_ming_friendly_community(uuid,text,text,text,text,boolean) from public,anon;
+revoke all on function public.leave_ming_friendly_community(uuid) from public,anon;
+revoke all on function public.delete_ming_friendly_community_post(uuid) from public,anon;
+grant execute on function public.get_ming_friendly_communities(uuid) to authenticated;
+grant execute on function public.create_ming_friendly_community(uuid,text,text,text,text,boolean,text) to authenticated;
+grant execute on function public.join_ming_friendly_community(uuid) to authenticated;
+grant execute on function public.get_ming_friendly_community_space(uuid) to authenticated;
+grant execute on function public.create_ming_friendly_community_post(uuid,text,jsonb) to authenticated;
+grant execute on function public.add_ming_friendly_community_comment(uuid,text) to authenticated;
+grant execute on function public.manage_ming_friendly_community_member(uuid,uuid,text) to authenticated;
+grant execute on function public.update_ming_friendly_community(uuid,text,text,text,text,boolean) to authenticated;
+grant execute on function public.leave_ming_friendly_community(uuid) to authenticated;
+grant execute on function public.delete_ming_friendly_community_post(uuid) to authenticated;
+
+notify pgrst,'reload schema';
+commit;
+) then
+      raise exception 'Invalid community attachment path';
+    end if;
+  end loop;
+  insert into public.ming_friendly_community_posts(community_id,author_id,body,media)
   values(p_community_id,v_user,btrim(coalesce(p_body,'')),coalesce(p_media,'[]'::jsonb)) returning * into v_post;
   return jsonb_build_object('id',v_post.id,'community_id',v_post.community_id,'author_id',v_post.author_id,'body',v_post.body,'media',v_post.media,'created_at',v_post.created_at,'comment_count',0);
 end;
