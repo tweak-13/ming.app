@@ -74,3 +74,37 @@
 .tw-status-dialog button,.tw-status-viewer button,.tw-status-list-modal button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.tw-status-dialog button:focus-visible,.tw-status-viewer button:focus-visible,.tw-status-list-modal button:focus-visible{outline:2px solid #927258;outline-offset:3px}
 @media(max-width:480px){.tw-status-tray{margin:9px -2px 16px;padding:14px 12px 12px;border-radius:19px}.tw-status-tray-head{align-items:flex-start;gap:8px}.tw-status-tray-head h3{font-size:18px}.tw-status-head-actions{gap:5px}.tw-status-head-actions button{min-height:36px;padding:8px 10px;font-size:9px}.tw-status-person{flex-basis:64px;width:64px}.tw-status-ring{width:58px;height:58px}.tw-status-modal{padding:8px;align-items:end}.tw-status-dialog{max-height:94dvh;border-radius:23px 23px 17px 17px}.tw-status-compose-body{padding:14px}.tw-status-viewer-card{height:100dvh;max-height:none}.tw-status-viewer-card>footer{gap:8px}}
 @media(prefers-reduced-motion:reduce){.tw-status-tray *,.tw-status-dialog *,.tw-status-viewer *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+
+/* WhatsApp-inspired Updates list — finished in Tweaklr coffee-house styling */
+.tw-status-tray{padding:17px 15px 13px;overflow:visible}
+.tw-status-self{padding:3px 0 12px;border-bottom:1px solid rgba(146,114,88,.16);margin-bottom:12px}
+.tw-status-list-section{margin:0;padding:0}
+.tw-status-list-section+h4,.tw-status-list-section+.tw-status-list-section{margin-top:12px}
+.tw-status-list-section h4{margin:0 0 5px;padding:0 2px;color:var(--muted);font-size:9px;font-weight:850;letter-spacing:.13em;text-transform:uppercase}
+.tw-status-person{position:relative;display:flex;align-items:center;gap:12px;width:100%;min-height:69px;flex:0 0 auto;padding:7px 4px;border:0;border-radius:13px;background:transparent;color:var(--text);text-align:left;cursor:pointer;transition:background .18s,transform .18s}
+.tw-status-person:hover{background:rgba(73,50,36,.055)}
+.tw-status-person:active{transform:scale(.99)}
+.tw-status-ring{flex:0 0 52px;width:52px;height:52px;padding:2.5px}
+.tw-status-avatar{border:2px solid var(--bg,#fff)}
+.tw-status-person-copy{display:grid;gap:4px;min-width:0;flex:1}
+.tw-status-person-copy b{overflow:hidden;color:var(--text);font-size:12px;font-weight:780;text-overflow:ellipsis;white-space:nowrap}
+.tw-status-person-copy small{overflow:hidden;color:var(--muted);font-size:10px;font-weight:550;text-overflow:ellipsis;white-space:nowrap}
+.tw-status-person.is-new .tw-status-person-copy b{font-weight:850}
+.tw-status-person.is-seen .tw-status-ring{background:conic-gradient(#A69A90,#D1C4B9,#8C8077,#A69A90)}
+.tw-status-person em{display:grid;place-items:center;flex:0 0 22px;width:22px;height:22px;border:1px solid rgba(146,114,88,.25);border-radius:50%;background:rgba(73,50,36,.1);color:var(--text);font-size:9px;font-style:normal;font-weight:800}
+.tw-status-self .tw-status-person{min-height:66px}
+.tw-status-self .tw-status-person-copy small{color:var(--muted)}
+.tw-status-self .tw-status-ring{background:linear-gradient(145deg,#493224,#927258)}
+.tw-status-self .tw-status-ring>i{right:-3px;bottom:-2px;width:20px;height:20px;font-size:13px}
+.tw-status-empty{margin:0;padding:8px 3px 10px;color:var(--muted);font-size:10px}
+.tw-status-list-section+.tw-status-list-section{padding-top:10px;border-top:1px solid rgba(146,114,88,.12)}
+.tw-status-head-actions button{min-height:36px}
+@media(max-width:480px){
+ .tw-status-tray{padding:14px 12px 11px}
+ .tw-status-person{min-height:65px;gap:10px;padding:6px 3px}
+ .tw-status-ring{flex-basis:49px;width:49px;height:49px}
+ .tw-status-person-copy b{font-size:11px}
+ .tw-status-person-copy small{font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){.tw-status-person{transition:none}}
