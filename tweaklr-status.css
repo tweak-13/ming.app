@@ -108,3 +108,5 @@
  .tw-status-person-copy small{font-size:9px}
 }
 @media(prefers-reduced-motion:reduce){.tw-status-person{transition:none}}
+
+.tw-status-person-copy small{max-width:none;width:100%;}
