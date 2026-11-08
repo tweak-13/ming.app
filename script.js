@@ -10081,7 +10081,12 @@ function openSpace(id, tab) {
     const namedTheme = typeof savedTheme === 'string'
       ? (NATURES[s.nature]?.palettes || []).find(p => p.name.toLowerCase() === savedTheme.toLowerCase())
       : null;
-    const theme = namedTheme || spaceTheme(s);
+    const selectedTheme = namedTheme || spaceTheme(s);
+    // Business and Friendly Spaces use Tweaklr's shared primary coffee-brown identity.
+    // Other Space types keep their own selected/nature-specific palettes.
+    const theme = ['business', 'friendly'].includes(s.nature)
+      ? { ...selectedTheme, name: 'Tweaklr Coffee', colors: ['#493224', '#927258', '#B99A80'] }
+      : selectedTheme;
     const cover = `linear-gradient(140deg, ${theme.colors[0]}, ${theme.colors[1]} 58%, ${theme.colors[2]})`;
     screen.style.setProperty('--sp-accent', theme.colors[0]);
     screen.style.setProperty('--sp-accent-2', theme.colors[1]);
