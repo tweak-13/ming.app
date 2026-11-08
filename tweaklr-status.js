@@ -50,11 +50,27 @@ async function mountHome(){
  host.style.display='block';host.style.visibility='visible';
  applyAvatarRings();
 }
+let spaceMountSequence=0;
 async function mountSpace(space){
- const host=$('#sp-body');if(!host||!space||!['friendly','business'].includes(space.nature))return;
- let tray=$('#tw-space-status-mount',host);if(!tray){tray=document.createElement('div');tray.id='tw-space-status-mount';host.prepend(tray);}
- const rows=await fetchStatuses(spaceScope(space),space.id);tray.innerHTML=trayHTML(rows,spaceScope(space),space.id);
- applyAvatarRings(rows);
+ const host=$('#sp-body');
+ if(!host||!space?.id||!['friendly','business'].includes(space.nature))return;
+ const scope=spaceScope(space),spaceId=space.id,request=++spaceMountSequence;
+ let tray=$('#tw-space-status-mount',host);
+ if(!tray){tray=document.createElement('div');tray.id='tw-space-status-mount';host.prepend(tray);}
+ /* Render the own + control immediately. Status loading must never block
+    the Friendly or Business Space UI, even when Supabase is unavailable. */
+ tray.innerHTML=trayHTML(cache.get(scope+':'+spaceId)||[],scope,spaceId);
+ tray.dataset.twStatusReady='1';
+ try{
+  const rows=await fetchStatuses(scope,spaceId);
+  const active=app().sp?.activeId;
+  if(request!==spaceMountSequence||!tray.isConnected||!host.contains(tray)||(active&&active!==spaceId))return;
+  tray.innerHTML=trayHTML(rows,scope,spaceId);
+  applyAvatarRings(rows);
+ }catch(error){
+  console.warn('Tweaklr Status: Space status loading failed; keeping the add control available.',error);
+  if(tray.isConnected&&host.contains(tray))tray.innerHTML=trayHTML(cache.get(scope+':'+spaceId)||[],scope,spaceId);
+ }
 }
 function applyAvatarRings(){
  const all=[...cache.values()].flat().filter(r=>r.expiresMs>Date.now()),latest=new Map();
@@ -186,7 +202,19 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{if(e.target.id==='tw-status-audience'){const p=$('#tw-status-privacy-people');if(p)p.hidden=!['except','selected'].includes(e.target.value);}});
 document.addEventListener('click',e=>{const el=e.target.closest('.tw-avatar-has-status[data-profile-id]');if(!el)return;const scope=el.dataset.twStatusScope||'main',spaceId=el.dataset.twStatusSpace||null,group=groups(cache.get(scope+':'+(spaceId||''))||[]).find(g=>g.authorId===el.dataset.profileId);if(!group)return;e.preventDefault();e.stopImmediatePropagation();openViewer(group.authorId,scope,spaceId);},true);
-const observer=new MutationObserver(()=>{if(cache.size)applyAvatarRings();const host=$('#home-status-tray');if(host&&!host.querySelector('.tw-status-tray')&&uid()&&!host.dataset.twStatusLoading){host.dataset.twStatusLoading='1';void mountHome().finally(()=>{delete host.dataset.twStatusLoading;});}});observer.observe(document.body,{subtree:true,childList:true});
+const observer=new MutationObserver(()=>{
+ if(cache.size)applyAvatarRings();
+ const home=$('#home-status-tray');
+ if(home&&!home.querySelector('.tw-status-tray')&&uid()&&!home.dataset.twStatusLoading){
+  home.dataset.twStatusLoading='1';
+  void mountHome().finally(()=>{delete home.dataset.twStatusLoading;});
+ }
+ const screen=$('#screen-space'),spaceHost=$('#sp-body'),nature=screen?.dataset.nature,spaceId=screen?.dataset.spaceId;
+ if(spaceHost&&spaceId&&['friendly','business'].includes(nature)&&!$('#tw-space-status-mount',spaceHost)){
+  void mountSpace({id:spaceId,nature});
+ }
+});
+observer.observe(document.body,{subtree:true,childList:true});
 /* Recover the Home strip if the app rendered before this module finished loading. */
 let homeRetryCount=0;
 const homeRetry=setInterval(()=>{const host=$('#home-status-tray');if(!host){if(++homeRetryCount>60)clearInterval(homeRetry);return;}
