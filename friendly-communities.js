@@ -14,11 +14,11 @@
   const activeSpace = () => spaceById(sp.activeId);
   const categories = ['Creative','Gaming','Study','Travel','Sports','Books','Wellbeing','Technology','Music','Photography','Entrepreneurship','Other interests'];
   const dateLabel = value => { try { return new Date(value).toLocaleDateString([], {day:'numeric',month:'short',year:'numeric'}); } catch (_) { return ''; } };
+  // Ownership is authoritative: only the community's creator_id is the owner.
+  // Membership role labels are never allowed to promote an ordinary member to owner.
   const isCommunityOwner = c => {
-    if (!c) return false;
-    if (['owner','creator'].includes(String(c.my_role||c.my_status||'').toLowerCase())) return true;
     const uid = String(currentUser?.id || '');
-    return !!uid && [c.owner_id,c.creator_id,c.created_by,c.user_id].some(id => id && String(id) === uid);
+    return !!uid && !!c?.creator_id && String(c.creator_id) === uid;
   };
   const profileAvatar = (url,name) => url
     ? '<img class="fc-avatar" src="'+esc(url)+'" alt="" loading="lazy">'
@@ -74,9 +74,10 @@
       Promise.all(posts.map(async p=>({...p,media_urls:await Promise.all((Array.isArray(p.media)?p.media:[]).map(m=>signedPath(m.path)))})))
     ]);
     const memberRecord=members.find(m=>String(m.user_id||m.id||'')===String(currentUser?.id||''));
-    const memberIsOwner=String(memberRecord?.role||memberRecord?.my_role||'').toLowerCase()==='owner';
-    const confirmedOwner=isCommunityOwner(c)||memberIsOwner;
-    state.detail={community:{...c,my_role:confirmedOwner?'owner':(c.my_role||memberRecord?.role||'member'),cover_url:cover},posts:postRows,members,requests};
+    const confirmedOwner=isCommunityOwner(c);
+    const reportedRole=String(c.my_role||memberRecord?.role||'member').toLowerCase();
+    const safeRole=confirmedOwner?'owner':reportedRole==='moderator'?'moderator':'member';
+    state.detail={community:{...c,my_role:safeRole,cover_url:cover},posts:postRows,members,requests};
     state.selected=id;
   }
   function renderDetail() {
@@ -119,7 +120,7 @@
     return '<section class="fc-members-panel">'+
       (d.requests.length&&canManage?'<div class="fc-request-box"><div class="fc-section-heading"><div><span class="fc-eyebrow">COMMUNITY GATEKEEPING</span><h3>Join requests</h3></div><span>'+d.requests.length+' waiting</span></div>'+d.requests.map(m=>'<article class="fc-person-row">'+profileAvatar(m.avatar_url,m.display_name)+'<div><b>'+esc(m.display_name)+'</b><small>@'+esc(m.username||'member')+'</small></div><button data-fc="approve" data-user="'+esc(m.user_id)+'">Approve</button><button data-fc="remove-member" data-user="'+esc(m.user_id)+'">Decline</button></article>').join('')+'</div>':'')+
       '<div class="fc-section-heading"><div><span class="fc-eyebrow">THE PEOPLE BEHIND THE POSTS</span><h3>Members</h3></div><span>'+d.members.length+' people</span></div>'+
-      d.members.map(m=>'<article class="fc-person-row">'+profileAvatar(m.avatar_url,m.display_name)+'<div><b>'+esc(m.display_name)+'</b><small>@'+esc(m.username||'member')+' · '+esc(m.role)+'</small></div>'+(m.role==='owner'?'<span class="fc-role-pill">CREATOR</span>':canManage?'<button data-fc="member-menu" data-user="'+esc(m.user_id)+'" data-role="'+esc(m.role)+'">Manage</button>':'')+'</article>').join('')+
+      d.members.map(m=>'<article class="fc-person-row">'+profileAvatar(m.avatar_url,m.display_name)+'<div><b>'+esc(m.display_name)+'</b><small>@'+esc(m.username||'member')+' · '+esc(m.role)+'</small></div>'+(String(m.user_id)===String(c.creator_id)?'<span class="fc-role-pill">CREATOR</span>':canManage&&(c.my_role==='owner'||(c.my_role==='moderator'&&m.role==='member'))?'<button data-fc="member-menu" data-user="'+esc(m.user_id)+'" data-role="'+esc(m.role)+'" data-actor-role="'+esc(c.my_role)+'">Manage</button>':'')+'</article>').join('')+
       '</section>';
   }
   function renderAbout(d,canManage) {
@@ -251,8 +252,9 @@
     if(action==='approve'){await memberAction(user,'approve');return;}
     if(action==='remove-member'){await memberAction(user,'remove');return;}
     if(action==='member-menu'){
-      const role=el.dataset.role;
-      openSheet({title:'Manage member',sub:'Community moderation',body:'<p class="fc-note">Choose an action for this member.</p>',foot:'<button class="btn btn--soft" data-action="close-sheet">Cancel</button>'+(role==='member'?'<button class="btn btn--primary" data-fc="promote" data-user="'+esc(user)+'">Make moderator</button>':'<button class="btn btn--soft" data-fc="demote" data-user="'+esc(user)+'">Remove moderator role</button>')+'<button class="btn btn--danger" data-fc="remove-member" data-user="'+esc(user)+'">Remove member</button>'});return;
+      const role=el.dataset.role,actorRole=el.dataset.actorRole;
+      const ownerControls=actorRole==='owner'?(role==='member'?'<button class="btn btn--primary" data-fc="promote" data-user="'+esc(user)+'">Make moderator</button>':role==='moderator'?'<button class="btn btn--soft" data-fc="demote" data-user="'+esc(user)+'">Remove moderator role</button>':''):'';
+      openSheet({title:'Manage member',sub:'Community moderation',body:'<p class="fc-note">Choose an action for this member.</p>',foot:'<button class="btn btn--soft" data-action="close-sheet">Cancel</button>'+ownerControls+'<button class="btn btn--danger" data-fc="remove-member" data-user="'+esc(user)+'">Remove member</button>'});return;
     }
     if(action==='promote'){await memberAction(user,'promote');closeSheet();return;}
     if(action==='demote'){await memberAction(user,'demote');closeSheet();return;}
