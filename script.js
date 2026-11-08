@@ -10699,9 +10699,11 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
   const renderBusinessComment = (comment, isReply = false) => {
     const anonymous = !!comment.anonymous;
     const author = anonymous ? 'Anonymous member' : (comment.author_display_name || comment.author_username || 'Space member');
-    const profileTarget = !anonymous && comment.author_username
-      ? ' data-profile-username="' + esc(comment.author_username) + '" role="button" tabindex="0" aria-label="Open ' + esc(author) + '\'s profile"'
-      : '';
+    const profileTarget = !anonymous && isUuidPerson(comment.author_id)
+      ? ' data-profile-id="' + esc(comment.author_id) + '" role="button" tabindex="0" aria-label="Open ' + esc(author) + '\'s profile"'
+      : (!anonymous && comment.author_username
+        ? ' data-profile-username="' + esc(comment.author_username) + '" role="button" tabindex="0" aria-label="Open ' + esc(author) + '\'s profile"'
+        : '');
     const identity = anonymous
       ? '<div class="biz-comment-avatar biz-comment-avatar--anonymous" aria-label="Anonymous member">' + icon('user-round') + '</div>'
       : (comment.author_avatar_url
