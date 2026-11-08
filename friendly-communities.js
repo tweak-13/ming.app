@@ -82,17 +82,19 @@
       '</div>';
   }
   function renderFeed(d) {
-    const c=d.community;
-    return '<section class="fc-feed">'+
-      '<div class="fc-compose"><div class="fc-compose-top"><span class="fc-compose-avatar">✦</span><div><b>Bring something to the circle</b><small>Share an idea, a question or a moment with members.</small></div></div><textarea data-fc-post-text maxlength="3000" placeholder="What would you like to share with the community?"></textarea><div class="fc-compose-bottom"><label class="fc-attach">＋ Add photos or videos<input type="file" data-fc-post-files accept="image/*,video/*" multiple></label><span data-fc-file-count>Up to 4 files</span><button data-fc="publish">Publish post ↗</button></div><div class="fc-upload-preview" data-fc-preview></div></div>'+
-      (d.posts.length?d.posts.map(p=>postCard(p,c)).join(''):'<div class="fc-empty fc-feed-empty"><div class="fc-empty-mark">✧</div><h3>The first conversation starts here.</h3><p>Share a thought, ask a question or post something that gets this community talking.</p></div>')+
+    const c=d.community, isCreator=c.my_role==='owner';
+    const composer=isCreator
+      ? '<div class="fc-compose"><div class="fc-compose-top"><span class="fc-compose-avatar">✦</span><div><b>Publish as the community creator</b><small>Only you can publish posts here. Members can like, comment and share.</small></div></div><textarea data-fc-post-text maxlength="3000" placeholder="What would you like to share with the community?"></textarea><div class="fc-compose-bottom"><label class="fc-attach">＋ Add photos or videos<input type="file" data-fc-post-files accept="image/*,video/*" multiple></label><span data-fc-file-count>Up to 4 files</span><button data-fc="publish">Publish post ↗</button></div><div class="fc-upload-preview" data-fc-preview></div></div>'
+      : '<div class="fc-member-note"><span>✦</span><div><b>Welcome to the community</b><small>Posts are shared by the creator. You can like, comment and share below.</small></div></div>';
+    return '<section class="fc-feed">'+composer+
+      (d.posts.length?d.posts.map(p=>postCard(p,c)).join(''):'<div class="fc-empty fc-feed-empty"><div class="fc-empty-mark">✧</div><h3>'+(isCreator?'Your community starts here.':'The creator has not posted yet.')+'</h3><p>'+(isCreator?'Share the first update, photo or video with your members.':'Check back soon for the first community update.')+'</p></div>')+
       '</section>';
   }
   function postCard(p,c) {
     const mine=p.author_id===currentUser.id,media=(p.media||[]).map((m,i)=>p.media_urls?.[i]?'<a class="fc-post-media" href="'+esc(p.media_urls[i])+'" target="_blank" rel="noopener">'+(String(m.mime||'').startsWith('video/')?'<video src="'+esc(p.media_urls[i])+'" controls playsinline></video>':'<img src="'+esc(p.media_urls[i])+'" alt="" loading="lazy">')+'</a>':'').join('');
     return '<article class="fc-post-card"><header>'+profileAvatar(p.author_avatar_url,p.author_name)+'<div><b>'+esc(p.author_name||'Community member')+'</b><small>@'+esc(p.author_username||'member')+' · '+dateLabel(p.created_at)+'</small></div>'+(mine||['owner','moderator'].includes(c.my_role)?'<button data-fc="delete-post" data-id="'+esc(p.id)+'" aria-label="Delete post">•••</button>':'')+'</header>'+
       (p.body?'<p class="fc-post-body">'+esc(p.body).replace(/\n/g,'<br>')+'</p>':'')+media+
-      '<footer><button data-fc="comments" data-id="'+esc(p.id)+'">◌ '+Number(p.comment_count||0)+' comments</button><span>Community post</span></footer></article>';
+      '<footer class="fc-post-actions"><button data-fc="like" data-id="'+esc(p.id)+'" aria-label="Like post">♡ <span>'+Number(p.like_count||0)+'</span></button><button data-fc="comments" data-id="'+esc(p.id)+'">◌ '+Number(p.comment_count||0)+' comments</button><button data-fc="share-post" data-id="'+esc(p.id)+'">↗ Share</button><span>Community post</span></footer></article>';
   }
   function renderMembers(d,canManage) {
     const c=d.community;
@@ -148,6 +150,7 @@
   }
   async function publishPost() {
     const d=state.detail;if(!d)return;
+    if(d.community.my_role!=='owner'){toast('Only the community creator can publish posts.','alert');return;}
     const box=document.querySelector('[data-fc-post-text]'),files=Array.from(document.querySelector('[data-fc-post-files]')?.files||[]),body=box?.value.trim()||'';
     if(!body&&!files.length){toast('Write something or attach media first.','alert');return;}
     if(files.length>4){toast('Choose up to four files.','alert');return;}
@@ -177,6 +180,23 @@
     const input=document.getElementById('fc-comment-input'),body=input?.value.trim();if(!body){toast('Write a comment first.','alert');return;}
     try{await rpc('add_ming_friendly_community_comment',{p_post_id:postId,p_body:body});closeSheet();await loadDetail(state.selected);renderSpace();toast('Comment added.','check');}catch(e){toast(e.message||'Could not add your comment.','alert');}
   }
+  async function togglePostLike(postId) {
+    try {
+      await rpc('toggle_ming_friendly_community_post_like',{p_post_id:postId});
+      await reloadDetail();
+    } catch(e) { toast(e.message||'Could not update your like.','alert'); }
+  }
+  async function sharePost(postId) {
+    const post=state.detail?.posts?.find(p=>p.id===postId), c=state.detail?.community;
+    if(!post||!c)return;
+    const url=location.href.split('#')[0]+'#friendly-community-'+encodeURIComponent(c.id)+'-'+encodeURIComponent(postId);
+    const shareData={title:c.name+' on Tweaklr',text:(post.body||'A post from '+c.name).slice(0,180),url};
+    try {
+      if(navigator.share) await navigator.share(shareData);
+      else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(url);toast('Community post link copied.','check');}
+      else toast('Sharing is not available on this device.','alert');
+    } catch(e) { if(e?.name!=='AbortError')toast('Could not share this post.','alert'); }
+  }
   async function reloadDetail() { if(state.selected){await loadDetail(state.selected);renderSpace();} }
   function showSettings() {
     const c=state.detail?.community;if(!c)return;
@@ -204,6 +224,8 @@
     if(action==='back'){state.selected=null;state.detail=null;state.tab='feed';renderSpace();return;}
     if(action==='join'){await joinCommunity(id);return;}
     if(action==='publish'){await publishPost();return;}
+    if(action==='like'){await togglePostLike(id);return;}
+    if(action==='share-post'){await sharePost(id);return;}
     if(action==='comments'){await comments(id);return;}
     if(action==='comment-submit'){await submitComment(id);return;}
     if(action==='settings'){showSettings();return;}
