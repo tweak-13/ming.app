@@ -61,17 +61,34 @@ function openComposer(scope,spaceId){
  const main=scope==='main',people=main?(app().connections||[]).map(c=>c.personId).filter(Boolean):[];
  const profiles=people.map(id=>app().mingConnectionProfiles?.get(id)).filter(Boolean);
  const privacy=main?'<div class="tw-status-field"><label>Status privacy</label><select id="tw-status-audience"><option value="connections">My connections</option><option value="except">My connections except…</option><option value="selected">Only share with…</option></select></div><div class="tw-status-field" id="tw-status-privacy-people" hidden><label>Select people</label><div class="tw-status-people">'+profiles.map(p=>'<label><input type="checkbox" value="'+escS(p.id)+'"><span>'+(p.avatarUrl?'<img src="'+escS(p.avatarUrl)+'">':'')+escS(p.short||p.name)+'</span></label>').join('')+'</div></div>':'<p class="tw-status-note">Visible to approved members of this '+(scope==='friendly'?'Friendly':'Business')+' Space.</p>';
- const html='<div class="tw-status-compose" data-scope="'+scope+'" data-space="'+escS(spaceId||'')+'"><div class="tw-status-type-switch"><button class="on" data-tw-type="text">Text</button><button data-tw-type="media">Photo / video</button></div><div id="tw-status-text-panel"><textarea id="tw-status-caption" maxlength="700" placeholder="Type a status…"></textarea><div class="tw-status-colors">'+['#493224','#8B3543','#263B52','#315448','#5A4775','#202020'].map(c=>'<button style="background:'+c+'" data-tw-bg="'+c+'" aria-label="Text background"></button>').join('')+'</div></div><div id="tw-status-media-panel" hidden><input id="tw-status-file" type="file" accept="image/*,video/mp4,video/webm,video/quicktime"><div id="tw-status-preview"></div><p>Photos up to 15 MB · videos up to 50 MB and 60 seconds.</p></div>'+privacy+'</div>';
+ const html='<div class="tw-status-compose" data-scope="'+scope+'" data-space="'+escS(spaceId||'')+'"><div class="tw-status-type-switch"><button class="on" data-tw-type="text">Text</button><button data-tw-type="media">Photo / video</button></div><div id="tw-status-text-panel"><textarea id="tw-status-caption" maxlength="700" placeholder="Type a status…"></textarea><div class="tw-status-colors">'+['#493224','#8B3543','#263B52','#315448','#5A4775','#202020'].map(c=>'<button style="background:'+c+'" data-tw-bg="'+c+'" aria-label="Text background"></button>').join('')+'</div></div><div id="tw-status-media-panel" class="tw-status-media-panel" hidden>
+ <div class="tw-media-intro"><span class="tw-media-eyebrow">VISUAL UPDATE</span><b>Share a moment</b><small>Choose a photo or a short video from your device.</small></div>
+ <div class="tw-media-pick-grid">
+  <button type="button" class="tw-media-pick-card" data-tw-pick-media="image"><span class="tw-media-pick-icon">▧</span><b>Photo</b><small>JPG, PNG, WEBP</small></button>
+  <button type="button" class="tw-media-pick-card" data-tw-pick-media="video"><span class="tw-media-pick-icon">▶</span><b>Video</b><small>MP4, MOV, WEBM</small></button>
+ </div>
+ <input id="tw-status-file" class="tw-status-file-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime">
+ <div id="tw-status-preview" class="tw-status-preview"></div>
+ <div class="tw-media-limits"><span>↗</span><p><b>Keep it crisp.</b> Photos up to 15 MB. Videos up to 50 MB and 60 seconds.</p></div>
+</div>'+privacy+'</div>';
  const overlay=document.createElement('div');overlay.className='tw-status-modal';overlay.innerHTML='<div class="tw-status-dialog"><header><button data-tw-close>×</button><div><b>Create status</b><small>It disappears after 24 hours.</small></div></header><div class="tw-status-compose-body">'+html+'</div><footer><button class="tw-status-publish" data-tw-publish>Share status</button></footer></div>';document.body.append(overlay);
  overlay.addEventListener('click',async e=>{
   if(e.target===overlay){overlay.remove();return;}
   const b=e.target.closest('button');if(!b)return;
   if(b.hasAttribute('data-tw-close')){overlay.remove();return;}
   if(b.dataset.twType){$$('[data-tw-type]',overlay).forEach(x=>x.classList.toggle('on',x===b));$('#tw-status-text-panel',overlay).hidden=b.dataset.twType!=='text';$('#tw-status-media-panel',overlay).hidden=b.dataset.twType!=='media';return;}
-  if(b.dataset.twBg){overlay.dataset.bg=b.dataset.twBg;$$('[data-tw-bg]',overlay).forEach(x=>x.classList.toggle('on',x===b));return;}
+  if(b.dataset.twBg){overlay.dataset.bg=b.dataset.twBg;$('[data-tw-bg]',overlay).forEach(x=>x.classList.toggle('on',x===b));return;}
+  if(b.dataset.twPickMedia){const input=$('#tw-status-file',overlay);if(input){input.value='';input.accept=b.dataset.twPickMedia==='image'?'image/*':'video/mp4,video/webm,video/quicktime';input.click();}return;}
+  if(b.hasAttribute('data-tw-media-remove')){const input=$('#tw-status-file',overlay);if(input)input.value='';renderMediaPreview(overlay,null);return;}
   if(b.hasAttribute('data-tw-publish')){b.disabled=true;b.textContent='Sharing…';try{await publish(overlay,scope,spaceId);overlay.remove();}catch(err){toastS(err.message||'Could not share status.');b.disabled=false;b.textContent='Share status';}}
  });
- overlay.addEventListener('change',e=>{if(e.target.id==='tw-status-audience'){const p=$('#tw-status-privacy-people',overlay);if(p)p.hidden=!['except','selected'].includes(e.target.value);}if(e.target.id==='tw-status-file'){const f=e.target.files?.[0],p=$('#tw-status-preview',overlay);if(p)p.innerHTML=f?'<div class="tw-status-file-chip">'+(f.type.startsWith('image/')?'<img src="'+URL.createObjectURL(f)+'" alt="Preview">':'<span>▶</span>')+'<span>'+escS(f.name)+' · '+(f.size/1048576).toFixed(1)+' MB</span></div>':'';}});
+ overlay.addEventListener('change',e=>{if(e.target.id==='tw-status-audience'){const p=$('#tw-status-privacy-people',overlay);if(p)p.hidden=!['except','selected'].includes(e.target.value);}if(e.target.id==='tw-status-file'){renderMediaPreview(overlay,e.target.files?.[0]||null);}});
+}
+function renderMediaPreview(overlay,file){
+ const host=$('#tw-status-preview',overlay);if(!host)return;
+ if(!file){host.innerHTML='';return;}
+ const isVideo=file.type.startsWith('video/'),url=URL.createObjectURL(file);
+ host.innerHTML='<div class="tw-media-preview-card"><div class="tw-media-preview-frame">'+(isVideo?'<video src="'+url+'" controls playsinline></video>':'<img src="'+url+'" alt="Selected status photo">')+'<span class="tw-media-preview-badge">'+(isVideo?'VIDEO':'PHOTO')+'</span></div><div class="tw-media-preview-meta"><span><b>'+escS(file.name)+'</b><small>'+(file.size/1048576).toFixed(1)+' MB · Ready to share</small></span><button type="button" data-tw-media-remove aria-label="Remove selected media">×</button></div></div>';
 }
 async function getVideoDuration(file){return new Promise((resolve,reject)=>{const url=URL.createObjectURL(file),video=document.createElement('video');video.preload='metadata';video.onloadedmetadata=()=>{const duration=video.duration;URL.revokeObjectURL(url);resolve(duration);};video.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Could not read this video.'));};video.src=url;});}
 async function publish(overlay,scope,spaceId){
