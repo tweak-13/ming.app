@@ -144,14 +144,23 @@ function nextStatus(){if(!activeViewer)return;activeViewer.index++;if(activeView
 function prevStatus(){if(!activeViewer)return;if(activeViewer.index>0)activeViewer.index--;else if(activeViewer.groupIndex>0){activeViewer.groupIndex--;activeViewer.group=activeViewer.groups[activeViewer.groupIndex];activeViewer.index=activeViewer.group.statuses.length-1;}renderViewer();}
 async function showViewers(status){const {data,error}=await app().supabaseClient.rpc('get_tweaklr_status_viewers',{p_status_id:status.id});if(error){toastS(error.message);return;}const list=(data||[]).map(v=>'<div class="tw-status-viewer-row">'+(v.avatar_url?'<img src="'+escS(v.avatar_url)+'">':'')+'<span><b>'+escS(v.display_name||v.username||'Tweaklr member')+'</b><small>'+escS(new Date(v.viewed_at).toLocaleString())+'</small></span></div>').join('');const box=document.createElement('div');box.className='tw-status-list-modal';box.innerHTML='<div><header><b>Viewed by · '+(data||[]).length+'</b><button>×</button></header>'+(list||'<p>No views yet.</p>')+'</div>';box.querySelector('button').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove();};document.body.append(box);}
 async function showStatusMenu(status,group,scope,spaceId){const muted=false;const box=document.createElement('div');box.className='tw-status-list-modal';box.innerHTML='<div><header><b>Status options</b><button>×</button></header>'+(group.mine?'<button data-menu-delete>Delete status</button>':'<button data-menu-mute>Mute this person\'s statuses</button>')+'</div>';box.querySelector('header button').onclick=()=>box.remove();box.addEventListener('click',async e=>{if(e.target.hasAttribute('data-menu-mute')){const {error}=await app().supabaseClient.rpc('toggle_tweaklr_status_mute',{p_author_id:group.authorId,p_muted:true});if(error)toastS(error.message);else{toastS('Statuses muted.','check');box.remove();closeViewer();if(scope==='main')void mountHome();else void mountSpace({id:spaceId,nature:scope});}}if(e.target.hasAttribute('data-menu-delete')){box.remove();if(confirm('Delete this status?')){const {data,error}=await app().supabaseClient.rpc('delete_tweaklr_status',{p_status_id:status.id});if(error){toastS(error.message);return;}if(data)await app().supabaseClient.storage.from(BUCKET).remove([data]);closeViewer();if(scope==='main')mountHome();else{const s=({id:spaceId,nature:scope});if(s)mountSpace(s);}}}});document.body.append(box);}
-/* Prioritise the Home + control over other app-level click handlers. */
+/* Prioritise both the initial + control and the live tray's own-status avatar
+   before other app-level click handlers can swallow the interaction. */
 document.addEventListener('click',e=>{
- const compose=e.target.closest('[data-tw-status-compose]');
- if(!compose)return;
+ const target=e.target instanceof Element?e.target:null;
+ if(!target)return;
+ const compose=target.closest('[data-tw-status-compose]');
+ const statusButton=target.closest('[data-tw-status-open]');
+ if(!compose&&!statusButton)return;
  e.preventDefault();
  e.stopPropagation();
  e.stopImmediatePropagation();
- openComposer(compose.dataset.twStatusCompose,compose.dataset.twStatusSpace||null);
+ if(compose){
+  openComposer(compose.dataset.twStatusCompose,compose.dataset.twStatusSpace||null);
+  return;
+ }
+ const tray=statusButton.closest('[data-tw-status-scope]');
+ openViewer(statusButton.dataset.twStatusOpen,tray?.dataset.twStatusScope||'main',tray?.dataset.twStatusSpace||null);
 },true);
 document.addEventListener('click',e=>{
  if(e.target.closest('[data-tw-status-privacy]')){openStatusPrivacy();return;}
