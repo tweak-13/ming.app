@@ -179,19 +179,38 @@ $function$;
 create or replace function public.create_ming_friendly_community_post(p_community_id uuid,p_body text default '',p_media jsonb default '[]'::jsonb)
 returns jsonb language plpgsql security definer set search_path = ''
 as $function$
-declare v_user uuid := (select auth.uid()); v_post public.ming_friendly_community_posts; v_space_id uuid; v_item jsonb; v_path text;
+declare
+  v_user uuid := (select auth.uid());
+  v_post public.ming_friendly_community_posts;
+  v_space_id uuid;
+  v_item jsonb;
+  v_path text;
 begin
   if v_user is null then raise exception 'Authentication required'; end if;
   select space_id into v_space_id from public.ming_friendly_communities where id=p_community_id;
-  if not found or not exists(select 1 from public.ming_friendly_community_members where community_id=p_community_id and user_id=v_user and status='approved') then
-    raise exception 'Approved community membership required';
+  if not found or not exists(
+    select 1 from public.ming_friendly_community_members
+    where community_id=p_community_id and user_id=v_user and status='approved'
+  ) then raise exception 'Approved community membership required'; end if;
+  if char_length(coalesce(p_body,''))>3000
+    or jsonb_typeof(coalesce(p_media,'[]'::jsonb))<>'array'
+    or jsonb_array_length(coalesce(p_media,'[]'::jsonb))>4 then
+    raise exception 'Post is too long or has too many attachments';
   end if;
-  if char_length(coalesce(p_body,''))>3000 or jsonb_typeof(coalesce(p_media,'[]'::jsonb))<>'array' or jsonb_array_length(coalesce(p_media,'[]'::jsonb))>4 then raise exception 'Post is too long or has too many attachments'; end if;
-  if char_length(btrim(coalesce(p_body,'')))=0 and jsonb_array_length(coalesce(p_media,'[]'::jsonb))=0 then raise exception 'Write something or attach media'; end if;
+  if char_length(btrim(coalesce(p_body,'')))=0 and jsonb_array_length(coalesce(p_media,'[]'::jsonb))=0 then
+    raise exception 'Write something or attach media';
+  end if;
   for v_item in select value from jsonb_array_elements(coalesce(p_media,'[]'::jsonb)) loop
     v_path := v_item->>'path';
-    if v_path is null or v_path !~ ('^' || v_user::text || '/friendly-' || v_space_id::text || '/community-' || p_community_id::text || '-[A-Za-z0-9._-]+
-  return jsonb_build_object('id',v_post.id,'community_id',v_post.community_id,'author_id',v_post.author_id,'body',v_post.body,'media',v_post.media,'created_at',v_post.created_at,'comment_count',0);
+    if v_path is null or v_path !~ ('^'||v_user::text||'/friendly-'||v_space_id::text||'/community-'||p_community_id::text||'-[A-Za-z0-9._-]+$') then
+      raise exception 'Invalid community attachment path';
+    end if;
+  end loop;
+  insert into public.ming_friendly_community_posts(community_id,author_id,body,media)
+  values(p_community_id,v_user,btrim(coalesce(p_body,'')),coalesce(p_media,'[]'::jsonb))
+  returning * into v_post;
+  return jsonb_build_object('id',v_post.id,'community_id',v_post.community_id,'author_id',v_post.author_id,
+    'body',v_post.body,'media',v_post.media,'created_at',v_post.created_at,'comment_count',0);
 end;
 $function$;
 
