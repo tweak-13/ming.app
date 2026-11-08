@@ -105,7 +105,7 @@
   function renderAbout(d,canManage) {
     const c=d.community;
     return '<section class="fc-about-panel"><span class="fc-eyebrow">THE STORY OF THIS COMMUNITY</span><h3>What brings us together</h3><p>'+esc(c.description)+'</p><div class="fc-about-facts"><div><small>INTEREST</small><b>'+esc(c.category)+'</b></div><div><small>VISIBILITY</small><b>'+(c.privacy==='private'?'Private':'Public to Friendly members')+'</b></div><div><small>JOINING</small><b>'+(c.require_approval?'Approval required':'Open membership')+'</b></div><div><small>CREATED</small><b>'+dateLabel(c.created_at)+'</b></div></div>'+
-      '<div class="fc-about-actions">'+(c.my_role==='owner'?'<button data-fc="settings">Edit community settings</button>':'<button data-fc="leave">Leave community</button>')+'</div></section>';
+      '<div class="fc-about-actions">'+(c.my_role==='owner'?'<button data-fc="settings">Edit community settings</button><button class="fc-delete-community" data-fc="delete-community">Delete community</button>':'<button data-fc="leave">Leave community</button>')+'</div></section>';
   }
   async function uploadFiles(files,spaceId,communityId) {
     const result=[];
@@ -214,6 +214,10 @@
     }
     if(action==='promote'){await memberAction(user,'promote');closeSheet();return;}
     if(action==='demote'){await memberAction(user,'demote');closeSheet();return;}
+    if(action==='delete-community'){
+      if(!confirm('Delete this community and permanently remove its posts, comments and memberships?'))return;
+      try{await rpc('delete_ming_friendly_community',{p_community_id:state.selected});state.selected=null;state.detail=null;await loadIndex(state.spaceId);renderSpace();toast('Community deleted.','check');}catch(err){toast(err.message||'Could not delete this community.','alert');}return;
+    }
     if(action==='leave'){
       if(!confirm('Leave this community? You will need to join again to see its private discussions.'))return;
       try{await rpc('leave_ming_friendly_community',{p_community_id:state.selected});state.selected=null;state.detail=null;await loadIndex(state.spaceId);renderSpace();toast('You left the community.','check');}catch(err){toast(err.message||'Could not leave.','alert');}return;
