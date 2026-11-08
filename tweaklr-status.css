@@ -196,3 +196,6 @@
 .tw-media-limits p{margin:0;color:#BBA99D;font-size:9px;line-height:1.55}
 .tw-media-limits b{color:#E8D5C7;font-weight:800}
 @media(max-width:480px){.tw-media-pick-card{min-height:108px;padding:12px}.tw-media-preview-frame{max-height:340px}}
+
+/* Keep inactive composer panels hidden even when their panel layout uses display:grid. */
+#tw-status-text-panel[hidden],#tw-status-media-panel[hidden],#tw-status-privacy-people[hidden]{display:none!important}
