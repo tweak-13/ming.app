@@ -10153,7 +10153,7 @@ function renderSpace() {
     void hydrateBusinessHomeMedia(s.id);
     void hydrateBusinessPostCommentCounts(s.id);
   }
-  if (s.nature === 'friendly' && ['home','moments'].includes(sp.tab)) void hydrateFriendlyMedia(s.id);
+  if (s.nature === 'friendly' && ['home','moments','circles'].includes(sp.tab)) void hydrateFriendlyMedia(s.id);
   $('#sp-scroll').scrollTop = 0;
 }
 function refreshSpace() {
@@ -10164,7 +10164,7 @@ function refreshSpace() {
     renderBusinessHome(s);
     void hydrateBusinessPostCommentCounts(s.id);
   }
-  if (s.nature === 'friendly' && ['home','moments'].includes(sp.tab)) void hydrateFriendlyMedia(s.id);
+  if (s.nature === 'friendly' && ['home','moments','circles'].includes(sp.tab)) void hydrateFriendlyMedia(s.id);
 }
 
 function spBar(s, opts = {}) {
