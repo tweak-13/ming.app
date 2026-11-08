@@ -221,6 +221,7 @@ begin
   select * into v_target from public.ming_friendly_community_members where community_id=p_community_id and user_id=p_user_id for update;
   if not found then raise exception 'Member not found'; end if;
   if v_target.role='owner' then raise exception 'The community owner cannot be changed here'; end if;
+  if v_role='moderator' and v_target.role='moderator' then raise exception 'Only the community owner can manage moderators'; end if;
   if p_action='approve' and v_target.status='pending' then update public.ming_friendly_community_members set status='approved',joined_at=now() where id=v_target.id;
   elsif p_action='remove' then delete from public.ming_friendly_community_members where id=v_target.id;
   elsif p_action='promote' and v_role='owner' and v_target.status='approved' then update public.ming_friendly_community_members set role='moderator' where id=v_target.id;
