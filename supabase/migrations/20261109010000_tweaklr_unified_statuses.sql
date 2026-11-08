@@ -252,3 +252,16 @@ revoke all on function public.set_tweaklr_status_read_receipts(boolean) from pub
 grant execute on function public.get_tweaklr_status_read_receipts() to authenticated;
 grant execute on function public.set_tweaklr_status_read_receipts(boolean) to authenticated;
 notify pgrst,'reload schema';
+
+create or replace function public.get_tweaklr_muted_status_authors()
+returns table(author_id uuid,username text,display_name text,avatar_url text)
+language sql stable security definer set search_path=public as $$
+ select m.author_id,p.username,p.display_name,p.avatar_url
+ from public.tweaklr_status_mutes m
+ join public.profiles p on p.id=m.author_id
+ where m.user_id=auth.uid()
+ order by p.display_name nulls last,p.username;
+$$;
+revoke all on function public.get_tweaklr_muted_status_authors() from public,anon;
+grant execute on function public.get_tweaklr_muted_status_authors() to authenticated;
+notify pgrst,'reload schema';
