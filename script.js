@@ -10124,7 +10124,7 @@ function renderSpace() {
             ['home','Home','home'],
             ['discover','Discover','spark'],
             ['trends','Trends','sp-bolt'],
-            ['circles','Connections','users']
+            ['circles','Communities','users']
           ];
           const secondary = [
             ['activities','Activities','cal'],
