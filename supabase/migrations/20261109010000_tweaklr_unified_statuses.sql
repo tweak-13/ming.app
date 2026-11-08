@@ -198,3 +198,57 @@ grant execute on function public.delete_tweaklr_status(uuid) to authenticated;
 grant execute on function public.set_tweaklr_status_reaction(uuid,text) to authenticated;
 grant execute on function public.toggle_tweaklr_status_mute(uuid,boolean) to authenticated;
 notify pgrst,'reload schema';
+
+
+-- Per-user read receipt preference, matching WhatsApp Status behaviour.
+create table if not exists public.tweaklr_status_settings (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  read_receipts boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+alter table public.tweaklr_status_settings enable row level security;
+revoke all on public.tweaklr_status_settings from anon,authenticated;
+
+create or replace function public.get_tweaklr_status_read_receipts()
+returns boolean language sql stable security definer set search_path=public as $$
+ select coalesce((select s.read_receipts from public.tweaklr_status_settings s where s.user_id=auth.uid()),true);
+$$;
+
+create or replace function public.set_tweaklr_status_read_receipts(p_enabled boolean)
+returns boolean language plpgsql security definer set search_path=public as $$
+begin
+ if auth.uid() is null then raise exception 'Authentication required'; end if;
+ insert into public.tweaklr_status_settings(user_id,read_receipts,updated_at)
+ values(auth.uid(),coalesce(p_enabled,true),now())
+ on conflict(user_id) do update set read_receipts=excluded.read_receipts,updated_at=now();
+ return coalesce(p_enabled,true);
+end $$;
+
+create or replace function public.mark_tweaklr_status_viewed(p_status_id uuid)
+returns boolean language plpgsql security definer set search_path=public as $$
+declare v_status public.tweaklr_statuses;
+begin
+ select * into v_status from public.tweaklr_statuses where id=p_status_id;
+ if not found or not public.tweaklr_status_can_view(v_status,auth.uid()) then raise exception 'Status unavailable'; end if;
+ if v_status.author_id=auth.uid() then return false; end if;
+ if not public.get_tweaklr_status_read_receipts() then return false; end if;
+ insert into public.tweaklr_status_views(status_id,viewer_id) values(p_status_id,auth.uid()) on conflict do nothing;
+ return true;
+end $$;
+
+create or replace function public.get_tweaklr_status_viewers(p_status_id uuid)
+returns table(viewer_id uuid,viewed_at timestamptz,username text,display_name text,avatar_url text)
+language plpgsql stable security definer set search_path=public as $$
+begin
+ if not exists(select 1 from public.tweaklr_statuses s where s.id=p_status_id and s.author_id=auth.uid()) then raise exception 'Only the status owner can see viewers'; end if;
+ if not public.get_tweaklr_status_read_receipts() then return; end if;
+ return query select v.viewer_id,v.viewed_at,p.username,p.display_name,p.avatar_url
+ from public.tweaklr_status_views v join public.profiles p on p.id=v.viewer_id
+ where v.status_id=p_status_id order by v.viewed_at desc;
+end $$;
+
+revoke all on function public.get_tweaklr_status_read_receipts() from public,anon;
+revoke all on function public.set_tweaklr_status_read_receipts(boolean) from public,anon;
+grant execute on function public.get_tweaklr_status_read_receipts() to authenticated;
+grant execute on function public.set_tweaklr_status_read_receipts(boolean) to authenticated;
+notify pgrst,'reload schema';
