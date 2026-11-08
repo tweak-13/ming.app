@@ -103,7 +103,7 @@ async function openStatusPrivacy(){
 }
 function closeViewer(){if(progressTimer)clearInterval(progressTimer);progressTimer=null;activeViewer=null;paused=false;$('.tw-status-viewer')?.remove();}
 async function openViewer(authorId,scope,spaceId){
- const rows=await fetchStatuses(scope,spaceId),group=groups(rows).find(g=>g.authorId===authorId);if(!group?.statuses.length)return;
+ const rows=await fetchStatuses(scope,spaceId),group=groups(rows).find(g=>g.authorId===authorId);if(!group?.statuses.length){if(authorId===uid())openComposer(scope,spaceId);return;}
  closeViewer();const allGroups=groups(rows);activeViewer={group,groups:allGroups,groupIndex:allGroups.findIndex(g=>g.authorId===authorId),scope,spaceId,index:0,rows};renderViewer();
 }
 async function renderViewer(){
