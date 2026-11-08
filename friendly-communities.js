@@ -1,7 +1,7 @@
 /* Tweaklr Friendly Communities — dedicated mini-spaces backed by Supabase RPCs. */
 (() => {
   'use strict';
-  if (window.__tweaklrFriendlyCommunities || !window.VIEWS?.friendly || !window.supabaseClient) return;
+  if (window.__tweaklrFriendlyCommunities || typeof VIEWS === 'undefined' || !VIEWS.friendly || typeof supabaseClient === 'undefined') return;
   window.__tweaklrFriendlyCommunities = true;
 
   const state = { spaceId:null, items:[], selected:null, detail:null, tab:'feed', loading:false, query:'', category:'All' };
@@ -224,7 +224,7 @@
     }
   });
   document.addEventListener('input',e=>{
-    if(e.target.matches('[data-fc-search]')){state.query=e.target.value;renderSpace();}
+    if(e.target.matches('[data-fc-search]')){const pos=e.target.selectionStart;state.query=e.target.value;renderSpace();const next=document.querySelector('[data-fc-search]');if(next){next.focus();next.setSelectionRange(pos,pos);}}
     if(e.target.matches('[data-fc-post-files]')){const files=Array.from(e.target.files||[]);const count=document.querySelector('[data-fc-file-count]');if(count)count.textContent=files.length+' / 4 selected';const preview=document.querySelector('[data-fc-preview]');if(preview)preview.textContent=files.map(f=>f.name).join(' · ');}
   });
   VIEWS.friendly.circles=s=>{
