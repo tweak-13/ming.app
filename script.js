@@ -10123,7 +10123,8 @@ function renderSpace() {
           const primary = [
             ['home','Home','home'],
             ['discover','Discover','spark'],
-            ['trends','Trends','sp-bolt']
+            ['trends','Trends','sp-bolt'],
+            
           ];
           const secondary = [
             ['activities','Activities','cal'],
