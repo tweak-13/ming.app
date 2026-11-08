@@ -676,3 +676,14 @@
 #screen-space[data-nature="friendly"] .fs-activity-locked p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
 #screen-space[data-nature="friendly"] .fs-activity-sheet-actions{display:flex;justify-content:flex-end;width:100%}
 @media(max-width:520px){#screen-space[data-nature="friendly"] .fs-activity-admin{width:100%;margin:2px 0 0}#screen-space[data-nature="friendly"] .fs-activity-compose{align-items:stretch;flex-direction:column}#screen-space[data-nature="friendly"] .fs-activity-compose button{align-self:flex-end}}
+
+
+/* Friendly Space activities: distinct creator and attendee workspaces */
+.fs-activity-view-switch{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 22px;padding:5px;border:1px solid rgba(139,53,67,.18);border-radius:16px;background:rgba(73,50,36,.045)}
+.fs-activity-view-switch button{display:flex;align-items:center;gap:9px;min-height:42px;padding:0 15px;border:0;border-radius:11px;background:transparent;color:inherit;font:inherit;font-weight:650;cursor:pointer}
+.fs-activity-view-switch button.is-active{background:#493224;color:#fff;box-shadow:0 5px 16px rgba(73,50,36,.18)}
+.fs-activity-view-switch button span{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:99px;background:rgba(127,91,70,.12);font-size:11px}
+.fs-activity-view-switch button.is-active span{background:rgba(255,255,255,.18);color:#fff}
+.fs-activities-view .fs-activity-section-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:20px 0 12px}
+.fs-activities-view .fs-activity-section-head b{font-size:15px}
+.fs-activities-view .fs-activity-section-head span{font-size:12px;opacity:.7}
