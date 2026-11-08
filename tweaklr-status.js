@@ -30,16 +30,17 @@ function statusTime(r){
  if(diff<86400000)return Math.floor(diff/3600000)+' hr ago';
  return 'Yesterday';
 }
-function ringMarkup(g,add=false){
+function ringMarkup(g,add=false,scope='main',spaceId=null){
  const p=g.author||app().currentUser||{},label=g.mine?'Your status':(p.short||p.name||'Tweaklr member');
  const img=p.avatarUrl?'<img src="'+escS(p.avatarUrl)+'" alt="">':'<span>'+escS((label||'T').split(/\\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())+'</span>';
- return '<button type="button" class="tw-status-person '+(g.allViewed?'is-seen':'is-new')+(g.mine?' is-mine':'')+'" data-tw-status-open="'+escS(g.authorId)+'" aria-label="'+(g.mine?'Add or view your status':'View '+escS(label)+' status')+'"><span class="tw-status-ring"><span class="tw-status-avatar">'+img+'</span>'+(add?'<i aria-hidden="true">+</i>':'')+'</span></button>';
+ const action=g.mine?'data-tw-status-compose="'+escS(scope)+'" data-tw-status-space="'+escS(spaceId||'')+'"':'data-tw-status-open="'+escS(g.authorId)+'"';
+ return '<button type="button" class="tw-status-person '+(g.allViewed?'is-seen':'is-new')+(g.mine?' is-mine':'')+'" '+action+' aria-label="'+(g.mine?'Add a status':'View '+escS(label)+' status')+'"><span class="tw-status-ring"><span class="tw-status-avatar">'+img+'</span>'+(add?'<i aria-hidden="true">+</i>':'')+'</span></button>';
 }
 function trayHTML(rows,scope,spaceId){
  const gs=groups(rows),mine=gs.find(g=>g.mine),others=gs.filter(g=>!g.mine);
  const add=mine||{authorId:uid(),author:app().currentUser,statuses:[],mine:true,allViewed:true};
  const ordered=[add,...others];
- return '<section class="tw-status-tray tw-status-tray-compact" data-tw-status-scope="'+scope+'" data-tw-status-space="'+escS(spaceId||'')+'"><div class="tw-status-row">'+ordered.map(g=>ringMarkup(g,g.mine)).join('')+'</div></section>';
+ return '<section class="tw-status-tray tw-status-tray-compact" data-tw-status-scope="'+scope+'" data-tw-status-space="'+escS(spaceId||'')+'"><div class="tw-status-row">'+ordered.map(g=>ringMarkup(g,g.mine,scope,spaceId)).join('')+'</div></section>';
 }
 async function mountHome(){
  const host=$('#home-status-tray');if(!host)return;
