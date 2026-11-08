@@ -10179,8 +10179,7 @@ function renderSpace() {
           const primary = [
             ['home','Home','home'],
             ['discover','Discover','spark'],
-            ['trends','Trends','sp-bolt'],
-            ['circles','Communities','users']
+            ['trends','Trends','sp-bolt']
           ];
           const secondary = [
             ['activities','Activities','cal'],
@@ -13273,8 +13272,8 @@ const n=NATURES.friendly;
 n.label='Friendly';n.eyebrow='Find your kind of people';n.blurb='A social circle for shared interests, real friendships, activities and creative trends.';
 n.signature='Find your people. Make something together.';
 n.promise='Meet people who enjoy what you enjoy, then turn shared interests into genuine friendships.';
-n.features=['Interest-led discovery and friendship matching','Photo, video and 24-hour story feed','Community trends and challenges','Activities and interest-based communities'];
-n.tabs=[['home','Home','home'],['discover','Discover','spark'],['trends','Trends','sp-bolt'],['activities','Activities','calendar'],['circles','Communities','users'],['people','People','users'],['moments','Stories','sp-camera']];
+n.features=['Interest-led discovery and friendship matching','Photo, video and 24-hour story feed','Activities and interest-based meetups'];
+n.tabs=[['home','Home','home'],['discover','Discover','spark'],['trends','Trends','sp-bolt'],['activities','Activities','calendar'],['people','People','users'],['moments','Stories','sp-camera']];
 const escF=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rows=(id,fmt)=>friendlyPosts(id).filter(p=>!fmt||p.postFormat===fmt);
 const active=()=>spaceById(sp.activeId);
@@ -13314,7 +13313,7 @@ VIEWS.friendly.trends=s=>{
  hydrateTrends(s.id);return result;
 };
 VIEWS.friendly.activities=s=>'<div class="fs-view">'+head('MAKE A PLAN · MAKE A FRIEND','Activities & meetups.','Find something to do together, online or out in the world.',button('activity','＋ Create activity','fs-primary'))+'<section class="fs-feature"><small class="fs-kicker">GOOD PLANS START SMALL</small><h3>Try something with your people.</h3><p>Host a study session, photo walk, game night, creative meetup or online hangout.</p></section>'+(activities(s.id).length?'<div class="fs-cards">'+activities(s.id).sort((a,b)=>Number(b.at||0)-Number(a.at||0)).map(activityCard).join('')+'</div>':empty('◷','Nothing planned just yet.','Create the first activity and give people a reason to meet.',button('activity','Create an activity','fs-primary')))+'<p class="fs-note">For in-person meetups, choose public places and share exact arrangements privately with people you trust. Your precise location is not published.</p></div>';
-VIEWS.friendly.circles=s=>'<div class="fs-view">'+head('SHARED INTERESTS · SHARED SPACE','Find your community.','Join a circle where the conversation already feels familiar.',button('community','＋ Create community','fs-primary'))+'<section class="fs-feature"><small class="fs-kicker">A PLACE FOR EVERY INTEREST</small><h3>From creative corners to gaming crews.</h3><p>Build smaller circles around the things you enjoy doing and talking about.</p></section>'+(communities(s.id).length?'<div class="fs-cards">'+communities(s.id).map(communityCard).join('')+'</div>':empty('◎','Your communities are waiting.','Create an interest circle or invite people to build one with you.',button('community','Create a community','fs-primary')) )+'</div>';
+
 VIEWS.friendly.people=s=>'<div class="fs-view">'+head('THE PEOPLE IN THIS SPACE','Your circle, getting closer.','Meet the people already sharing this Friendly Space.')+'<div class="fs-member-panel">'+membersView(s,'People who share this Friendly Space.')+'</div></div>';
 VIEWS.friendly.moments=s=>'<div class="fs-view">'+head('YOUR SPACE STATUS','Moments from your circle.','Share a photo, video or text status with approved members of this Friendly Space. Each status stays visible for 24 hours.', '<button type="button" class="fs-btn fs-primary" data-tw-status-compose="friendly" data-tw-status-space="'+escF(s.id)+'">＋ Add status</button>')+'<section class="fs-feature"><small class="fs-kicker">ONE SHARED STATUS EXPERIENCE</small><h3>See what your people are up to.</h3><p>New statuses appear in the coffee-brown ring around each member’s profile picture. Tap a ring to watch their updates.</p></section></div>';
 
