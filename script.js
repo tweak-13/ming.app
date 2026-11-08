@@ -10648,6 +10648,8 @@ function openBusinessUpdateComposer() {
   });
 }
 
+let activeSpaceCommentController = null;
+
 async function openSpacePostComments(postId, postKind = 'business_post') {
   const isFriendship = postKind === 'friend_post';
   const rpcGet = isFriendship ? 'get_ming_friendship_space_post_comments' : 'get_ming_business_space_post_comments';
@@ -10911,6 +10913,11 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
 
   // Reply and delete controls are delegated from the comments sheet.
   const commentSheet = $('#sheet');
+  // The comments sheet is reused. Abort handlers from its previous opening so
+  // one reply/delete action can never trigger multiple Supabase RPC calls.
+  activeSpaceCommentController?.abort();
+  const commentEvents = new AbortController();
+  activeSpaceCommentController = commentEvents;
   commentSheet?.addEventListener('click', async event => {
     const replyButton = event.target.closest('[data-biz-reply]');
     if (replyButton) {
@@ -10955,7 +10962,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
       deleteButton.textContent = 'Delete';
       toast(error?.message || 'Could not delete this comment. Please try again.', 'alert');
     }
-  });
+  }, { signal: commentEvents.signal });
 
   commentSheet?.addEventListener('change', event => {
     if (!event.target.matches('.biz-reply-privacy input[type="radio"]')) return;
@@ -10963,7 +10970,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
     group?.querySelectorAll('label').forEach(label => {
       label.classList.toggle('is-selected', label.contains(event.target) && event.target.checked);
     });
-  });
+  }, { signal: commentEvents.signal });
 
   commentSheet?.addEventListener('submit', async event => {
     const form = event.target.closest('[data-biz-reply-form]');
@@ -10985,19 +10992,19 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
         p_voice_view_once: false
       });
       if (error) throw error;
-      await openBusinessPostComments(postId);
       await refreshSpace();
+      await openSpacePostComments(postId, postKind);
       toast('Reply posted', 'check');
     } catch (error) {
       console.warn('Tweaklr: Business Space comment reply failed.', error);
       if (send) { send.disabled = false; send.textContent = 'Send reply'; }
       toast(error?.message || 'Could not post your reply. Please try again.', 'alert');
     }
-  });
+  }, { signal: commentEvents.signal });
 
   // View-once playback: always release the button on lookup, Storage or RPC
   // failures. A transient RPC error must not be mistaken for an already-used note.
-  $('#sheet')?.addEventListener('click', async event => {
+  commentSheet?.addEventListener('click', async event => {
     const button = event.target.closest('[data-comment-once]');
     if (!button || button.disabled) return;
 
@@ -11088,7 +11095,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
       resetButton('Try again');
       toast('Voice note could not be prepared. Please try again.', 'alert');
     }
-  });
+  }, { signal: commentEvents.signal });
 
   $('#biz-comment-form')?.addEventListener('submit', async event => {
     event.preventDefault();
