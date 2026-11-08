@@ -2921,6 +2921,12 @@ async function loadMingDiscoverContent() {
         if (row.kind === 'visitor') discoverVisitors.push(base);
       });
       if (activityIds.length) {
+        const { data: commentCounts, error: commentCountError } = await supabaseClient.rpc('get_daily_update_activity_comment_counts', { p_update_ids: activityIds });
+        if (commentCountError) console.warn('Tweaklr: activity comment counts could not be loaded.', commentCountError.message);
+        else {
+          const countMap = new Map((commentCounts || []).map(row => [row.update_id, Number(row.comments_count || 0)]));
+          discoverActivities.forEach(activity => { activity.commentsCount = countMap.get(activity.id) || 0; });
+        }
         const { data: participants, error: participantError } = await supabaseClient.from('daily_update_participants').select('update_id, user_id').in('update_id', activityIds);
         if (participantError) console.warn('Tweaklr: Discover activity participants could not be loaded.', participantError.message);
         else {
@@ -2969,7 +2975,7 @@ function renderDiscover() {
   if (show('activities')) {
     html += '<div class="section">' + sectionHead('Activities', 'Things happening nearby') + (discoverActivities.map(a => {
       const p = byId(a.authorId); if (!p) return '';
-      return '<button class="acard" data-action="activity:' + a.id + '"><div class="when"><div class="h">' + esc(timeAgo(a.createdAt)) + '</div><div class="d">' + esc(a.going) + ' going</div></div><div class="info"><div class="t">' + esc(a.title) + '</div><div class="s">' + esc(a.body || 'Activity shared on Tweaklr') + ' · ' + esc(p.km == null ? 'Local' : distLabel(p.km)) + '</div></div><span class="go">' + icon('chev') + '</span></button>';
+      return '<button class="acard" data-action="activity:' + a.id + '"><div class="when"><div class="h">' + esc(timeAgo(a.createdAt)) + '</div><div class="d">' + esc(a.going) + ' going · ' + esc(a.commentsCount || 0) + ' comments</div></div><div class="info"><div class="t">' + esc(a.title) + '</div><div class="s">' + esc(a.body || 'Activity shared on Tweaklr') + ' · ' + esc(p.km == null ? 'Local' : distLabel(p.km)) + '</div></div><span class="go">' + icon('chev') + '</span></button>';
     }).join('') || emptyState('No activities yet', 'Real activities shared on Tweaklr will appear here.')) + '</div>';
   }
   if (show('places')) {
@@ -7717,7 +7723,7 @@ document.addEventListener('click', async e => {
 
     case 'activity': openActivitySheet(arg); break;
     case 'join': {
-      const a = discoverActivities.find(x => x.id === arg);
+      const a = discoverActivities.find(x => x.id === arg) || mingNearbyActivities.find(x => x.id === arg);
       if (!a) break;
       if (a.joined) {
         toast('You already joined this activity.', 'check');
@@ -7737,7 +7743,7 @@ document.addEventListener('click', async e => {
       a.joined = true;
       const nearbyActivity = mingNearbyActivities.find(x => x.id === a.id);
       if (nearbyActivity) nearbyActivity.joined = true;
-      if (!error) a.going += 1;
+      if (!error) { a.going = Number(a.going || 0) + 1; }
       toast('You joined the activity.', 'check');
       if (state.loaded.discover) renderDiscover();
       await openActivitySheet(a.id);
