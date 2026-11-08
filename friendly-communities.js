@@ -4,7 +4,7 @@
   if (window.__tweaklrFriendlyCommunities || typeof VIEWS === 'undefined' || !VIEWS.friendly || typeof supabaseClient === 'undefined') return;
   window.__tweaklrFriendlyCommunities = true;
 
-  const state = { spaceId:null, items:[], selected:null, detail:null, tab:'feed', loading:false, query:'', category:'All' };
+  const state = { spaceId:null, items:[], selected:null, detail:null, tab:'feed', loading:false, loaded:false, query:'', category:'All' };
   const esc = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const rpc = async (name,args={}) => {
     const {data,error}=await supabaseClient.rpc(name,args);
@@ -19,7 +19,7 @@
     : '<span class="fc-avatar fc-avatar--fallback">'+esc((name||'T').trim().slice(0,1).toUpperCase())+'</span>';
 
   function renderIndex(s) {
-    if(state.spaceId!==s.id){state.spaceId=s.id;state.items=[];state.selected=null;state.detail=null;state.query='';state.category='All';}
+    if(state.spaceId!==s.id){state.spaceId=s.id;state.items=[];state.selected=null;state.detail=null;state.loading=false;state.loaded=false;state.query='';state.category='All';}
     const items=state.items.filter(c=>(state.category==='All'||c.category===state.category)&&(!state.query||(c.name+' '+c.description+' '+c.category).toLowerCase().includes(state.query.toLowerCase())));
     return '<div class="fs-view fc-shell">'+
       '<section class="fc-hero"><div class="fc-hero-glow"></div><div class="fc-hero-copy"><span class="fc-eyebrow">FRIENDLY SPACE · COMMUNITIES</span><h2>Find your <em>people.</em><br>Build your corner.</h2><p>Smaller spaces for the interests, conversations and ideas that bring people together.</p><div class="fc-hero-stats"><span><b>'+state.items.length+'</b> communities</span><span><b>∞</b> shared interests</span></div></div><div class="fc-hero-orbit"><i>✳</i><span></span><b></b></div></section>'+
@@ -54,7 +54,7 @@
       const rows=Array.isArray(data?.communities)?data.communities:[];
       state.items=await Promise.all(rows.map(async c=>({...c,cover_url:await signedPath(c.cover_path)})));
     }catch(e){console.error('Friendly Communities load failed:',e);toast(e.message||'Communities could not be loaded.','alert');}
-    finally{state.loading=false;if(sp.activeId===spaceId&&sp.tab==='circles')renderSpace();}
+    finally{state.loading=false;state.loaded=true;if(sp.activeId===spaceId&&sp.tab==='circles')renderSpace();}
   }
   async function loadDetail(id) {
     const data=await rpc('get_ming_friendly_community_space',{p_community_id:id});
@@ -236,7 +236,7 @@
   VIEWS.friendly.circles=s=>{
     if(state.selected&&state.detail)return renderDetail();
     const html=renderIndex(s);
-    if(!state.items.length&&!state.loading)void loadIndex(s.id);
+    if(!state.loaded&&!state.loading)void loadIndex(s.id);
     return html;
   };
   // Repaint only when the module loads into an already-open Friendly Communities tab.
