@@ -11613,7 +11613,7 @@ async function hydrateFriendlyMedia(spaceId) {
     friendlyMediaUrlCache.set(post.id,Object.assign(urls,{expiresAt:Date.now()+3500000}));
     changed = true;
   }
-  if (changed && sp.activeId===spaceId && ['home','moments'].includes(sp.tab)) refreshSpace();
+  if (changed && sp.activeId===spaceId && ['home','moments','circles'].includes(sp.tab)) refreshSpace();
 }
 function friendlyPostCard(post) {
   const author = personOf(post.authorId), mine = post.authorId===currentUser.id;
@@ -13198,7 +13198,7 @@ const post=p=>'<div class="fs-post">'+friendlyPostCard(p)+'</div>';
 const activities=id=>rows(id,'activity');
 const communities=id=>rows(id,'community');
 function activityCard(p){const count=rows(p.spaceId,'activity_rsvp').filter(x=>x.parentId===p.id).length;const when=p.startsAt?new Date(p.startsAt).toLocaleString([],{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):'Time to be announced';return '<article class="fs-card"><div class="fs-card-top"><i>✦</i><small>FRIENDLY MEETUP</small></div><h3>'+escF(p.title)+'</h3><p>'+escF(p.description)+'</p><div class="fs-meta"><span>◷ '+escF(when)+'</span><span>⌖ '+escF(p.venue||'Online')+'</span><span>♡ '+count+' interested</span></div><button class="fs-btn fs-primary" data-fs-join-activity="'+escF(p.id)+'">I\'m interested</button></article>';}
-function communityCard(p){const joined=rows(p.spaceId,'community_join').some(x=>x.parentId===p.id&&x.authorId===currentUser.id);const count=rows(p.spaceId,'community_join').filter(x=>x.parentId===p.id).length;return '<article class="fs-card"><div class="fs-community-art">◎</div><small class="fs-kicker">'+escF(p.category||'INTEREST CIRCLE')+'</small><h3>'+escF(p.title)+'</h3><p>'+escF(p.description)+'</p><div class="fs-meta">'+count+' members joined</div><button class="fs-btn '+(joined?'':'fs-primary')+'" data-fs-join-community="'+escF(p.id)+'">'+(joined?'Joined ✓':'Join community')+'</button></article>';}
+function communityCard(p){const joined=rows(p.spaceId,'community_join').some(x=>x.parentId===p.id&&x.authorId===currentUser.id);const count=rows(p.spaceId,'community_join').filter(x=>x.parentId===p.id).length;return '<article class="fs-card"><div class="fs-community-art">◎</div>'+friendlyPostMediaMarkup(p)+'<small class="fs-kicker">'+escF(p.category||'INTEREST CIRCLE')+'</small><h3>'+escF(p.title)+'</h3><p>'+escF(p.description)+'</p><div class="fs-meta">'+count+' members joined</div><button class="fs-btn '+(joined?'':'fs-primary')+'" data-fs-join-community="'+escF(p.id)+'">'+(joined?'Joined ✓':'Join community')+'</button></article>';}
 
 VIEWS.friendly.home=s=>{
  const feed=rows(s.id).filter(p=>['post','trend'].includes(p.postFormat));
