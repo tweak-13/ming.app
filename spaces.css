@@ -3490,3 +3490,93 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
 #sheet:has(.or-form-shell) .sheet-foot{padding:12px 17px calc(12px + env(safe-area-inset-bottom));border-top:1px solid rgba(197,165,114,.16);background:#171211}
 #sheet:has(.or-form-shell) .sheet-foot .btn{min-height:48px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:linear-gradient(135deg,#9a4651,#682d39);color:#fff3e7;font-size:12px;font-weight:800;box-shadow:0 9px 22px -13px rgba(139,53,67,.9)}
 @media(max-width:420px){#sheet:has(.or-form-shell) .sheet-body{padding:12px 13px 20px}#sheet .or-form-shell{gap:13px}#sheet .or-form-shell .field:has(#or-type),#sheet .or-form-shell .field:has(#or-mode){width:calc(50% - 4px)}}
+
+
+/* FRIENDLY SPACE — CREATE A MOMENT composer refinement */
+#sheet:has(.fs-form){
+  max-height:min(92dvh,900px);
+  overflow:hidden;
+  border:1px solid rgba(197,165,114,.26);
+  border-radius:24px;
+  background:linear-gradient(155deg,#211916 0%,#171211 58%,#120e0d 100%);
+  box-shadow:0 30px 100px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.045);
+}
+#sheet:has(.fs-form) .sheet-head{
+  padding:20px 22px 16px;
+  border-bottom:1px solid rgba(197,165,114,.15);
+  background:radial-gradient(260px 130px at 100% 0%,rgba(139,53,67,.22),transparent 75%),linear-gradient(120deg,rgba(197,165,114,.055),transparent 65%);
+}
+#sheet:has(.fs-form) .sheet-head h2{color:#fff2e2;font-size:21px;letter-spacing:-.045em}
+#sheet:has(.fs-form) .sheet-head p{max-width:440px;color:rgba(255,242,226,.58);font-size:11px;line-height:1.6}
+#sheet:has(.fs-form) .sheet-body{
+  display:block;min-height:0;flex:1 1 auto;overflow-y:auto;overflow-x:hidden;
+  padding:16px 20px 22px;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;scrollbar-width:thin;
+  scrollbar-color:rgba(197,165,114,.35) transparent;
+}
+#sheet .fs-form{display:grid;gap:16px;min-width:0}
+#sheet .fs-post-intro{
+  position:relative;display:flex;align-items:center;gap:12px;overflow:hidden;
+  min-height:90px;padding:16px;border:1px solid rgba(197,165,114,.23);
+  border-radius:19px;
+  background:radial-gradient(150px 100px at 100% 0%,rgba(139,53,67,.25),transparent 75%),linear-gradient(135deg,#30211d,#1b1513 75%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+#sheet .fs-post-intro:after{content:"";position:absolute;width:94px;height:94px;right:-35px;bottom:-55px;border:1px solid rgba(197,165,114,.2);border-radius:50%;box-shadow:0 0 0 13px rgba(197,165,114,.035),0 0 0 27px rgba(197,165,114,.025);pointer-events:none}
+#sheet .fs-post-intro-mark{
+  display:grid;place-items:center;flex:0 0 43px;width:43px;height:43px;
+  border:1px solid rgba(197,165,114,.28);border-radius:15px;
+  background:linear-gradient(145deg,rgba(197,165,114,.2),rgba(139,53,67,.2));
+  color:#e5c99e;font-size:20px;box-shadow:0 8px 22px -15px rgba(197,165,114,.7)
+}
+#sheet .fs-post-intro>div{display:grid;gap:4px;min-width:0;flex:1}
+#sheet .fs-post-intro b{color:#fff1df;font-size:13px;letter-spacing:-.02em}
+#sheet .fs-post-intro small{color:rgba(255,241,223,.62);font-size:10px;line-height:1.5}
+#sheet .fs-post-limit{position:relative;z-index:1;align-self:flex-start;padding:6px 8px;border:1px solid rgba(197,165,114,.2);border-radius:99px;background:rgba(9,7,6,.24);color:#d8bc91;font-size:8px;font-weight:850;letter-spacing:.12em;white-space:nowrap}
+#sheet .fs-form .field{display:grid;gap:7px;min-width:0;margin:0;padding:0}
+#sheet .fs-form .field label{color:#d9c2a3;font-size:10px;font-weight:780;letter-spacing:.035em}
+#sheet .fs-form .field input:not([type=file]),
+#sheet .fs-form .field textarea,
+#sheet .fs-form .field select{
+  display:block;width:100%;min-width:0;min-height:46px;padding:12px 13px;
+  border:1px solid rgba(197,165,114,.2);border-radius:13px;
+  background:rgba(8,7,6,.42);color:#f7ead9;font:inherit;font-size:12px;line-height:1.5;
+  outline:none;box-shadow:inset 0 1px 2px rgba(0,0,0,.2);
+  transition:border-color .18s,box-shadow .18s,background .18s;
+}
+#sheet .fs-form .field textarea{min-height:92px;resize:vertical}
+#sheet .fs-form .field input:focus,
+#sheet .fs-form .field textarea:focus,
+#sheet .fs-form .field select:focus{border-color:rgba(197,165,114,.7);background:rgba(8,7,6,.62);box-shadow:0 0 0 3px rgba(197,165,114,.09)}
+#sheet .fs-form .field input[type=file]{
+  width:100%;min-width:0;padding:13px;border:1px dashed rgba(197,165,114,.42);
+  border-radius:15px;background:linear-gradient(135deg,rgba(197,165,114,.075),rgba(139,53,67,.07));
+  color:rgba(255,241,223,.68);font:inherit;font-size:10px;cursor:pointer;
+}
+#sheet .fs-form .field input[type=file]::file-selector-button{
+  margin:0 11px 0 0;padding:9px 12px;border:1px solid rgba(197,165,114,.28);
+  border-radius:10px;background:#493224;color:#fff0df;font:inherit;font-size:10px;font-weight:800;cursor:pointer;
+}
+#sheet .fs-form .field select{color-scheme:dark}
+#sheet .fs-form .field select option{background:#211916;color:#f7ead9}
+#sheet .fs-form>.fs-note,#sheet .fs-form>.fs-note:last-child{
+  margin:0;padding:11px 12px;border:1px solid rgba(197,165,114,.13);
+  border-radius:12px;background:rgba(197,165,114,.045);
+  color:rgba(255,241,223,.54);font-size:9px;line-height:1.6
+}
+#sheet:has(.fs-form) .sheet-foot{
+  display:flex;gap:9px;padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+  border-top:1px solid rgba(197,165,114,.15);background:#171211;
+}
+#sheet:has(.fs-form) .sheet-foot .btn{min-height:46px;border-radius:13px;font-size:11px;font-weight:800}
+#sheet:has(.fs-form) .sheet-foot .btn--primary{border:1px solid rgba(255,255,255,.12);background:linear-gradient(135deg,#604333,#493224);color:#fff1df;box-shadow:0 9px 22px -14px rgba(73,50,36,.9)}
+@media(max-width:520px){
+  #sheet:has(.fs-form){max-height:94dvh;border-radius:21px 21px 0 0}
+  #sheet:has(.fs-form) .sheet-head{padding:17px 16px 13px}
+  #sheet:has(.fs-form) .sheet-body{padding:13px 15px 20px}
+  #sheet .fs-form{gap:14px}
+  #sheet .fs-post-intro{min-height:82px;padding:13px;gap:10px}
+  #sheet .fs-post-intro-mark{flex-basis:39px;width:39px;height:39px}
+  #sheet .fs-post-limit{font-size:7px;padding:5px 6px}
+  #sheet:has(.fs-form) .sheet-foot{padding-inline:15px}
+}
