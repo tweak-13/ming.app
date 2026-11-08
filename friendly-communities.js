@@ -35,7 +35,7 @@
   function communityCard(c) {
     const joined=c.my_status==='approved',pending=c.my_status==='pending';
     const cover=c.cover_url?'<img src="'+esc(c.cover_url)+'" alt="" loading="lazy">':'<div class="fc-card-art"><span>✳</span><i></i><b></b></div>';
-    return '<article class="fc-community-card">'+
+    return '<article class="fc-community-card" data-fc-search-text="'+esc((c.name+' '+c.description+' '+c.category).toLowerCase())+'">'+
       '<button class="fc-card-cover" data-fc="open" data-id="'+esc(c.id)+'">'+cover+'<span class="fc-card-category">'+esc(c.category||'INTERESTS')+'</span><span class="fc-card-lock">'+(c.privacy==='private'?'◈':'◎')+'</span></button>'+
       '<div class="fc-card-copy"><div class="fc-card-title-row"><h3>'+esc(c.name)+'</h3>'+(joined?'<span class="fc-member-chip">MEMBER</span>':pending?'<span class="fc-pending-chip">PENDING</span>':'')+'</div><p>'+esc(c.description)+'</p><div class="fc-card-meta"><span>'+Number(c.member_count||0)+' members</span><span>'+Number(c.post_count||0)+' posts</span></div>'+
       '<div class="fc-card-actions">'+(joined?'<button class="fc-open-btn" data-fc="open" data-id="'+esc(c.id)+'">Enter community <span>↗</span></button>':pending?'<button class="fc-open-btn is-pending" disabled>Request pending</button>':'<button class="fc-join-btn" data-fc="join" data-id="'+esc(c.id)+'">'+(c.privacy==='private'||c.require_approval?'Request to join':'Join community')+' <span>→</span></button>')+'</div></div></article>';
@@ -109,16 +109,18 @@
   }
   async function uploadFiles(files,spaceId,communityId) {
     const result=[];
-    for(const f of files){
-      const isImage=f.type.startsWith('image/'),isVideo=f.type.startsWith('video/');
-      if((!isImage&&!isVideo)||f.size>(isVideo?50:15)*1048576)throw Error('Use photos up to 15 MB or videos up to 50 MB.');
-      const safe=f.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,80)||'media';
-      const path=currentUser.id+'/friendly-'+spaceId+'/community-'+communityId+'-'+crypto.randomUUID()+'-'+safe;
-      const {error}=await supabaseClient.storage.from('ming-post-media').upload(path,f,{contentType:f.type,cacheControl:'3600',upsert:false});
-      if(error)throw error;
-      result.push({path,name:f.name,mime:f.type,size:f.size});
-    }
-    return result;
+    try{
+      for(const f of files){
+        const isImage=f.type.startsWith('image/'),isVideo=f.type.startsWith('video/');
+        if((!isImage&&!isVideo)||f.size>(isVideo?50:15)*1048576)throw Error('Use photos up to 15 MB or videos up to 50 MB.');
+        const safe=f.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,80)||'media';
+        const path=currentUser.id+'/friendly-'+spaceId+'/community-'+communityId+'-'+crypto.randomUUID()+'-'+safe;
+        const {error}=await supabaseClient.storage.from('ming-post-media').upload(path,f,{contentType:f.type,cacheControl:'3600',upsert:false});
+        if(error)throw error;
+        result.push({path,name:f.name,mime:f.type,size:f.size});
+      }
+      return result;
+    }catch(error){if(result.length)await supabaseClient.storage.from('ming-post-media').remove(result.map(x=>x.path)).catch(()=>{});throw error;}
   }
   function showCreate() {
     openSheet({title:'Create a community',sub:'Give a shared interest a home of its own.',body:
@@ -137,12 +139,12 @@
     const approval=!!document.getElementById('fc-approval')?.checked,category=document.getElementById('fc-category')?.value||'Other interests';
     if(!name||name.length<3||!description||description.length<8){toast('Add a community name and a description of at least 8 characters.','alert');return;}
     if(file&&(!file.type.startsWith('image/')||file.size>15*1048576)){toast('Choose one image up to 15 MB.','alert');return;}
+    let coverPath=null;
     try{
-      let coverPath=null;
       if(file){const safe=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,80)||'cover';coverPath=currentUser.id+'/friendly-'+s.id+'/community-'+crypto.randomUUID()+'-'+safe;const {error}=await supabaseClient.storage.from('ming-post-media').upload(coverPath,file,{contentType:file.type,cacheControl:'3600',upsert:false});if(error)throw error;}
       const created=await rpc('create_ming_friendly_community',{p_space_id:s.id,p_name:name,p_description:description,p_category:category,p_privacy:privacy,p_require_approval:approval,p_cover_path:coverPath});
       closeSheet();await loadIndex(s.id);state.selected=created.id;await loadDetail(created.id);state.tab='feed';renderSpace();toast('Your community is ready.','check');
-    }catch(e){console.error('Community creation failed:',e);toast(e.message||'Could not create this community.','alert');}
+    }catch(e){if(coverPath)await supabaseClient.storage.from('ming-post-media').remove([coverPath]).catch(()=>{});console.error('Community creation failed:',e);toast(e.message||'Could not create this community.','alert');}
   }
   async function publishPost() {
     const d=state.detail;if(!d)return;
@@ -228,7 +230,7 @@
     }
   });
   document.addEventListener('input',e=>{
-    if(e.target.matches('[data-fc-search]')){const pos=e.target.selectionStart;state.query=e.target.value;renderSpace();const next=document.querySelector('[data-fc-search]');if(next){next.focus();next.setSelectionRange(pos,pos);}}
+    if(e.target.matches('[data-fc-search]')){state.query=e.target.value;const q=state.query.trim().toLowerCase();let visible=0;document.querySelectorAll('.fc-community-card').forEach(card=>{const match=(card.dataset.fcSearchText||'').includes(q);card.hidden=!match;if(match)visible++;});let empty=document.querySelector('.fc-search-empty');const grid=document.querySelector('.fc-grid');if(!empty&&grid){empty=document.createElement('p');empty.className='fc-search-empty';empty.textContent='No communities match that search. Try another name or interest.';grid.after(empty);}if(empty)empty.hidden=visible>0||!grid;}
     if(e.target.matches('[data-fc-post-files]')){const files=Array.from(e.target.files||[]);const count=document.querySelector('[data-fc-file-count]');if(count)count.textContent=files.length+' / 4 selected';const preview=document.querySelector('[data-fc-preview]');if(preview)preview.textContent=files.map(f=>f.name).join(' · ');}
   });
   VIEWS.friendly.circles=s=>{
