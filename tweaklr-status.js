@@ -147,8 +147,27 @@ async function showViewers(status){const {data,error}=await app().supabaseClient
 async function showStatusMenu(status,group,scope,spaceId){const muted=false;const box=document.createElement('div');box.className='tw-status-list-modal';box.innerHTML='<div><header><b>Status options</b><button>×</button></header>'+(group.mine?'<button data-menu-delete>Delete status</button>':'<button data-menu-mute>Mute this person\'s statuses</button>')+'</div>';box.querySelector('header button').onclick=()=>box.remove();box.addEventListener('click',async e=>{if(e.target.hasAttribute('data-menu-mute')){const {error}=await app().supabaseClient.rpc('toggle_tweaklr_status_mute',{p_author_id:group.authorId,p_muted:true});if(error)toastS(error.message);else{toastS('Statuses muted.','check');box.remove();closeViewer();if(scope==='main')void mountHome();else void mountSpace({id:spaceId,nature:scope});}}if(e.target.hasAttribute('data-menu-delete')){box.remove();if(confirm('Delete this status?')){const {data,error}=await app().supabaseClient.rpc('delete_tweaklr_status',{p_status_id:status.id});if(error){toastS(error.message);return;}if(data)await app().supabaseClient.storage.from(BUCKET).remove([data]);closeViewer();if(scope==='main')mountHome();else{const s=({id:spaceId,nature:scope});if(s)mountSpace(s);}}}});document.body.append(box);}
 /* Prioritise both the initial + control and the live tray's own-status avatar
    before other app-level click handlers can swallow the interaction. */
+function launchStatusComposer(scope='main',spaceId=null){
+ try{
+  if(!document.body)throw new Error('The page is not ready yet.');
+  document.querySelectorAll('.tw-status-modal').forEach(node=>node.remove());
+  openComposer(scope,spaceId);
+  const modal=document.querySelector('.tw-status-modal');
+  if(!modal)throw new Error('The Status composer could not be created.');
+  modal.style.display='grid';
+  modal.style.visibility='visible';
+  modal.style.opacity='1';
+  modal.style.zIndex='2147483000';
+  return true;
+ }catch(error){
+  console.error('Tweaklr Status composer failed:',error);
+  toastS(error?.message||'Could not open the Status composer. Please try again.');
+  return false;
+ }
+}
+window.openTweaklrStatusComposer=launchStatusComposer;
 document.addEventListener('click',e=>{
- const target=e.target instanceof Element?e.target:null;
+ const target=e.target&&typeof e.target.closest==='function'?e.target:null;
  if(!target)return;
  const compose=target.closest('[data-tw-status-compose]');
  const statusButton=target.closest('[data-tw-status-open]');
@@ -156,12 +175,9 @@ document.addEventListener('click',e=>{
  e.preventDefault();
  e.stopPropagation();
  e.stopImmediatePropagation();
- if(compose){
-  openComposer(compose.dataset.twStatusCompose,compose.dataset.twStatusSpace||null);
-  return;
- }
+ if(compose){launchStatusComposer(compose.dataset.twStatusCompose||'main',compose.dataset.twStatusSpace||null);return;}
  const tray=statusButton.closest('[data-tw-status-scope]');
- openViewer(statusButton.dataset.twStatusOpen,tray?.dataset.twStatusScope||'main',tray?.dataset.twStatusSpace||null);
+ openViewer(statusButton.dataset.twStatusOpen,tray?.dataset.twStatusScope||'main',tray?.dataset.twStatusSpace||null).catch(error=>{console.error('Tweaklr Status viewer failed:',error);toastS(error?.message||'Could not open this status.');});
 },true);
 document.addEventListener('click',e=>{
  if(e.target.closest('[data-tw-status-privacy]')){openStatusPrivacy();return;}
@@ -178,5 +194,5 @@ const homeRetry=setInterval(()=>{const host=$('#home-status-tray');if(!host){if(
  if(host.querySelector('.tw-status-tray')||++homeRetryCount>60)clearInterval(homeRetry);
 },500);
 window.addEventListener('load',()=>{const host=$('#home-status-tray');if(host&&!host.querySelector('.tw-status-tray'))void mountHome();});
-window.TweaklrStatus={mountHome,mountSpace,refresh:async()=>{await mountHome();const screen=document.getElementById('screen-space');const id=screen?.dataset.spaceId;const nature=screen?.dataset.nature;if(id&&['friendly','business'].includes(nature))await mountSpace({id,nature});}};
+window.TweaklrStatus={mountHome,mountSpace,openComposer:launchStatusComposer,refresh:async()=>{await mountHome();const screen=document.getElementById('screen-space');const id=screen?.dataset.spaceId;const nature=screen?.dataset.nature;if(id&&['friendly','business'].includes(nature))await mountSpace({id,nature});}};
 })();
