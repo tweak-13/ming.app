@@ -183,9 +183,9 @@ renderOrder=function(){
   .replace(/Escrow/g,'Test transaction flow')
   .replace(/held by Tweaklr, not sent to the seller/gi,'internal test ledger only; no real funds are held')
   .replace(/the platform releases the funds/gi,'the test workflow completes the order')
-  .replace(/The money has not moved\\. It stays held by Tweaklr until a moderator decides\\./g,'This is an internal test dispute. No real money is held or moved.')
-  .replace(/Returned to the buyer’s wallet\\./g,'The internal test balance was restored.')
-  .replace(/The hold was released back to the buyer\\./g,'The test order was cancelled.');
+  .replace(/The money has not moved\. It stays held by Tweaklr until a moderator decides\./g,'This is an internal test dispute. No real money is held or moved.')
+  .replace(/Returned to the buyer’s wallet\./g,'The internal test balance was restored.')
+  .replace(/The hold was released back to the buyer\./g,'The test order was cancelled.');
  host.insertAdjacentHTML('afterbegin','<div class="spx-market-notice"><b>Test transaction record</b><p>This order lifecycle is simulated. It does not represent a real payment, escrow service, refund or financial protection.</p></div>');
 };
 
