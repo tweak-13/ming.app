@@ -2680,7 +2680,7 @@ function paintDailyUpdateComments(id, focusComposer = false) {
   const rows = roots.length
     ? roots.map(comment => renderDailyUpdateComment(comment, byParent.get(comment.id) || [])).join('')
     : '<div class="biz-comment-empty"><span>' + icon('message-circle') + '</span><strong>It’s quiet in here.</strong><p>Be the first to add something meaningful to this conversation.</p></div>';
-  const body = '<section class="biz-comments-shell" aria-label="Comments on ' + esc(update.title) + '">' +
+  const body = '<section class="biz-comments-shell tw-home-comments-shell" aria-label="Comments on ' + esc(update.title) + '">' +
     '<div class="biz-comments-intro"><div class="biz-comments-intro-mark">' + icon('messages-square') + '</div>' +
     '<div><span class="biz-comments-eyebrow">THE CONVERSATION</span><h3>' + (comments.length ? 'Good conversations start here.' : 'Make the first move.') + '</h3>' +
     '<p>' + (comments.length ? 'Thoughts, questions and moments shared around this update.' : 'Share a thought or ask a question about this update.') + '</p></div></div>' +
