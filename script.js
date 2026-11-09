@@ -2982,8 +2982,11 @@ async function handleDailyUpdateCommentAction(event) {
       button.textContent = 'Already played';
       return;
     }
+    if (!holder) return;
+
     button.disabled = true;
     button.textContent = 'Preparing…';
+    let claimSucceeded = false;
     try {
       const { data: signed, error: signedError } = await supabaseClient.storage
         .from('ming-daily-update-comment-voice')
@@ -2998,16 +3001,18 @@ async function handleDailyUpdateCommentAction(event) {
       if (claimed !== true) {
         comment.voiceViewed = true;
         comment.voicePath = '';
-        holder?.classList.add('is-consumed');
-        holder?.replaceChildren(document.createTextNode('This voice note has already been played.'));
+        holder.classList.add('is-consumed');
+        holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
         return;
       }
+      claimSucceeded = true;
 
-      comment.voiceViewed = true;
-      comment.voicePath = '';
-      if (!holder) return;
-      holder.innerHTML = '<span>' + icon('headphones') + '</span><audio controls autoplay preload="auto" src="' + esc(signed.signedUrl) + '"></audio>';
-      const audio = holder.querySelector('audio');
+      // Do not mark the note consumed until the browser confirms playback has started.
+      // A rejected play() is rolled back server-side so the recipient can retry.
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.preload = 'auto';
+      audio.src = signed.signedUrl;
       audio.addEventListener('ended', () => {
         audio.pause();
         audio.removeAttribute('src');
@@ -3015,18 +3020,45 @@ async function handleDailyUpdateCommentAction(event) {
         holder.classList.add('is-consumed');
         holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
       }, { once: true });
-      audio.addEventListener('error', () => {
-        holder.classList.add('is-consumed');
-        holder.replaceChildren(document.createTextNode('This one-time voice note was claimed, but playback failed.'));
-        toast('The one-time listen was used, but playback failed.', 'alert');
-      }, { once: true });
+
+      holder.replaceChildren(
+        Object.assign(document.createElement('span'), { innerHTML: icon('headphones') }),
+        audio
+      );
+      await audio.play();
+
+      comment.voiceViewed = true;
+      comment.voicePath = '';
     } catch (error) {
       console.warn('Tweaklr: Home comment view-once playback failed.', error?.message || error);
-      if (button.isConnected) {
-        button.disabled = false;
-        button.textContent = 'Try again';
+
+      let released = !claimSucceeded;
+      if (claimSucceeded) {
+        try {
+          const { data: didRelease, error: releaseError } = await supabaseClient.rpc(
+            'release_daily_update_comment_voice_once',
+            { p_comment_id: commentId }
+          );
+          if (releaseError) throw releaseError;
+          released = didRelease === true;
+        } catch (releaseError) {
+          console.warn('Tweaklr: Could not restore the unused one-time listen.', releaseError?.message || releaseError);
+          released = false;
+        }
       }
-      toast('Could not prepare the one-time voice note. Please try again.', 'alert');
+
+      if (released) {
+        comment.voiceViewed = false;
+        holder.classList.remove('is-consumed');
+        holder.innerHTML = '<span>' + icon('headphones') + '</span><div><strong>One-time voice note</strong><small>Playback did not start. You can try again.</small></div><button type="button" class="biz-comment-once-play" data-comment-action="listen-once" data-comment-id="' + esc(comment.id) + '">Try again</button>';
+        toast('Playback did not start. Your one-time listen is still available.', 'alert');
+      } else {
+        comment.voiceViewed = true;
+        comment.voicePath = '';
+        holder.classList.add('is-consumed');
+        holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
+        toast('Playback failed and the one-time listen could not be restored. Please refresh and contact support if this continues.', 'alert');
+      }
     }
     return;
   }
