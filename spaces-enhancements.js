@@ -109,11 +109,6 @@
   function read(suffix, fallback) {
     return Object.prototype.hasOwnProperty.call(dnaState, suffix) ? dnaState[suffix] : fallback;
   }
-  // Quiet Mode only suppresses in-app popup alerts while the user's own
-  // Casual Space is open; it never changes message delivery or receipts.
-  window.tweaklrQuietModeActive = function () {
-    return !!(dnaLoaded && activeSpaceId() && activeNature() === 'casual' && read('quiet', false));
-  };
   function write(suffix, value) {
     const spaceId = activeSpaceId();
     if (!spaceId || !dnaLoaded || !supabaseClient) {
@@ -200,7 +195,6 @@
     const config = {
       business: { title: 'BOARD MODE', desc: 'Keep a goal and deadline close.', buttons: toolButton('goal','Set pinned goal','target') + toolButton('deadline','Set deadline','timer') },
       friendly: { title: 'VIBE CHECK', desc: 'Save your mood to your account for this Space.', buttons: toolButton('mood','Choose mood','hands') + toolButton('joke','Save an inside joke','laugh') },
-      casual: { title: 'NO PRESSURE', desc: 'While this Casual Space is open, pause in-app notification popups and sounds. Messages and read receipts stay normal.', buttons: toolButton('quiet', read('quiet', false) ? 'Turn Quiet Mode off' : 'Turn Quiet Mode on', 'cloud') + toolButton('reset-quiet','Reset preference','leaf') },
       silly: { title: 'CHAOS ENGINE', desc: 'Spin the wheel. Choose friendly chaos. Make this Space legendary.', buttons: toolButton('dare','Spin Chaos Roulette','dice') + toolButton('roast','Playful Auto-Roast','laugh') + toolButton('meme-vote','Vote meme of the day','trophy') }
     }[nature];
     if (!config) { panel.hidden = true; return; }
@@ -227,7 +221,6 @@
       return '<div class="sp-dna-saved">' + (mood ? '<span class="sp-dna-saved-icon">' + brandIcon(moodIcon || 'moon') + '</span><b>Your vibe today: ' + esc(mood.split(' ').slice(1).join(' ')) + '</b>' : '<span>No mood selected today.</span>') +
         (jokes.length ? '<span>' + jokes.length + ' inside joke' + (jokes.length === 1 ? '' : 's') + ' saved to your account</span>' : '') + '</div>';
     }
-    if (nature === 'casual') return '<div class="sp-dna-saved sp-casual-status' + (read('quiet', false) ? ' is-quiet' : '') + '"><span class="sp-casual-status__icon" aria-hidden="true">' + brandIcon(read('quiet', false) ? 'moon' : 'cloud') + '</span><div><b>' + (read('quiet', false) ? 'Quiet Mode is on' : 'Quiet Mode is off') + '</b><span>' + (read('quiet', false) ? 'While this Space is open, in-app notification popups and sounds are paused. Notifications remain in your inbox; messages and read receipts stay normal.' : 'Turn it on to pause in-app notification popups and sounds while this Space is open.') + '</span></div></div>';
     if (nature === 'silly') {
       const dare = read('dare', '');
       const roast = read('roast', '');
@@ -504,15 +497,6 @@
         const jokes = read('jokes', []); jokes.unshift({text:v, at:Date.now()});
         write('jokes', jokes.slice(0, 30)); announce('Inside joke saved to your account.'); break;
       }
-      case 'quiet': {
-        const enabled = !read('quiet', false);
-        if (!write('quiet', enabled)) break;
-        announce(enabled ? 'Quiet Mode enabled for this Space. Messages and read receipts remain normal.' : 'Quiet Mode turned off for this Space.');
-        break;
-      }
-      case 'reset-quiet':
-        if (write('quiet', false)) announce('Quiet Mode reset to off for this Space.');
-        break;
       case 'dare': {
         const previous = Number(read('dare-index', -1));
         let index = Math.floor(Math.random() * DARES.length);
