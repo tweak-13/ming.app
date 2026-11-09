@@ -147,3 +147,5 @@ grant execute on function public.get_daily_update_activity_comment_count(uuid) t
 
 notify pgrst, 'reload schema';
 commit;
+
+revoke all on function public.can_access_daily_update_activity(uuid,uuid) from public, anon, authenticated;
