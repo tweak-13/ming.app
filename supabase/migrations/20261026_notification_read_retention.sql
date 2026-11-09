@@ -14,7 +14,7 @@ drop policy if exists "Users can read their notification read state" on public.u
 create policy "Users can read their notification read state"
   on public.user_notification_reads
   for select to authenticated
-  using (user_id = auth.uid());
+  using (user_id = (select auth.uid()));
 
 drop policy if exists "Users can delete their expired notification read state" on public.user_notification_reads;
 create policy "Users can delete their expired notification read state"
@@ -26,11 +26,14 @@ create or replace function public.mark_tweaklr_notifications_read(p_notification
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
-  if auth.uid() is null then
+  if (select auth.uid()) is null then
     raise exception 'Authentication required.' using errcode = '42501';
+  end if;
+  if coalesce(cardinality(p_notification_ids),0) > 500 then
+    raise exception 'Too many notification IDs in one request.' using errcode = '22023';
   end if;
 
   insert into public.user_notification_reads (user_id, notification_id, read_at)
@@ -49,7 +52,7 @@ begin
 end;
 $$;
 
-revoke all on function public.mark_tweaklr_notifications_read(text[]) from public;
+revoke all on function public.mark_tweaklr_notifications_read(text[]) from public, anon, authenticated;
 grant execute on function public.mark_tweaklr_notifications_read(text[]) to authenticated;
 
 grant select, delete on public.user_notification_reads to authenticated;
