@@ -3609,8 +3609,7 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
 @media(max-width:420px){#sheet .fs-media-drop{gap:9px;padding:12px}#sheet .fs-media-drop-icon{flex-basis:36px;width:36px;height:36px}#sheet .fs-media-browse{padding:7px 8px}#sheet .fs-media-preview{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 
-/* Home Daily Update comments now use the Business Space conversation design.
-   Keep Home's existing text-only composer and privacy controls functional. */
+/* Home Daily Update comments now use the complete Business Space conversation and voice composer. */
 #sheet:has(.biz-comments-shell) .biz-comment-thread{min-width:0}
 #sheet:has(.biz-comments-shell) .biz-comment-thread.is-reply{margin-left:0}
 #sheet:has(.biz-comments-shell) .biz-comment-replies{margin:9px 0 0 47px;padding:10px 0 1px 12px;border-left:1px solid var(--border)}
