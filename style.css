@@ -5899,3 +5899,9 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 .tw-comment-privacy-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
 .tw-comment-privacy{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:rgba(73,50,36,.07);font-size:10px;color:var(--muted,#76685e)}
 .tw-comment-privacy svg{width:11px;height:11px}
+
+
+/* Keep the signed-in profile photo compact in the Daily Update comment composer. */
+.tw-comment-compose-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 28px;width:28px;height:28px;overflow:hidden}
+.tw-comment-compose-avatar .av{width:28px;height:28px;min-width:28px;max-width:28px;flex:0 0 28px}
+.tw-comment-compose-avatar .av img{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:cover;border-radius:50%}
