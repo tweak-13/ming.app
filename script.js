@@ -2998,6 +2998,7 @@ async function handleDailyUpdateCommentAction(event) {
       finishPlayback = resolve;
       failPlayback = reject;
     });
+    playbackFinished.catch(() => {}); // The awaited path below handles playback errors.
     try {
       const { data: signed, error: signedError } = await supabaseClient.storage
         .from('ming-daily-update-comment-voice')
