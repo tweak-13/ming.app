@@ -9218,6 +9218,7 @@ const Server = (() => {
       case 'content.mutate': {
         const row = db.content.find(c => c.id === p.id);
         if (!row) return deny('Gone.');
+        if (!can(row.spaceId, 'space.post')) return deny('Your Space role is read-only.');
         if (p.op === 'react') {
           row.reacts = row.reacts || {};
           row.mine = row.mine || {};
