@@ -21,8 +21,7 @@ Server.ROLE_SETS.anonymous=['owner','admin','moderator','member'];
 delete FEATURE_OPTIONS.silly;
 FEATURE_OPTIONS.anonymous=[
  {k:'anonymousPosts',t:'Anonymous posts',s:'Members can publish without showing their profile.'},
- {k:'anonymousComments',t:'Anonymous comments',s:'Every reply is anonymous too.'},
- {k:'moderation',t:'Moderator controls',s:'Owners, admins and moderators can remove harmful content.'}
+ {k:'anonymousComments',t:'Anonymous comments',s:'Every reply is anonymous too.'}
 ];
 HEADERS.anonymous=s=>spBar(s,{meta:'Anonymous · identity protected'})+
  '<div class="anon-private-strip"><span>◉</span><div><b>Anonymous by design</b><small>Names and profile details are never shown on this wall.</small></div></div>';
