@@ -137,6 +137,9 @@ VIEWS.marketplace.market=s=>{
  return h+'</div></section><div class="spx-market-notice"><b>Transaction transparency</b><p>Checkout and wallet flows are currently in development mode. No real money is held, transferred or protected by Tweaklr yet. Agree on payment and handover independently until a verified payment provider is connected.</p></div></div>';
 };
 
+VIEWS.marketplace.orders=s=>'<div class="spx-market-notice"><b>In-app orders are not active yet</b><p>Listings and non-binding bids are available, but Tweaklr does not create purchase orders, process payments, hold funds or manage delivery. Contact the seller directly to agree terms.</p></div>';
+VIEWS.marketplace.cases=s=>'<div class="spx-market-notice"><b>In-app dispute handling is not active yet</b><p>Tweaklr does not hold purchase funds, freeze payments, issue refunds or adjudicate delivery disputes. Keep your own payment and handover records and contact the seller directly.</p></div>';
+
 /* Marketplace is a simulated transaction workflow until a real custodian and
    payment provider are integrated. Remove language that could imply custody. */
 NATURES.marketplace.blurb='Browse member listings, compare sellers and register non-binding bids. Contact sellers directly; Tweaklr checkout is not available yet.';
