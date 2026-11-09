@@ -8706,7 +8706,9 @@ const Server = (() => {
     return { ok: true, data: { space } };
   }
 
-  const memberCount = spaceId => db.members.filter(m => m.spaceId === spaceId && m.approved !== false).length;
+  // Capacity checks include pending requests; public Space counts include approved members only.
+  const memberCount = spaceId => db.members.filter(m => m.spaceId === spaceId).length;
+  const approvedMemberCount = spaceId => db.members.filter(m => m.spaceId === spaceId && m.approved !== false).length;
 
   function audit(spaceId, event, meta) {
     const entry = Object.freeze({
@@ -9375,7 +9377,7 @@ const Server = (() => {
   }
 
   return {
-    db, session, load, submit, can, roleOf, memberCount, uploadSpaceFile, openSpaceFile,
+    db, session, load, submit, can, roleOf, memberCount: approvedMemberCount, uploadSpaceFile, openSpaceFile,
     ROLE_SETS, RANK, ORDER_FLOW, TERMINAL, partyOf,
     account, ledger,
     orderEvents: id => db.orderEvents.filter(e => e.orderId === id),
