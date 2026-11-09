@@ -11416,7 +11416,9 @@ function renderBusinessHome(s) {
   const completed = tasks.length - openTasks.length;
   const openRoles = Server.db.openRoles.filter(r => r.spaceId === s.id && r.status === 'open');
   const role = Server.roleOf(s.id);
-  const canViewTeam = ['owner','admin','manager'].includes(role);
+  // Every approved Business Space member can see the team directory and count.
+  // Management actions remain independently permission-gated in membersView().
+  const canViewTeam = Server.db.members.some(m => m.spaceId === s.id && m.userId === Server.session.userId && m.approved !== false);
   const members = canViewTeam ? Server.db.members.filter(m => m.spaceId === s.id && m.approved !== false).map(m => personOf(m.userId)).filter(Boolean) : [];
   const stats = [
     {value:openTasks.length,label:'In progress',glyph:'↗',tab:'work',feature:'tasks'},
