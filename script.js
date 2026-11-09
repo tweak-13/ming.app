@@ -9893,7 +9893,7 @@ const WZ_RENDER = {
         <span class="sw"></span>
       </button>`).join('')}
     ${w.nature === 'business' ? `<div class="biz-post-policy"><div class="biz-post-policy__title">Who can publish to the Home feed?</div><p>Choose who can create posts in this Business Space. The creator always keeps full admin control.</p><button type="button" class="choice" aria-pressed="${(w.features.businessMessaging || 'everyone') === 'everyone'}" data-sp="wz-business-messaging:everyone"><span class="radio"></span><span class="tx"><span class="t">All members</span><span class="s">Everyone can publish and join discussions.</span></span></button><button type="button" class="choice" aria-pressed="${w.features.businessMessaging === 'owner'}" data-sp="wz-business-messaging:owner"><span class="radio"></span><span class="tx"><span class="t">Creator only</span><span class="s">Only the creator and admins can publish.</span></span></button></div>` : ''}
-    ${w.nature === 'marketplace' ? `<div class="ephemeral-note" style="margin-top:16px">${icon('shield')}<span>Payments in this Space are held in escrow until the buyer confirms delivery. Tweaklr Wallet is in development mode — no real funds move.</span></div>` : ''}`;
+    ${w.nature === 'marketplace' ? `<div class="ephemeral-note" style="margin-top:16px">${icon('shield')}<span>Listings and seller messaging are available, but checkout, escrow, refunds and in-app disputes are not active. Buyers and sellers must agree payment and handover independently.</span></div>` : ''}`;
   },
 
   review: w => `
