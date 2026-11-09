@@ -22,7 +22,7 @@ async function fetchStatuses(scope='main',spaceId=null){
  cache.set(scope+':'+(spaceId||''),rows);
  return rows;
 }
-function groups(rows){const map=new Map();rows.forEach(r=>{if(!map.has(r.author_id))map.set(r.author_id,[]);map.get(r.author_id).push(r);});return [...map.values()].map(a=>({authorId:a[0].author_id,author:a[0].author,statuses:a.sort((x,y)=>x.createdMs-y.createdMs),allViewed:a.every(x=>x.viewed||x.is_mine),mine:a[0].author_id===uid()})).sort((a,b)=>b.statuses[b.statuses.length-1].createdMs-a.statuses[a.statuses.length-1].createdMs);}
+function groups(rows){const map=new Map();rows.forEach(r=>{if(!map.has(r.author_id))map.set(r.author_id,[]);map.get(r.author_id).push(r);});return [...map.values()].map(a=>({authorId:a[0].author_id,author:a[0].author,statuses:a.sort((x,y)=>x.createdMs-y.createdMs),allViewed:a.every(x=>x.viewed||x.is_mine),mine:a[0].author_id===uid()})).sort((a,b)=>Number(a.allViewed)-Number(b.allViewed)||(b.statuses[b.statuses.length-1].createdMs-a.statuses[a.statuses.length-1].createdMs));}
 function statusTime(r){
  const diff=Math.max(0,Date.now()-(r?.createdMs||Date.now()));
  if(diff<60000)return 'Just now';
@@ -33,8 +33,11 @@ function statusTime(r){
 function ringMarkup(g,add=false,scope='main',spaceId=null){
  const p=g.author||app().currentUser||{},label=g.mine?'Your status':(p.short||p.name||'Tweaklr member');
  const img=p.avatarUrl?'<img src="'+escS(p.avatarUrl)+'" alt="">':'<span>'+escS((label||'T').split(/\\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())+'</span>';
- const action=g.mine?'data-tw-status-compose="'+escS(scope)+'" data-tw-status-space="'+escS(spaceId||'')+'"':'data-tw-status-open="'+escS(g.authorId)+'"';
- return '<button type="button" class="tw-status-person '+(g.allViewed?'is-seen':'is-new')+(g.mine?' is-mine':'')+'" '+action+' aria-label="'+(g.mine?'Add a status':'View '+escS(label)+' status')+'"><span class="tw-status-ring"><span class="tw-status-avatar">'+img+'</span>'+(add?'<i aria-hidden="true">+</i>':'')+'</span></button>';
+ const hasStatus=!!(g.statuses&&g.statuses.length);
+ const action=g.mine?(hasStatus?'data-tw-status-open="'+escS(g.authorId)+'"':'data-tw-status-compose="'+escS(scope)+'" data-tw-status-space="'+escS(spaceId||'')+'"'):'data-tw-status-open="'+escS(g.authorId)+'"';
+ const avatar='<button type="button" class="tw-status-avatar-action" '+action+' aria-label="'+(g.mine?(hasStatus?'View your status':'Create your status'):'View '+escS(label)+' status')+'"><span class="tw-status-ring"><span class="tw-status-avatar">'+img+'</span></span></button>';
+ const plus=add?'<button type="button" class="tw-status-add" data-tw-status-compose="'+escS(scope)+'" data-tw-status-space="'+escS(spaceId||'')+'" aria-label="Add a status">+</button>':'';
+ return '<div class="tw-status-person '+(g.allViewed?'is-seen':'is-new')+(g.mine?' is-mine':'')+'">'+avatar+plus+'</div>';
 }
 function trayHTML(rows,scope,spaceId){
  const gs=groups(rows),mine=gs.find(g=>g.mine),others=gs.filter(g=>!g.mine);
@@ -138,7 +141,7 @@ async function openStatusPrivacy(){
 function closeViewer(){if(progressTimer)clearInterval(progressTimer);progressTimer=null;activeViewer=null;paused=false;$('.tw-status-viewer')?.remove();}
 async function openViewer(authorId,scope,spaceId){
  const rows=await fetchStatuses(scope,spaceId),group=groups(rows).find(g=>g.authorId===authorId);if(!group?.statuses.length){if(authorId===uid())openComposer(scope,spaceId);return;}
- closeViewer();const allGroups=groups(rows);activeViewer={group,groups:allGroups,groupIndex:allGroups.findIndex(g=>g.authorId===authorId),scope,spaceId,index:0,rows};renderViewer();
+ closeViewer();const allGroups=group.mine?[group]:groups(rows).filter(g=>!g.mine);activeViewer={group,groups:allGroups,groupIndex:allGroups.findIndex(g=>g.authorId===authorId),scope,spaceId,index:0,rows};renderViewer();
 }
 async function renderViewer(){
  if(!activeViewer)return;if(progressTimer)clearInterval(progressTimer);progressTimer=null;
