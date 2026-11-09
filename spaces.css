@@ -3641,3 +3641,35 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
   #sheet:has(.biz-comments-shell) .biz-comment-replies{margin-left:35px;padding-left:9px}
   #sheet:has(.biz-comments-shell) .biz-comment-compose-bottom{gap:8px}
 }
+
+
+/* TWEAKLR HOME COMMENTS — harden the sheet's scroll viewport for mobile WebViews.
+   The sheet gets a definite height; the body becomes the only vertical scroller. */
+#sheet:has(.biz-comments-shell) {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 90dvh !important;
+  max-height: 90dvh !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+#sheet:has(.biz-comments-shell) > .sheet-body {
+  display: block !important;
+  flex: 1 1 0% !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y !important;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+}
+#sheet:has(.biz-comments-shell) > .sheet-foot {
+  display: none !important;
+}
+#sheet:has(.biz-comments-shell) .biz-comment-list {
+  max-height: none !important;
+  overflow: visible !important;
+}
