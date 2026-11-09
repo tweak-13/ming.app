@@ -226,4 +226,9 @@ const homeRetry=setInterval(()=>{const host=$('#home-status-tray');if(!host){if(
 },500);
 window.addEventListener('load',()=>{const host=$('#home-status-tray');if(host&&!host.querySelector('.tw-status-tray'))void mountHome();});
 window.TweaklrStatus={mountHome,mountSpace,openComposer:launchStatusComposer,refresh:async()=>{await mountHome();const screen=document.getElementById('screen-space');const id=screen?.dataset.spaceId;const nature=screen?.dataset.nature;if(id&&['friendly','business'].includes(nature))await mountSpace({id,nature});}};
+/* Keep status rings and unseen ordering fresh without polling in the background. */
+const refreshVisibleStatuses=()=>{if(document.visibilityState==='visible'&&uid())void window.TweaklrStatus.refresh();};
+document.addEventListener('visibilitychange',refreshVisibleStatuses);
+window.addEventListener('focus',refreshVisibleStatuses);
+setInterval(refreshVisibleStatuses,60000);
 })();
