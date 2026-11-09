@@ -1,0 +1,29 @@
+/* Separate login-page skin; main application style.css remains untouched. */
+html:has(#auth-screen),body:has(#auth-screen){background:#120b08!important;color:#f6eadd}
+body:has(#auth-screen){background:radial-gradient(ellipse at 50% 0%,rgba(105,66,43,.3),transparent 52%),linear-gradient(160deg,#100a07,#1a100b 58%,#0d0907)!important}
+#auth-intro-loader{background:linear-gradient(145deg,#100a07,#24160f 58%,#493224)!important;color:#f7e8d7}
+#auth-screen{min-height:100svh;padding:28px 16px 40px;display:grid;place-items:center;background:transparent!important}
+#auth-screen .auth-card{width:min(100%,460px);padding:clamp(22px,6vw,38px);border:1px solid rgba(241,210,174,.16);border-radius:28px;background:linear-gradient(155deg,rgba(43,29,21,.97),rgba(24,15,10,.98));box-shadow:0 30px 90px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,240,220,.06);color:#f6eadd}
+#auth-screen .auth-brand{text-align:center;margin-bottom:28px}
+#auth-screen .auth-logo{width:76px;height:76px;margin:0 auto 15px;filter:drop-shadow(0 8px 22px rgba(184,138,105,.22))}
+#auth-screen .auth-kicker,#auth-screen .auth-form-eyebrow{color:#c69a78;letter-spacing:.18em;font-size:9px;font-weight:800}
+#auth-screen .auth-brand h1{color:#fff1e3;font-size:clamp(25px,7vw,32px);letter-spacing:-.045em;margin:10px 0 5px}
+#auth-screen .auth-brand>p{color:#cbb8a8;font-size:12px}
+#auth-screen .auth-trust-mark{display:inline-flex;align-items:center;gap:8px;margin-top:13px;padding:7px 11px;border:1px solid rgba(241,210,174,.13);border-radius:99px;color:#d7c2af;font-size:10px;background:rgba(255,255,255,.025)}
+#auth-screen .auth-live-dot{width:6px;height:6px;background:#a7c28d;border-radius:50%;box-shadow:0 0 0 4px rgba(167,194,141,.12)}
+#auth-screen .auth-form-heading{margin-bottom:22px}
+#auth-screen .auth-form-heading h2{color:#fff1e3;font-size:22px;letter-spacing:-.035em;margin:7px 0}
+#auth-screen .auth-subtitle{color:#c2ad9a;font-size:11.5px;line-height:1.55}
+#auth-screen .field{position:relative;margin:0 0 16px}
+#auth-screen .field label{display:block;color:#e7d4c2;font-size:11px;font-weight:650;margin-bottom:7px}
+#auth-screen .field input{width:100%;min-height:48px;border:1px solid rgba(241,210,174,.16);border-radius:13px;background:#160e0a;color:#fff0e3;padding:0 44px 0 14px;font-size:13px;outline:none;box-shadow:inset 0 1px 3px rgba(0,0,0,.22)}
+#auth-screen .field input::placeholder{color:#816e60}
+#auth-screen .field input:focus{border-color:#b88a69;box-shadow:0 0 0 3px rgba(184,138,105,.15)}
+#auth-screen .auth-password-toggle{position:absolute;right:10px;bottom:8px;border:0;background:transparent;color:#c69a78;font-size:10px;font-weight:700;padding:7px}
+#auth-screen .btn--primary{width:100%;min-height:48px;border:1px solid rgba(241,210,174,.16);border-radius:14px;background:linear-gradient(135deg,#654633,#493224 70%,#362217);color:#fff0e2;font-weight:800;box-shadow:0 10px 24px rgba(0,0,0,.18)}
+#auth-screen .btn--primary:disabled{opacity:.58}
+#auth-screen .auth-message{min-height:18px;color:#e6bda0;font-size:11px;line-height:1.5}
+#auth-screen .auth-switch{color:#bda995;font-size:11px;text-align:center;margin-top:20px}
+#auth-screen .auth-switch button{color:#e2b995;font-weight:800;background:none;border:0;padding:4px}
+#auth-screen .auth-form[hidden]{display:none!important}
+@media(max-width:380px){#auth-screen .auth-card{padding:22px 18px;border-radius:23px}}
