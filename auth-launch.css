@@ -34,3 +34,5 @@ body:has(#auth-screen){background:radial-gradient(ellipse at 50% 0%,rgba(105,66,
 #auth-screen .auth-forgot button:hover{color:#fff0e3;text-decoration:underline}
 #auth-screen .auth-message[aria-live]{min-height:22px}
 #auth-screen .auth-form button:disabled{opacity:.55;cursor:not-allowed}
+
+#auth-screen [hidden]{display:none!important}
