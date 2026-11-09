@@ -8620,22 +8620,22 @@ const Server = (() => {
   /* ---- roles & permissions (server-side truth) ---- */
   const ROLE_SETS = {
     business: ['owner', 'admin', 'manager', 'member'],
-    friendly: ['owner', 'moderator', 'member'],
-    casual: ['owner', 'moderator', 'member', 'guest'],
-    silly: ['owner', 'moderator', 'member'],
+    friendly: ['owner', 'admin', 'moderator', 'member'],
+    casual: ['owner', 'admin', 'moderator', 'member', 'guest'],
+    silly: ['owner', 'admin', 'moderator', 'member'],
     romantic: ['owner', 'member'],
-    marketplace: ['owner', 'moderator', 'seller', 'buyer']
+    marketplace: ['owner', 'admin', 'moderator', 'seller', 'buyer']
   };
   const RANK = { owner: 100, admin: 80, manager: 60, moderator: 60, seller: 40, member: 30, buyer: 30, guest: 10 };
   const NEEDS = {
-    'space.update': 80, 'space.invite.rotate': 80, 'space.member.role': 80, 'space.member.remove': 60,
+    'space.update': 80, 'space.invite.rotate': 80, 'space.member.role': 80, 'space.member.remove': 80,
     'space.post': 30, 'space.post.pin': 60, 'space.moderate': 60,
     'product.create': 40, 'order.create': 30, 'dispute.arbitrate': 60
   };
 
   function roleOf(spaceId, userId = session.userId) {
     const m = db.members.find(x => x.spaceId === spaceId && x.userId === userId);
-    return m ? m.role : null;
+    return m && m.approved !== false ? m.role : null;
   }
   function can(spaceId, action, userId = session.userId) {
     const r = roleOf(spaceId, userId);
@@ -8706,7 +8706,7 @@ const Server = (() => {
     return { ok: true, data: { space } };
   }
 
-  const memberCount = spaceId => db.members.filter(m => m.spaceId === spaceId).length;
+  const memberCount = spaceId => db.members.filter(m => m.spaceId === spaceId && m.approved !== false).length;
 
   function audit(spaceId, event, meta) {
     const entry = Object.freeze({
@@ -9170,15 +9170,14 @@ const Server = (() => {
       }
 
       case 'space.member.remove': {
-        if (!can(p.spaceId, 'space.member.role')) return deny('Only the creator or an admin can remove members.');
-        const { data, error } = await supabaseClient.rpc('remove_ming_business_space_member', { p_space_id:p.spaceId, p_user_id:p.userId });
+        if (!can(p.spaceId, 'space.member.remove')) return deny('Only the creator or an approved admin can remove members.');
+        if (p.userId === session.userId) return deny('Use Leave Space to remove yourself.');
+        const { data, error } = await supabaseClient.rpc('remove_ming_space_member', { p_space_id:p.spaceId, p_user_id:p.userId });
         if (error) return deny(error.message || 'Member could not be removed.');
-        // The RPC removes the membership row in Supabase. Refresh the full
-        // Space snapshot so the removed person disappears from every local view.
         db.members = db.members.filter(m => !(m.spaceId === p.spaceId && m.userId === p.userId));
-        audit(p.spaceId, 'member.removed', { userId:p.userId });
         await loadSpacesFromDatabase();
         db.members = db.members.filter(m => !(m.spaceId === p.spaceId && m.userId === p.userId));
+        audit(p.spaceId, 'member.removed', { userId:p.userId });
         return { ok:true, data:data || {} };
       }
 
@@ -9446,7 +9445,7 @@ const NATURES = {
       { name:'Rose', colors:['#FFF0F1','#D98D9C','#813C55'] },
       { name:'Moonlit', colors:['#171727','#49436E','#C9A6C8'] }
     ],
-    tabs: [['us', 'Us', 'sp-heart2'], ['memories', 'Memories', 'sp-camera'], ['letters', 'Letters', 'sp-doc'], ['calendar', 'Calendar', 'cal'], ['health', 'Wellness', 'sp-heart2'], ['plans', 'Plans', 'sp-list'], ['names', 'Names', 'users'], ['vault', 'Vault', 'sp-doc']]
+    tabs: [['us', 'Us', 'sp-heart2'], ['memories', 'Memories', 'sp-camera'], ['letters', 'Letters', 'sp-doc'], ['calendar', 'Calendar', 'cal'], ['health', 'Wellness', 'sp-heart2'], ['plans', 'Plans', 'sp-list'], ['names', 'Names', 'users'], ['vault', 'Vault', 'sp-doc'], ['people', 'People', 'users']]
   },
   marketplace: {
     label: 'Marketplace', eyebrow: 'Trade with trust', icon: 'sp-store', hue: 150,
@@ -9460,7 +9459,7 @@ const NATURES = {
       { name:'Night Market', colors:['#111A18','#35675A','#D4B46A'] },
       { name:'Gallery', colors:['#F4F3EF','#9BA8A5','#394B48'] }
     ],
-    tabs: [['market', 'Market', 'sp-store'], ['orders', 'Orders', 'sp-box'], ['sellers', 'Sellers', 'users'], ['cases', 'Cases', 'sp-scale']]
+    tabs: [['market', 'Market', 'sp-store'], ['orders', 'Orders', 'sp-box'], ['sellers', 'Sellers', 'users'], ['cases', 'Cases', 'sp-scale'], ['people', 'People', 'users']]
   }
 };
 
@@ -10228,11 +10227,14 @@ function refreshSpace() {
 }
 
 function spBar(s, opts = {}) {
+  const count = Server.memberCount(s.id);
+  const countLabel = `${count} ${count === 1 ? 'person' : 'people'}`;
+  const meta = opts.meta ? `${opts.meta} · ${countLabel}` : `${NATURES[s.nature].label} · ${countLabel}`;
   return `<div class="sp-bar">
     <button class="back" data-back aria-label="Leave Space">${icon('back')}</button>
     <div class="ttl"><div class="n">${esc(s.name)}</div>
-      <div class="m">${opts.meta || `${NATURES[s.nature].label} · ${Server.memberCount(s.id)} members`}</div></div>
-    <button class="ic" data-sp="invite:${s.id}" aria-label="Invitation">${icon('sp-key')}</button>
+      <div class="m">${meta}</div></div>
+    ${Server.can(s.id, 'space.invite.rotate') ? `<button class="ic" data-sp="invite:${s.id}" aria-label="Invitation">${icon('sp-key')}</button>` : ''}
     <button class="ic" data-sp="settings:${s.id}" aria-label="Space settings">${icon('settings')}</button>
   </div>`;
 }
@@ -10245,7 +10247,7 @@ const HEADERS = {
   casual: s => spBar(s, { meta: `${NATURES[s.nature].label}${s.expiresAt ? ' · closes ' + new Date(s.expiresAt).toLocaleDateString([], { day: 'numeric', month: 'short' }) : ''}` }) +
     `<div class="live-bar"><span class="live-dot"></span> ${contentOf(s.id, 'now').length} things happening${s.locationLinked && hasLocation() ? ` · ${esc(areaLabel())}` : ''}</div>`,
 
-  silly: s => spBar(s, { meta: `Silly · ${Server.memberCount(s.id)} members` }),
+  silly: s => spBar(s, { meta: 'Silly' }),
 
   romantic: s => spBar(s, { meta: 'Private' }) + `
     <div class="rom-hero">
@@ -11546,50 +11548,7 @@ VIEWS.business.work = space => {
 VIEWS.business.people = s => businessTeamView(s);
 
 function businessTeamView(s) {
-  const role = Server.roleOf(s.id);
-  const canManageTeam = ['owner', 'admin', 'manager'].includes(role);
-  const allMembers = Server.db.members.filter(m => m.spaceId === s.id);
-  const approvedMembers = allMembers.filter(m => m.approved !== false);
-  const visibleMembers = canManageTeam ? allMembers : approvedMembers;
-  const canRole = Server.can(s.id, 'space.member.role');
-
-  const rows = visibleMembers.map(m => {
-    const p = personOf(m.userId);
-    const displayName = p.short || p.name || 'Tweaklr member';
-    const rawUsername = String(p.username || '').trim();
-    const username = rawUsername ? (rawUsername.startsWith('@') ? rawUsername : '@' + rawUsername) : '@username unavailable';
-    const pending = m.approved === false;
-    return `<div class="mrow biz-team-member">
-      ${avatar(p, 44, {status:false})}
-      <div class="m">
-        <div class="n">${esc(displayName)}</div>
-        <div class="s">${esc(username)} · ${pending ? 'Awaiting approval' : 'Joined ' + esc(timeAgo(m.joinedAt))}</div>
-      </div>
-      ${canRole && m.role !== 'owner'
-        ? `<button class="role" data-sp="role:${s.id}:${m.userId}">${esc(m.role)}</button>`
-        : `<span class="role">${esc(m.role)}</span>`}
-      ${canManageTeam && ['owner','admin'].includes(role) && m.role !== 'owner' && m.userId !== currentUser.id
-        ? `<button class="biz-member-remove" data-sp="biz-remove-member:${m.userId}" aria-label="Remove ${esc(displayName)}">Remove</button>`
-        : ''}
-    </div>`;
-  }).join('');
-
-  return `<div class="sp-sec biz-team-public">
-    <div class="sp-card" style="padding:20px">
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px">
-        <div>
-          <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700">BUSINESS TEAM</div>
-          <div style="font-size:36px;line-height:1.15;font-weight:750;color:var(--text);margin-top:7px">${approvedMembers.length}</div>
-          <div style="font-size:13px;color:var(--muted)">${approvedMembers.length === 1 ? 'person' : 'people'} in this team</div>
-        </div>
-        <div style="font-size:12px;color:var(--muted);text-align:right">Owners, admins<br>and members</div>
-      </div>
-      <div class="biz-team-directory">
-        ${rows || '<div class="sp-empty"><p>No approved team members to show yet.</p></div>'}
-      </div>
-    </div>
-    ${canManageTeam ? '<p style="font-size:12px;color:var(--muted);padding:6px 2px;line-height:1.5">Roles decide what each person can do. Changes are enforced on the server.</p><button class="btn btn--soft btn--block" style="margin-top:6px" data-sp="invite:' + s.id + '">' + icon('sp-key') + 'Invite someone</button>' : ''}
-  </div>`;
+  return membersView(s, 'Everyone in this Business Space can see the approved team, each person’s role and their profile. Owners and admins also see pending requests and member controls.');
 }
 function auditEventLabel(event) {
   const labels = {
@@ -12496,9 +12455,9 @@ function openSpaceSettings(spaceId) {
     title: 'Space settings',
     sub: `${s.name} · you are ${role}`,
     body: `
-      <button class="opt" data-sp="invite:${s.id}"><span class="ic">${icon('sp-key')}</span>
+${Server.can(spaceId, 'space.invite.rotate') ? `<button class="opt" data-sp="invite:${s.id}"><span class="ic">${icon('sp-key')}</span>
         <span class="tx"><span class="t" style="display:block">Invitation</span><span class="s" style="display:block">Share, or regenerate and lock everyone else out</span></span>
-        <span class="go">${icon('chev')}</span></button>
+        <span class="go">${icon('chev')}</span></button>` : ''}
       <div class="opt" style="pointer-events:none"><span class="ic">${icon('shield')}</span>
         <span class="tx"><span class="t" style="display:block">Privacy</span>
         <span class="s" style="display:block">${{ private: 'Invitation only', approval: 'Invitation, with approval', discoverable: 'Discoverable nearby' }[s.privacy]}</span></span></div>
@@ -12521,26 +12480,58 @@ function spEmpty(text, cta) {
 }
 
 function membersView(s, note) {
-  const ms = Server.db.members.filter(m => m.spaceId === s.id);
+  const all = Server.db.members.filter(m => m.spaceId === s.id);
+  const canRemove = Server.can(s.id, 'space.member.remove');
   const canRole = Server.can(s.id, 'space.member.role');
-  return `<div class="sp-sec"><h3>Members <span>${ms.length}</span></h3>
-    <div class="sp-card">
-      ${ms.map(m => {
-        const p = personOf(m.userId);
-        return `<div class="mrow">${avatar(p, 40)}
-          <div class="m"><div class="n">${esc(p.short || p.name)}</div>
-          <div class="s">Joined ${esc(timeAgo(m.joinedAt))}${m.approved === false ? ' · awaiting approval' : ''}</div></div>
-          ${canRole && m.role !== 'owner'
-            ? `<button class="role" data-sp="role:${s.id}:${m.userId}">${esc(m.role)}</button>`
-            : `<span class="role">${esc(m.role)}</span>`}
-          ${s.nature === 'business' && ['owner','admin'].includes(Server.roleOf(s.id)) && m.role !== 'owner' && m.userId !== currentUser.id ? `<button class="biz-member-remove" data-sp="biz-remove-member:${m.userId}" aria-label="Remove ${esc(p.short||p.name||'member')}">Remove</button>` : ''}
-        </div>`;
-      }).join('')}
+  const canInvite = Server.can(s.id, 'space.invite.rotate');
+  const actorRole = Server.roleOf(s.id);
+  const approved = all.filter(m => m.approved !== false);
+  const visible = canRemove ? all : approved;
+  const pendingCount = all.length - approved.length;
+  const rows = visible.map(m => {
+    const p = personOf(m.userId);
+    const displayName = p.short || p.name || 'Tweaklr member';
+    const username = String(p.username || '').trim();
+    const roleLabel = String(m.role || 'member').replace(/\b\w/g, c => c.toUpperCase());
+    const pending = m.approved === false;
+    const canEditRole = canRole && m.role !== 'owner' && m.userId !== currentUser.id &&
+      (actorRole === 'owner' || m.role !== 'admin');
+    const canDeleteMember = canRemove && m.role !== 'owner' && m.userId !== currentUser.id;
+    return `<div class="mrow biz-team-member">
+      ${avatar(p, 44, {status:false})}
+      <div class="m">
+        <div class="n">${esc(displayName)}</div>
+        <div class="s">${username ? esc(username.startsWith('@') ? username : '@' + username) + ' · ' : ''}${pending ? 'Awaiting approval' : 'Joined ' + esc(timeAgo(m.joinedAt))}</div>
+      </div>
+      ${canEditRole
+        ? `<button class="role" data-sp="role:${s.id}:${m.userId}" aria-label="Change ${esc(displayName)}'s role">${esc(roleLabel)}</button>`
+        : `<span class="role">${esc(roleLabel)}</span>`}
+      ${canDeleteMember
+        ? `<button class="biz-member-remove" data-sp="member-remove:${m.userId}" aria-label="Remove ${esc(displayName)} from this Space">Remove</button>`
+        : ''}
+    </div>`;
+  }).join('');
+  return `<div class="sp-sec biz-team-public">
+    <div class="sp-card" style="padding:20px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700">${s.nature === 'business' ? 'BUSINESS TEAM' : esc(NATURES[s.nature]?.label || 'SPACE')} DIRECTORY</div>
+          <div style="font-size:36px;line-height:1.15;font-weight:750;color:var(--text);margin-top:7px">${approved.length}</div>
+          <div style="font-size:13px;color:var(--muted)">${approved.length === 1 ? 'person' : 'people'} in this Space</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);text-align:right">Every approved member<br>and their Space role</div>
+      </div>
+      ${pendingCount && canRemove ? `<div style="font-size:12px;color:var(--muted);margin:-4px 0 12px">${pendingCount} pending ${pendingCount === 1 ? 'request' : 'requests'}</div>` : ''}
+      <div class="biz-team-directory">
+        ${rows || '<div class="sp-empty"><p>No approved members to show yet.</p></div>'}
+      </div>
     </div>
-    <p style="font-size:12px;color:var(--muted);padding:6px 2px;line-height:1.5">${esc(note)}</p>
-    <button class="btn btn--soft btn--block" style="margin-top:6px" data-sp="invite:${s.id}">${icon('sp-key')}Invite someone</button>
+    <p style="font-size:12px;color:var(--muted);padding:6px 2px;line-height:1.5">${esc(note || 'Tap any profile picture to open that member’s Tweaklr profile. Owners and admins can manage roles and remove members; other members can view the directory.')}</p>
+    ${canInvite ? `<button class="btn btn--soft btn--block" style="margin-top:6px" data-sp="invite:${s.id}">${icon('sp-key')}Invite someone</button>` : ''}
   </div>`;
 }
+VIEWS.marketplace.people = s => membersView(s, 'Marketplace members, sellers, buyers and their roles are visible here. Tap a profile picture to open a member profile.');
+VIEWS.romantic.people = s => membersView(s, 'This private Space is limited to its two approved members. Only its creator can remove the other member.');
 
 /* Business Documents interactions, isolated from other Spaces and screens. */
 document.addEventListener('input',e=>{if(e.target.id==='docs-search')filterBusinessDocuments();});
@@ -12588,12 +12579,11 @@ document.addEventListener('click', async e => {
     case 'tab': {
       sp.tab = a;
       renderSpace();
-      if (S().nature === 'business' && a === 'people') {
-        const teamSpaceId = S().id;
-        // Refresh the membership RPC whenever Team opens so owners and members
-        // don't rely on a stale in-memory directory loaded before the backend fix.
+      if (a === 'people' && S()) {
+        const directorySpaceId = S().id;
+        // All Space directories use the same fresh, backend-backed membership snapshot.
         void loadSpacesFromDatabase().then(() => {
-          if (sp.activeId === teamSpaceId && sp.tab === 'people') renderSpace();
+          if (sp.activeId === directorySpaceId && sp.tab === 'people') renderSpace();
         });
       }
       if (S().nature === 'business' && a === 'brief') void refreshOpenRoles(S().id);
@@ -12849,11 +12839,13 @@ document.addEventListener('click', async e => {
       }
       break;
     }
+    case 'member-remove':
     case 'biz-remove-member': {
       const member=Server.db.members.find(m=>m.spaceId===sp.activeId&&m.userId===a);
-      if(!member||!['owner','admin'].includes(Server.roleOf(sp.activeId))||member.role==='owner'){toast('This member cannot be removed.','x');break;}
-      openModal({title:'Remove this member permanently?',lede:'This deletes their membership in this Business Space and removes their access. Their Tweaklr account and memberships in other Spaces will remain untouched. The creator cannot be removed.',actions:[{t:'Keep member',cls:'btn--soft',a:'close-modal'},{t:'Remove from Space',cls:'btn--danger',a:'biz-remove-confirm'}]});
-      $('#modal').querySelector('[data-action="biz-remove-confirm"]').addEventListener('click',async()=>{const result=await Server.submit('space.member.remove',{spaceId:sp.activeId,userId:a});closeModal();if(!result.ok){toast(result.error,'x');return;}renderSpace();toast('Member removed','check');});break;
+      if(!member||!Server.can(sp.activeId,'space.member.remove')||member.role==='owner'||member.userId===currentUser.id){toast('This member cannot be removed.','x');break;}
+      const memberName = personOf(a).short || personOf(a).name || 'This member';
+      openModal({title:'Remove this member from the Space?',lede:'They will immediately lose access to this Space. Their Tweaklr account, profile, existing Space posts and memberships in other Spaces will remain untouched. The Space owner cannot be removed.',actions:[{t:'Keep member',cls:'btn--soft',a:'close-modal'},{t:'Remove member',cls:'btn--danger',a:'member-remove-confirm'}]});
+      $('#modal').querySelector('[data-action="member-remove-confirm"]').addEventListener('click',async()=>{const result=await Server.submit('space.member.remove',{spaceId:sp.activeId,userId:a});closeModal();if(!result.ok){toast(result.error,'x');return;}renderSpace();toast(memberName+' removed from Space','check');});break;
     }
     case 'biz-delete': {
       const post=Server.db.content.find(x=>x.id===a&&x.spaceId===sp.activeId&&x.kind==='business_post');if(!post)break;
@@ -12957,7 +12949,8 @@ document.addEventListener('click', async e => {
     case 'role': {
       const s = spaceById(a);
       const m = Server.db.members.find(x => x.spaceId === a && x.userId === b);
-      const roles = Server.ROLE_SETS[s.nature].filter(r => r !== 'owner');
+      const actorRole = Server.roleOf(a);
+      const roles = Server.ROLE_SETS[s.nature].filter(r => r !== 'owner' && (actorRole === 'owner' || r !== 'admin'));
       openSheet({
         title: `Role for ${nameOf(b)}`,
         sub: 'Enforced on the server. Hiding buttons is not a permission system.',
@@ -13088,13 +13081,13 @@ document.addEventListener('click', async e => {
 });
 
 const ROLE_COPY = {
-  admin: 'Everything except deleting the Space',
-  manager: 'Can moderate and assign work',
-  moderator: 'Can moderate content and resolve disputes',
-  seller: 'Can create listings',
-  buyer: 'Can buy and open disputes',
-  member: 'Can post and take part',
-  guest: 'Read only'
+  admin: 'Can manage members, assign eligible roles, invite and moderate. Cannot delete the Space or its owner.',
+  manager: 'Can coordinate work and moderate assigned Space activity, but cannot manage members or roles.',
+  moderator: 'Can moderate content and resolve disputes, but cannot remove members or appoint admins.',
+  seller: 'Can create and manage their own Marketplace listings.',
+  buyer: 'Can buy, bid where enabled and open disputes.',
+  member: 'Can view the directory, open member profiles, post and participate.',
+  guest: 'Can view permitted Space content but cannot post or manage members.'
 };
 
 /* silly mini-game */
