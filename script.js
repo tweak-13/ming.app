@@ -2764,7 +2764,7 @@ function paintDailyUpdateComments(id, focusComposer = false) {
   const updateComposer = () => {
     const hasContent = !!(input?.value.trim() || voiceBlob);
     if (categoryPrompt) categoryPrompt.hidden = !hasContent;
-    if (submit) submit.disabled = posting || !hasContent;
+    if (submit) submit.disabled = posting || recorder?.state === 'recording' || !hasContent;
     if (count) count.textContent = (input?.value.length || 0) + ' / 1000';
     categoryPrompt?.querySelectorAll('.biz-comment-category-choice').forEach(choice => {
       const radio = choice.querySelector('input');
@@ -2789,8 +2789,14 @@ function paintDailyUpdateComments(id, focusComposer = false) {
         ? 'audio/webm;codecs=opus'
         : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
       recorder = new MediaRecorder(recordStream, mime ? { mimeType: mime } : undefined);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      previewUrl = '';
+      voiceBlob = null;
+      voiceDuration = 0;
+      if (preview) { preview.hidden = true; preview.innerHTML = ''; }
       recordChunks = [];
       recordStarted = Date.now();
+      updateComposer();
       mic.classList.add('is-recording');
       mic.setAttribute('aria-label', 'Stop recording');
       recordTitle.textContent = 'Recording your voice…';
