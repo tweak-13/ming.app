@@ -105,7 +105,7 @@ document.addEventListener('click',async e=>{
 
 /* Enhanced Casual, Romantic and Marketplace views; existing backend actions remain intact. */
 VIEWS.casual.now=s=>{
- const posts=contentOf(s.id,'now').slice().sort((a,b)=>Number(b.at||0)-Number(a.at||0)),polls=contentOf(s.id,'poll'),meet=contentOf(s.id,'meeting')[0];
+ const now=Date.now(),liveCutoff=now-6*36e5,posts=contentOf(s.id,'now').filter(p=>Number(p.at||0)>liveCutoff&&Number(p.at||0)<=now+60000).sort((a,b)=>Number(b.at||0)-Number(a.at||0)),polls=contentOf(s.id,'poll'),meet=contentOf(s.id,'meeting')[0];
  const close=s.expiresAt?new Date(s.expiresAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Auto-closes after its live window';
  let h='<div class="spx spx--casual"><section class="spx-hero spx-hero--casual"><span class="spx-eyebrow"><i></i> LIVE SPACE · CASUAL</span><h2>Make the most<br>of <em>right now.</em></h2><p>Quick plans, live updates and the people around the moment.</p><div class="spx-hero-meta"><span>◷ '+safe(close)+'</span><span>◎ '+Server.memberCount(s.id)+' members</span></div><button class="spx-primary" data-sp="new:now">＋ Share a live update</button></section>'+
  '<section class="spx-section"><div class="spx-section-head"><div><span>THE MOMENT</span><h3>Happening now</h3></div><small>'+posts.length+' updates</small></div>';
