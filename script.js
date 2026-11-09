@@ -1417,6 +1417,7 @@ function skeletonRail() {
    TWEAK — TikTok Display API integration
    OAuth and access tokens are handled by Supabase Edge Functions.
 ------------------------------------------------------------ */
+const TWEAK_TIKTOK_ENABLED = false; // Integration intentionally paused until the TikTok API review and Edge Functions are ready.
 let tweakTikTokReturnHandled = false;
 
 function renderTweak() {
@@ -1436,26 +1437,33 @@ function renderTweak() {
         '<div class="pulse-planet"></div>',
       '</div>',
     '</section>',
-    '<button type="button" class="pulse-glass pulse-connect" data-action="tweak-connect">',
+    '<div class="pulse-glass pulse-connect pulse-connect--paused" aria-disabled="true">',
       '<span class="pulse-connect-icon" aria-hidden="true">♪</span>',
-      '<span class="pulse-connect-copy"><b>Connect your TikTok</b><span>Bring your eligible public videos into your Pulse space.</span></span>',
-      '<span class="pulse-connect-action">Connect</span>',
-    '</button>',
-    '<p id="tweak-account-status" class="pulse-account-status" aria-live="polite">Checking TikTok connection…</p>',
+      '<span class="pulse-connect-copy"><b>TikTok integration paused</b><span>Creator linking will return after API review and server deployment.</span></span>',
+      '<span class="pulse-connect-action">Coming soon</span>',
+    '</div>',
+    '<p id="tweak-account-status" class="pulse-account-status" aria-live="polite">TikTok creator import is paused for launch.</p>',
     '<div class="pulse-grid" aria-label="About Pulse">',
       '<div class="pulse-glass pulse-tile"><span class="pulse-tile-icon" aria-hidden="true">✧</span><b>Your creator orbit</b><span>Discover videos from accounts you connect.</span></div>',
       '<div class="pulse-glass pulse-tile"><span class="pulse-tile-icon" aria-hidden="true">◌</span><b>Native to Tweaklr</b><span>Your connections and conversations stay here.</span></div>',
     '</div>',
     '<section class="pulse-video-section">',
       '<div class="pulse-section-head"><div><div class="pulse-eyebrow">YOUR CONNECTED UNIVERSE</div><h2>Your videos</h2><p>Public videos shared by your linked creator account.</p></div>',
-      '<button type="button" class="pulse-refresh" data-action="tweak-refresh">Refresh ↻</button></div>',
+      '<button type="button" class="pulse-refresh" disabled aria-disabled="true">Refresh unavailable</button></div>',
       '<div id="tweak-video-feed" class="pulse-video-feed" aria-live="polite"><div class="tweak-video-message">Your connected videos will appear here.</div></div>',
     '</section>',
     '<p class="pulse-footnote">TikTok access tokens stay on the server. Likes, comments, follows, connections and messages remain native to Tweaklr and are separate from TikTok actions.</p>'
   ].join('');
 
-  handleTweakTikTokReturn();
-  loadTweakTikTokData();
+  if (TWEAK_TIKTOK_ENABLED) {
+    handleTweakTikTokReturn();
+    loadTweakTikTokData();
+  } else {
+    const statusEl = $('#tweak-account-status');
+    const feedEl = $('#tweak-video-feed');
+    if (statusEl) statusEl.textContent = 'TikTok creator imports are temporarily paused.';
+    if (feedEl) feedEl.innerHTML = '<div class="tweak-video-message">Pulse creator imports will be enabled after TikTok API review, callback configuration and server deployment. Your Tweaklr account and native social features remain available.</div>';
+  }
 }
 function handleTweakTikTokReturn() {
   if (tweakTikTokReturnHandled) return;
@@ -1501,6 +1509,10 @@ function safeTweakTikTokUrl(value) {
 
 async function loadTweakTikTokData(showToast = false) {
   const statusEl = $('#tweak-account-status');
+  if (!TWEAK_TIKTOK_ENABLED) {
+    if (statusEl) statusEl.textContent = 'TikTok creator imports are temporarily paused.';
+    return;
+  }
   const feedEl = $('#tweak-video-feed');
   if (!statusEl || !feedEl) return;
 
@@ -1552,6 +1564,10 @@ async function loadTweakTikTokData(showToast = false) {
 }
 
 async function beginTweakSetup() {
+  if (!TWEAK_TIKTOK_ENABLED) {
+    toast('TikTok linking is paused until the API integration is ready.', 'alert');
+    return;
+  }
   try {
     const { data, error } = await supabaseClient.functions.invoke('tweak-tiktok-auth-start', { body: {} });
     if (error) throw error;
