@@ -1,0 +1,446 @@
+/* ============================================================
+   TWEAKLR GLOBAL VISUAL SYSTEM
+   Business Spaces comments design language, using Tweaklr's
+   existing coffee colour tokens. Layout and behavior remain owned
+   by the original component stylesheets.
+============================================================ */
+
+:root {
+  --r-xs: 10px;
+  --r-sm: 14px;
+  --r-md: 18px;
+  --r-lg: 22px;
+  --r-xl: 27px;
+  --tweaklr-line: color-mix(in srgb, var(--coffee) 17%, var(--border));
+  --tweaklr-soft: color-mix(in srgb, var(--coffee) 7%, var(--surface));
+  --tweaklr-glow: color-mix(in srgb, var(--coffee) 13%, transparent);
+  --tweaklr-shadow: 0 16px 38px -28px color-mix(in srgb, var(--coffee) 45%, transparent);
+}
+
+html, body {
+  background: var(--bg-deep);
+}
+
+body {
+  background:
+    radial-gradient(ellipse 90% 42% at 100% 0%, var(--tweaklr-glow), transparent 75%),
+    radial-gradient(ellipse 75% 45% at 0% 100%, color-mix(in srgb, var(--coffee) 6%, transparent), transparent 78%),
+    var(--bg-deep);
+}
+
+.app {
+  background:
+    radial-gradient(ellipse 100% 38% at 100% 0%, color-mix(in srgb, var(--coffee) 5%, transparent), transparent 75%),
+    var(--bg);
+}
+
+/* Screen chrome: translucent, composed, and quietly layered. */
+.topbar {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border-bottom: 1px solid var(--tweaklr-line);
+  box-shadow: 0 8px 26px -24px color-mix(in srgb, var(--coffee) 55%, transparent);
+}
+.topbar.is-scrolled {
+  border-bottom-color: var(--tweaklr-line);
+}
+.topbar-title,
+.section-head h2,
+.greet h1 {
+  letter-spacing: -.04em;
+  font-weight: 760;
+}
+.topbar-sub,
+.section-head .hint {
+  letter-spacing: .015em;
+}
+.section-head {
+  align-items: baseline;
+}
+.section-head button,
+.topbar button {
+  transition: transform .18s ease, opacity .18s ease, background .18s ease;
+}
+.section-head button:active,
+.topbar button:active {
+  transform: scale(.97);
+}
+
+/* Shared card language — preserve each component's existing geometry. */
+.upd,
+.pcard,
+.ocard,
+.mcard,
+.plcard,
+.acard,
+.conn-card,
+.convo,
+.notif,
+.req,
+.now,
+.chat-attachment-preview,
+.settings-info,
+.settings-section,
+.empty-state,
+.tw-status-person,
+.sp-card,
+.sp-post,
+.sp-panel,
+.sp-member-card,
+.sp-task-card,
+.sp-doc-card,
+.sp-open-role,
+.sp-activity-row {
+  border-color: var(--tweaklr-line);
+  box-shadow: var(--tweaklr-shadow), inset 0 1px 0 color-mix(in srgb, var(--surface) 65%, transparent);
+}
+.upd,
+.pcard,
+.ocard,
+.mcard,
+.plcard,
+.acard,
+.conn-card,
+.convo,
+.notif,
+.req,
+.now,
+.chat-attachment-preview,
+.settings-info,
+.settings-section,
+.empty-state,
+.sp-card,
+.sp-post,
+.sp-panel,
+.sp-member-card,
+.sp-task-card,
+.sp-doc-card,
+.sp-open-role {
+  border-radius: 20px;
+}
+.upd,
+.pcard,
+.ocard,
+.mcard,
+.plcard,
+.acard,
+.conn-card,
+.convo,
+.notif,
+.req,
+.now,
+.settings-info,
+.settings-section,
+.sp-card,
+.sp-post,
+.sp-panel,
+.sp-member-card,
+.sp-task-card,
+.sp-doc-card,
+.sp-open-role {
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--surface) 94%, var(--coffee) 6%),
+    var(--surface) 72%);
+}
+.upd,
+.sp-post,
+.sp-card,
+.sp-panel {
+  box-shadow: 0 12px 30px -25px color-mix(in srgb, var(--coffee) 48%, transparent),
+              inset 0 1px 0 color-mix(in srgb, var(--surface) 72%, transparent);
+}
+.pcard,
+.ocard,
+.mcard,
+.plcard,
+.acard,
+.conn-card,
+.sp-card,
+.sp-task-card,
+.sp-doc-card,
+.sp-open-role {
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease, background .2s ease;
+}
+.pcard:active,
+.ocard:active,
+.mcard:active,
+.plcard:active,
+.acard:active,
+.conn-card:active,
+.sp-card:active {
+  border-color: color-mix(in srgb, var(--coffee) 36%, var(--border));
+  box-shadow: 0 16px 34px -24px color-mix(in srgb, var(--coffee) 55%, transparent);
+}
+
+/* Section headers and compact metadata. */
+.section-head h2,
+.upd h3,
+.pcard .name,
+.ocard h3,
+.mcard .body,
+.plcard .body,
+.acard .info .t,
+.sp-card h3,
+.sp-post h3 {
+  letter-spacing: -.025em;
+}
+.upd-top .who .n,
+.tw-comment-author,
+.chat-profile-name,
+.sp-member-name {
+  font-weight: 760;
+}
+
+/* Buttons: business-comment pill geometry, coffee theme retained. */
+.btn,
+.btn--primary,
+.btn--soft,
+.btn--ghost,
+.btn--quiet,
+.btn--danger,
+.btn--done,
+.sheet .btn,
+.modal .btn,
+.sp button,
+.sp-action,
+.sp-task-create,
+.sp-comment-submit {
+  border-radius: 13px;
+  font-weight: 720;
+  letter-spacing: -.012em;
+  transition: transform .16s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease, opacity .18s ease;
+}
+.btn--primary,
+.btn--done,
+.tw-comment-send,
+.chat-send,
+.send,
+.fab {
+  box-shadow: 0 8px 20px -13px color-mix(in srgb, var(--coffee) 78%, transparent);
+}
+.btn--primary:active,
+.btn--soft:active,
+.btn--ghost:active,
+.btn--quiet:active,
+.btn--danger:active,
+.tw-comment-send:active,
+.chat-send:active,
+.send:active,
+.fab:active {
+  transform: scale(.975);
+}
+.icon-btn,
+.back-btn,
+.round,
+.act,
+.chat-attach-btn,
+.chat-voice-btn {
+  border: 1px solid var(--tweaklr-line);
+  transition: transform .16s ease, background .18s ease, border-color .18s ease;
+}
+.icon-btn:active,
+.back-btn:active,
+.round:active,
+.act:active,
+.chat-attach-btn:active,
+.chat-voice-btn:active {
+  transform: scale(.95);
+  background: var(--tweaklr-soft);
+}
+.chip,
+.tag-pill,
+.kind,
+.badge {
+  border-color: var(--tweaklr-line);
+  border-radius: 999px;
+}
+
+/* Form controls: inset surfaces and a restrained coffee focus ring. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select,
+.field input,
+.field textarea,
+.field select,
+.chat-composer textarea,
+.composer textarea {
+  border-color: var(--tweaklr-line);
+  border-radius: 15px;
+  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--coffee) 5%, transparent);
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+textarea:focus,
+select:focus,
+.field input:focus,
+.field textarea:focus,
+.field select:focus,
+.chat-composer textarea:focus,
+.composer textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--coffee) 65%, var(--border));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--coffee) 10%, transparent),
+              inset 0 1px 3px color-mix(in srgb, var(--coffee) 4%, transparent);
+}
+
+/* Bottom navigation and composer surfaces. */
+.nav,
+.composer,
+.chat-composer {
+  background: color-mix(in srgb, var(--surface) 91%, transparent);
+  border-color: var(--tweaklr-line);
+  backdrop-filter: saturate(155%) blur(20px);
+  -webkit-backdrop-filter: saturate(155%) blur(20px);
+}
+.nav {
+  box-shadow: 0 -12px 34px -30px color-mix(in srgb, var(--coffee) 65%, transparent);
+}
+.nav button.is-on {
+  color: var(--coffee);
+}
+.composer {
+  box-shadow: 0 -12px 30px -28px color-mix(in srgb, var(--coffee) 50%, transparent);
+}
+
+/* Sheets and dialogs — the strongest expression of the reference UI. */
+.sheet,
+.modal {
+  border: 1px solid var(--tweaklr-line);
+  background:
+    radial-gradient(220px 130px at 100% 0%, color-mix(in srgb, var(--coffee) 10%, transparent), transparent 78%),
+    linear-gradient(145deg, var(--surface), color-mix(in srgb, var(--surface-2) 76%, var(--surface)));
+  box-shadow: 0 -20px 55px -32px color-mix(in srgb, var(--coffee) 52%, transparent),
+              inset 0 1px 0 color-mix(in srgb, var(--surface) 80%, transparent);
+}
+.sheet .grab {
+  background: color-mix(in srgb, var(--coffee) 28%, var(--border));
+}
+.sheet-head,
+.sheet-foot {
+  border-color: var(--tweaklr-line);
+}
+.sheet-head {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--coffee) 7%, transparent), transparent 75%);
+}
+.sheet-head h3,
+.modal h2 {
+  letter-spacing: -.035em;
+  font-weight: 780;
+}
+
+/* Messaging: softer conversation surfaces and deliberate hierarchy. */
+.chat-bubble {
+  border: 1px solid var(--tweaklr-line);
+  border-radius: 4px 17px 17px 17px;
+  box-shadow: 0 7px 20px -18px color-mix(in srgb, var(--coffee) 55%, transparent);
+}
+.chat-message-row.is-mine .chat-bubble,
+.chat-bubble.is-mine {
+  border-color: color-mix(in srgb, var(--coffee) 25%, transparent);
+}
+.convo,
+.notif,
+.req,
+.now {
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+/* Existing Daily Update comments keep their established coffee palette,
+   while receiving the Business Comments spacing and surface language. */
+.tw-comments-toolbar {
+  padding: 7px 2px 15px;
+  border-bottom-color: var(--tweaklr-line);
+}
+.tw-comments-kicker,
+.tw-comments-live,
+.tw-comment-meta {
+  letter-spacing: .025em;
+}
+.tw-comment {
+  padding-top: 15px;
+}
+.tw-comment-bubble {
+  border-color: var(--tweaklr-line);
+  border-radius: 4px 16px 16px 16px;
+  background: linear-gradient(145deg, var(--surface-2), color-mix(in srgb, var(--surface) 72%, var(--surface-2)));
+  box-shadow: 0 7px 20px -18px color-mix(in srgb, var(--coffee) 50%, transparent);
+}
+.tw-comment-replies {
+  border-left-color: color-mix(in srgb, var(--coffee) 35%, var(--border));
+}
+.tw-comment-composer-wrap {
+  border-top-color: var(--tweaklr-line);
+}
+.tw-comment-composer textarea {
+  border-radius: 16px;
+  background: var(--bg);
+}
+.tw-comment-send {
+  border-radius: 14px;
+  background: var(--coffee);
+}
+.tw-comments-empty {
+  border-radius: 20px;
+}
+.tw-comments-empty>span {
+  border: 1px solid var(--tweaklr-line);
+  background: var(--tweaklr-soft);
+}
+
+/* Status, Pulse and Moonflower panels adopt the same layered surfaces
+   without changing their individual layouts or celestial artwork. */
+.tw-status-person,
+.pulse-glass,
+.pulse-tile,
+.tweak-video-card,
+.moon-glass,
+.moon-quiet,
+.orbit-goal,
+.track,
+.track-path,
+.chat-attachment,
+.chat-voice-note {
+  border-color: var(--tweaklr-line);
+  box-shadow: var(--tweaklr-shadow);
+}
+.pulse-glass,
+.pulse-tile,
+.tweak-video-card,
+.moon-glass,
+.moon-quiet,
+.orbit-goal {
+  border-radius: 21px;
+}
+
+/* Space content — visual treatment only; permissions and workflows untouched. */
+#screen-space .sp-card,
+#screen-space .sp-post,
+#screen-space .sp-panel,
+#screen-space .sp-member-card,
+#screen-space .sp-content-card,
+#screen-space .sp-task-card,
+#screen-space .sp-doc-card,
+#screen-space .sp-open-role {
+  border-color: var(--tweaklr-line);
+  border-radius: 19px;
+  box-shadow: var(--tweaklr-shadow), inset 0 1px 0 color-mix(in srgb, var(--surface) 65%, transparent);
+}
+#screen-space .sp-card,
+#screen-space .sp-post,
+#screen-space .sp-panel,
+#screen-space .sp-member-card,
+#screen-space .sp-content-card {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 95%, var(--coffee) 5%), var(--surface));
+}
+
+/* Accessible focus and reduced-motion behavior. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--coffee) 75%, transparent);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn, .icon-btn, .back-btn, .round, .act, .pcard, .ocard, .mcard,
+  .plcard, .acard, .conn-card, .sp-card, .sp-task-card, .sp-doc-card {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+  }
+}
