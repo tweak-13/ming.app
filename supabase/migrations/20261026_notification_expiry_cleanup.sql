@@ -27,7 +27,7 @@ create or replace function public.mark_tweaklr_notifications_read(p_notification
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   if auth.uid() is null then
