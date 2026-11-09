@@ -10110,9 +10110,9 @@ const BUSINESS_APP_TABS = [
   { key:'log', label:'Activity', glyph:'◷', feature:'audit' }
 ];
 function businessAppTabs(space) {
-  const role = Server.roleOf(space.id);
-  const canViewTeam = ['owner','admin','manager'].includes(role);
-  return BUSINESS_APP_TABS.filter(tab => (tab.key !== 'people' || canViewTeam) && (!tab.feature || space.features?.[tab.feature] !== false));
+  // Team is a shared Space section: every approved member can view the
+  // membership count. Administrative controls remain protected in the view.
+  return BUSINESS_APP_TABS.filter(tab => !tab.feature || space.features?.[tab.feature] !== false);
 }
 
 function openSpace(id, tab) {
@@ -11539,7 +11539,27 @@ VIEWS.business.work = space => {
   '<p class="sp-task-footnote">Tasks are shared with approved members of this Business Space. Updates, ownership and progress stay attached to each task.</p></div>';
 };
 
-VIEWS.business.people = s => membersView(s, 'Roles decide what each person can do. Changes are enforced on the server.');
+VIEWS.business.people = s => businessTeamView(s);
+
+function businessTeamView(s) {
+  const role = Server.roleOf(s.id);
+  const canManageTeam = ['owner', 'admin', 'manager'].includes(role);
+  const approvedCount = Server.db.members.filter(m => m.spaceId === s.id && m.approved !== false).length;
+
+  // Keep the full directory and management controls restricted to authorised roles.
+  if (canManageTeam) {
+    return membersView(s, 'Roles decide what each person can do. Changes are enforced on the server.');
+  }
+
+  return `<div class="sp-sec biz-team-public">
+    <div class="sp-card" style="padding:22px;text-align:center">
+      <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700">BUSINESS TEAM</div>
+      <div style="font-size:42px;line-height:1.15;font-weight:750;color:var(--text);margin:12px 0 4px">${approvedCount}</div>
+      <div style="font-size:14px;color:var(--muted)">approved ${approvedCount === 1 ? 'member' : 'members'}</div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.55;margin:14px auto 0;max-width:320px">The people who are part of this Business Space. Member details and team controls are available to authorised administrators.</p>
+    </div>
+  </div>`;
+}
 function auditEventLabel(event) {
   const labels = {
     'member.joined':'Member joined','member.role_changed':'Member role changed',
