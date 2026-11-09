@@ -12,11 +12,16 @@ create or replace function public.sync_tweaklr_notifications(p_notifications jso
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
-  if auth.uid() is null then
+  if (select auth.uid()) is null then
     raise exception 'Authentication required.' using errcode = '42501';
+  end if;
+  if jsonb_typeof(p_notifications) <> 'array'
+     or jsonb_array_length(coalesce(p_notifications,'[]'::jsonb)) > 200
+     or octet_length(coalesce(p_notifications,'[]'::jsonb)::text) > 100000 then
+    raise exception 'Notification snapshot is too large or invalid.' using errcode = '22023';
   end if;
 
   insert into public.user_notification_reads (user_id, notification_id, notification_payload, read_at)
@@ -32,5 +37,5 @@ begin
 end;
 $$;
 
-revoke all on function public.sync_tweaklr_notifications(jsonb) from public;
+revoke all on function public.sync_tweaklr_notifications(jsonb) from public, anon, authenticated;
 grant execute on function public.sync_tweaklr_notifications(jsonb) to authenticated;
