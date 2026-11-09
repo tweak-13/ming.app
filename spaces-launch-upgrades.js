@@ -27,22 +27,22 @@ FEATURE_OPTIONS.anonymous=[
 HEADERS.anonymous=s=>spBar(s,{meta:'Anonymous · identity protected'})+
  '<div class="anon-private-strip"><span>◉</span><div><b>Anonymous by design</b><small>Names and profile details are never shown on this wall.</small></div></div>';
 
-function postCard(p){
+function postCard(p,commentsEnabled){
  const comments=Array.isArray(p.comments)?p.comments:[];
  return '<article class="anon-post"><div class="anon-post__top"><span class="anon-avatar" aria-hidden="true">?</span><div><b>Anonymous member</b><small>'+safe(when(p.created_at))+'</small></div><span class="anon-tag">ANONYMOUS</span></div>'+
- '<p class="anon-post__body">'+safe(p.body)+'</p><div class="anon-post__foot"><button type="button" data-anon="comments:'+p.id+'">↳ '+comments.length+' '+(comments.length===1?'reply':'replies')+'</button>'+
+ '<p class="anon-post__body">'+safe(p.body)+'</p><div class="anon-post__foot">'+(commentsEnabled?'<button type="button" data-anon="comments:'+p.id+'">↳ '+comments.length+' '+(comments.length===1?'reply':'replies')+'</button>':'<span class="anon-tag">REPLIES PAUSED</span>')+' '+
  ((p.is_mine||p.can_moderate)?'<button type="button" class="anon-delete" data-anon="delete-post:'+p.id+'">Remove</button>':'')+'</div></article>';
 }
 function anonymousWall(s){
- const st=stateFor(s.id); if(!st.loaded&&!st.loading) void loadFeed(s.id);
+ const st=stateFor(s.id),postsEnabled=s.features?.anonymousPosts!==false,commentsEnabled=s.features?.anonymousComments!==false; if(!st.loaded&&!st.loading) void loadFeed(s.id);
  let html='<div class="anon-space"><section class="anon-hero"><span class="anon-kicker">TWEAKLR · ANONYMOUS SPACE</span><div class="anon-hero__mark">?</div>'+
  '<h2>Say what you<br><em>can’t say elsewhere.</em></h2><p>A place for honest thoughts, without names attached. Posts and replies stay inside this Space.</p>'+
- '<button type="button" class="anon-compose" data-anon="compose">＋ Write anonymously</button><div class="anon-privacy-line"><span>●</span> Your profile is not displayed on posts or comments</div></section>'+
+ (postsEnabled?'<button type="button" class="anon-compose" data-anon="compose">＋ Write anonymously</button>':'<span class="anon-compose-disabled">Posting is paused by the Space owner.</span>')+'<div class="anon-privacy-line"><span>●</span> Your profile is not displayed on posts or comments</div></section>'+
  '<section class="anon-feed"><div class="anon-feed__heading"><div><span>THE WALL</span><h3>What’s on your mind?</h3></div><small>'+(st.loaded?st.posts.length+' posts':'Private feed')+'</small></div>';
  if(st.loading) html+='<div class="anon-empty"><span class="anon-loader"></span><p>Opening the anonymous wall…</p></div>';
  if(st.error) html+='<div class="anon-empty"><p>'+safe(st.error)+'</p><button type="button" data-anon="retry">Try again</button></div>';
  if(st.loaded&&!st.posts.length) html+='<div class="anon-empty"><span>✧</span><h3>A blank page. A fresh start.</h3><p>Be the first to share something. Your identity stays private.</p><button type="button" data-anon="compose">Write the first post</button></div>';
- html+=st.posts.map(postCard).join('')+'</section><p class="anon-footnote">Anonymity protects your identity from other members, not from platform safety processes or lawful requests. Be respectful and never share passwords, private contact details or identifying information.</p></div>';
+ html+=st.posts.map(p=>postCard(p,commentsEnabled)).join('')+'</section><p class="anon-footnote">Anonymity protects your identity from other members, not from platform safety processes or lawful requests. Be respectful and never share passwords, private contact details or identifying information.</p></div>';
  return html;
 }
 VIEWS.anonymous={wall:anonymousWall};
@@ -73,16 +73,18 @@ document.addEventListener('click',async e=>{
  const el=e.target.closest('[data-anon]'); if(!el)return;
  const bits=el.dataset.anon.split(':'); const action=bits[0],id=bits[1],spaceId=sp.activeId;
  if(!spaceId||spaceById(spaceId)?.nature!=='anonymous')return;
- if(action==='compose'){compose();return;}
+ if(action==='compose'){if(spaceById(spaceId)?.features?.anonymousPosts===false){toast('Anonymous posting is paused in this Space.','info');return;}compose();return;}
  if(action==='retry'){await reload(spaceId);return;}
- if(action==='comments'){comments(id);return;}
+ if(action==='comments'){if(spaceById(spaceId)?.features?.anonymousComments===false){toast('Anonymous replies are paused in this Space.','info');return;}comments(id);return;}
  if(action==='submit-post'){
+  if(spaceById(spaceId)?.features?.anonymousPosts===false){toast('Anonymous posting is paused in this Space.','info');return;}
   const body=document.getElementById('anon-post-body')?.value.trim()||'';if(!body){toast('Write something before publishing.','x');return;}
   el.disabled=true;const r=await supabaseClient.rpc('create_ming_anonymous_post',{p_space_id:spaceId,p_body:body});
   if(r.error){el.disabled=false;toast(r.error.message||'Your post could not be published.','x');return;}
   closeSheet();toast('Posted anonymously','check');await reload(spaceId);return;
  }
  if(action==='submit-comment'){
+  if(spaceById(spaceId)?.features?.anonymousComments===false){toast('Anonymous replies are paused in this Space.','info');return;}
   const body=document.getElementById('anon-comment-body')?.value.trim()||'';if(!body){toast('Write a reply first.','x');return;}
   el.disabled=true;const r=await supabaseClient.rpc('add_ming_anonymous_comment',{p_post_id:id,p_body:body});
   if(r.error){el.disabled=false;toast(r.error.message||'Your reply could not be saved.','x');return;}
