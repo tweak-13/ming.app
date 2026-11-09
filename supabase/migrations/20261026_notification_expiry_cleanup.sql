@@ -11,10 +11,6 @@ begin
   if (select auth.uid()) is null then
     raise exception 'Authentication required.' using errcode = '42501';
   end if;
-  if coalesce(cardinality(p_notification_ids),0) > 500 then
-    raise exception 'Too many notification IDs in one request.' using errcode = '22023';
-  end if;
-
   update public.user_notification_reads
   set notification_payload = null
   where user_id = (select auth.uid())
@@ -28,10 +24,13 @@ returns void
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $
 begin
-  if auth.uid() is null then
+  if (select auth.uid()) is null then
     raise exception 'Authentication required.' using errcode = '42501';
+  end if;
+  if coalesce(cardinality(p_notification_ids),0) > 500 then
+    raise exception 'Too many notification IDs in one request.' using errcode = '22023';
   end if;
 
   insert into public.user_notification_reads (user_id, notification_id, read_at)
@@ -46,7 +45,7 @@ begin
 
   update public.user_notification_reads
   set notification_payload = null
-  where user_id = auth.uid()
+  where user_id = (select auth.uid())
     and read_at is not null
     and read_at <= now() - interval '24 hours';
 end;
