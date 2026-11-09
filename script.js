@@ -2082,7 +2082,11 @@ async function loadMingDailyUpdateComments(updateId) {
       id: row.id,
       authorId: row.author_id,
       text: row.body,
-      at: new Date(row.created_at).getTime()
+      at: new Date(row.created_at).getTime(),
+      updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : new Date(row.created_at).getTime(),
+      parentCommentId: row.parent_comment_id || null,
+      likesCount: Number(row.likes_count || 0),
+      likedByMe: !!row.liked_by_me
     };
   });
 
@@ -2627,76 +2631,214 @@ async function toggleLike(id) {
   }
 }
 
-async function openComments(id) {
-  const u = dailyUpdates.find(x => x.id === id);
-  if (!u) return;
 
-  const loadedComments = await loadMingDailyUpdateComments(id);
-  if (loadedComments === null) {
-    toast('Could not load replies.', 'alert');
-    return;
+let activeDailyUpdateCommentReplyTo = null;
+let editingDailyUpdateCommentId = null;
+
+function renderDailyUpdateComment(comment, replies = []) {
+  const profile = comment.authorId === currentUser.id ? currentUser : (byId(comment.authorId) || { id: comment.authorId, name: 'Tweaklr user', short: 'Tweaklr user', avatarUrl: '' });
+  const mine = comment.authorId === currentUser.id;
+  const edited = Number(comment.updatedAt || 0) > Number(comment.at || 0) + 1000;
+  const editing = editingDailyUpdateCommentId === comment.id;
+  let actions = '';
+  if (!editing) {
+    actions = '<button type="button" data-comment-action="reply" data-comment-id="' + esc(comment.id) + '">Reply</button>' +
+      '<button type="button" data-comment-action="like" data-comment-id="' + esc(comment.id) + '" aria-pressed="' + (comment.likedByMe ? 'true' : 'false') + '" class="' + (comment.likedByMe ? 'is-liked' : '') + '">' + icon('heart') + ' <span>' + Number(comment.likesCount || 0) + '</span></button>' +
+      (mine ? '<button type="button" data-comment-action="edit" data-comment-id="' + esc(comment.id) + '">Edit</button><button type="button" data-comment-action="delete" data-comment-id="' + esc(comment.id) + '">Delete</button>' : '');
   }
-
-  u.comments = loadedComments;
-  u.commentsCount = loadedComments.length;
-  state.sheetCtx = { type: 'comments', id };
-
-  const body = u.comments.length ? u.comments.map(c => {
-    const p = c.authorId === currentUser.id ? currentUser : byId(c.authorId);
-    return `<div style="display:flex;gap:11px;padding:11px 0;border-top:1px solid var(--border)">
-      ${avatar(p, 36)}
-      <div><div style="font-size:13.5px;font-weight:560">${esc(p.short || p.name)} <span style="color:var(--muted);font-weight:400">· ${esc(timeAgo(c.at))}</span></div>
-      <div style="font-size:14px;margin-top:3px;line-height:1.45">${esc(c.text)}</div></div>
-    </div>`;
-  }).join('') : `<p style="padding:18px 0;color:var(--muted);font-size:13.5px;text-align:center">No replies yet. Say something useful.</p>`;
-
-  openSheet({
-    title: u.title,
-    sub: `${u.commentsCount} ${u.commentsCount === 1 ? 'reply' : 'replies'} · ${lifeLabel(u)}`,
-    body,
-    foot: `<form id="comment-form" style="display:flex;gap:9px;align-items:flex-end">
-      <textarea id="comment-input" rows="1" placeholder="Write a reply" aria-label="Write a reply"
-        style="flex:1;min-height:44px;max-height:100px;padding:11px 15px;border-radius:22px;border:1px solid var(--border);background:var(--bg);font-size:15px;resize:none;outline:none"></textarea>
-      <button class="send" type="submit" aria-label="Post reply">${icon('send')}</button>
-    </form>`
-  });
-
-  $('#comment-form').addEventListener('submit', async e => {
-    e.preventDefault();
-    const inp = $('#comment-input');
-    const text = inp.value.trim();
-    if (!text) return;
-
-    const { data: row, error } = await supabaseClient
-      .from('daily_update_comments')
-      .insert({
-        update_id: id,
-        author_id: currentUser.id,
-        body: text
-      })
-      .select('id, created_at')
-      .single();
-
-    if (error) {
-      console.warn('Tweaklr: Daily Update reply failed.', error.message);
-      toast('Could not post reply.', 'alert');
-      return;
-    }
-
-    u.comments.push({
-      id: row.id,
-      authorId: currentUser.id,
-      text,
-      at: new Date(row.created_at).getTime()
-    });
-    u.commentsCount = u.comments.length;
-    inp.value = '';
-    rerenderFeeds();
-    openComments(id);
-    toast('Reply posted', 'check');
-  });
+  const content = editing
+    ? '<form class="tw-comment-edit-form" data-comment-edit-form="' + esc(comment.id) + '"><textarea maxlength="1000" required data-comment-edit-input>' + esc(comment.text) + '</textarea><div><button type="button" data-comment-action="cancel-edit">Cancel</button><button type="submit">Save changes</button></div></form>'
+    : '<div class="tw-comment-text">' + esc(comment.text) + '</div>';
+  const repliesHtml = replies.length ? '<div class="tw-comment-replies">' + replies.map(reply => renderDailyUpdateComment(reply, [])).join('') + '</div>' : '';
+  return '<article class="tw-comment" data-comment-id="' + esc(comment.id) + '">' +
+    '<div class="tw-comment-main"><div class="tw-comment-avatar">' + avatar(profile, 36) + '</div>' +
+    '<div class="tw-comment-content"><div class="tw-comment-bubble"><div class="tw-comment-author">' + esc(profile.short || profile.name || 'Tweaklr user') + '</div>' + content + '</div>' +
+    '<div class="tw-comment-meta"><span>' + esc(timeAgo(comment.at)) + (edited ? ' · Edited' : '') + '</span><div class="tw-comment-actions">' + actions + '</div></div></div></div>' +
+    repliesHtml + '</article>';
 }
 
+function paintDailyUpdateComments(id, focusComposer = false) {
+  const update = dailyUpdates.find(item => item.id === id);
+  if (!update) return;
+  const comments = Array.isArray(update.comments) ? update.comments : [];
+  const byParent = new Map();
+  comments.forEach(comment => {
+    const key = comment.parentCommentId || '';
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key).push(comment);
+  });
+  const roots = byParent.get('') || [];
+  const replyTarget = comments.find(comment => comment.id === activeDailyUpdateCommentReplyTo);
+  const rows = roots.length
+    ? roots.map(comment => renderDailyUpdateComment(comment, byParent.get(comment.id) || [])).join('')
+    : '<div class="tw-comments-empty"><span>' + icon('message-circle') + '</span><strong>Start the conversation</strong><p>Share a thought or ask a question about this update.</p></div>';
+  const body = '<section class="tw-comments-panel" aria-label="Comments on ' + esc(update.title) + '">' +
+    '<div class="tw-comments-toolbar"><div><span class="tw-comments-kicker">THE CONVERSATION</span><strong>' + comments.length + ' ' + (comments.length === 1 ? 'comment' : 'comments') + '</strong></div><span class="tw-comments-live"><i></i> Conversation</span></div>' +
+    '<div class="tw-comments-list" aria-live="polite">' + rows + '</div></section>';
+  const replyName = replyTarget && (replyTarget.authorId === currentUser.id ? 'your comment' : (byId(replyTarget.authorId)?.short || byId(replyTarget.authorId)?.name || 'comment'));
+  const replyBanner = replyTarget
+    ? '<div class="tw-comment-replying"><span>Replying to <strong>' + esc(replyName) + '</strong></span><button type="button" data-comment-action="cancel-reply" aria-label="Cancel reply">' + icon('x') + '</button></div>'
+    : '';
+  const foot = '<div class="tw-comment-composer-wrap">' + replyBanner +
+    '<form id="comment-form" class="tw-comment-composer"><div class="tw-comment-compose-avatar">' + avatar(currentUser, 34) + '</div>' +
+    '<textarea id="comment-input" rows="1" maxlength="1000" placeholder="' + (replyTarget ? 'Write your reply…' : 'Add to the conversation…') + '" aria-label="' + (replyTarget ? 'Write a reply' : 'Write a comment') + '"></textarea>' +
+    '<button class="tw-comment-send" type="submit" aria-label="' + (replyTarget ? 'Post reply' : 'Post comment') + '">' + icon('arrow-up') + '</button></form>' +
+    '<div class="tw-comment-compose-hint"><span>Be kind. Keep it thoughtful.</span><span id="tw-comment-char-count">0 / 1000</span></div></div>';
+  openSheet({ title: 'Comments', sub: update.title + ' · ' + lifeLabel(update), body: body, foot: foot });
+
+  const form = $('#comment-form');
+  const input = $('#comment-input');
+  const count = $('#tw-comment-char-count');
+  if (input && count) input.addEventListener('input', () => { count.textContent = input.value.length + ' / 1000'; });
+  $('#sheet-body').addEventListener('click', handleDailyUpdateCommentAction);
+  $('#sheet-foot').addEventListener('click', handleDailyUpdateCommentAction);
+
+  form?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const bodyText = input?.value.trim() || '';
+    if (!bodyText) return;
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) submit.disabled = true;
+    if (input) input.disabled = true;
+    const { error } = await supabaseClient.from('daily_update_comments').insert({
+      update_id: id, author_id: currentUser.id, body: bodyText,
+      parent_comment_id: activeDailyUpdateCommentReplyTo
+    });
+    if (error) {
+      console.warn('Tweaklr: Daily Update comment failed.', error.message);
+      toast('Could not post your comment.', 'alert');
+      if (submit) submit.disabled = false;
+      if (input) input.disabled = false;
+      return;
+    }
+    activeDailyUpdateCommentReplyTo = null;
+    editingDailyUpdateCommentId = null;
+    const loaded = await loadMingDailyUpdateComments(id);
+    if (loaded !== null) {
+      update.comments = loaded;
+      update.commentsCount = loaded.length;
+      rerenderFeeds();
+      paintDailyUpdateComments(id);
+      toast('Comment posted', 'check');
+    } else {
+      toast('Comment posted, but the conversation could not refresh.', 'alert');
+    }
+  });
+
+  $('#sheet-body').querySelectorAll('[data-comment-edit-form]').forEach(editForm => {
+    editForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const commentId = editForm.getAttribute('data-comment-edit-form');
+      const value = editForm.querySelector('[data-comment-edit-input]')?.value.trim() || '';
+      if (!value) return;
+      const save = editForm.querySelector('button[type="submit"]');
+      if (save) save.disabled = true;
+      const { error } = await supabaseClient.rpc('edit_daily_update_comment', { p_comment_id: commentId, p_body: value });
+      if (error) {
+        console.warn('Tweaklr: comment edit failed.', error.message);
+        toast('Could not save your edit.', 'alert');
+        if (save) save.disabled = false;
+        return;
+      }
+      editingDailyUpdateCommentId = null;
+      const loaded = await loadMingDailyUpdateComments(id);
+      if (loaded !== null) {
+        update.comments = loaded;
+        update.commentsCount = loaded.length;
+        rerenderFeeds();
+        paintDailyUpdateComments(id);
+        toast('Comment updated', 'check');
+      }
+    });
+  });
+  if (focusComposer && input) input.focus();
+}
+
+async function handleDailyUpdateCommentAction(event) {
+  const button = event.target.closest('[data-comment-action]');
+  if (!button) return;
+  const action = button.getAttribute('data-comment-action');
+  const commentId = button.getAttribute('data-comment-id');
+  const updateId = state.sheetCtx?.type === 'comments' ? state.sheetCtx.id : null;
+  const update = dailyUpdates.find(item => item.id === updateId);
+  if (!update) return;
+  if (action === 'cancel-reply') {
+    activeDailyUpdateCommentReplyTo = null;
+    paintDailyUpdateComments(updateId);
+    return;
+  }
+  if (action === 'cancel-edit') {
+    editingDailyUpdateCommentId = null;
+    paintDailyUpdateComments(updateId);
+    return;
+  }
+  if (action === 'reply') {
+    activeDailyUpdateCommentReplyTo = commentId;
+    editingDailyUpdateCommentId = null;
+    paintDailyUpdateComments(updateId, true);
+    return;
+  }
+  if (action === 'edit') {
+    editingDailyUpdateCommentId = commentId;
+    activeDailyUpdateCommentReplyTo = null;
+    paintDailyUpdateComments(updateId);
+    return;
+  }
+  if (action === 'like') {
+    button.disabled = true;
+    const { error } = await supabaseClient.rpc('toggle_daily_update_comment_like', { p_comment_id: commentId });
+    if (error) {
+      console.warn('Tweaklr: comment reaction failed.', error.message);
+      toast('Could not update your reaction.', 'alert');
+    }
+    const loaded = await loadMingDailyUpdateComments(updateId);
+    if (loaded !== null) {
+      update.comments = loaded;
+      update.commentsCount = loaded.length;
+      rerenderFeeds();
+      paintDailyUpdateComments(updateId);
+    }
+    return;
+  }
+  if (action === 'delete') {
+    const target = update.comments.find(comment => comment.id === commentId);
+    if (!target || target.authorId !== currentUser.id) return;
+    if (!window.confirm('Delete this comment? Any replies to it will also be deleted.')) return;
+    button.disabled = true;
+    const { error } = await supabaseClient.from('daily_update_comments').delete().eq('id', commentId).eq('author_id', currentUser.id);
+    if (error) {
+      console.warn('Tweaklr: comment delete failed.', error.message);
+      toast('Could not delete your comment.', 'alert');
+      button.disabled = false;
+      return;
+    }
+    activeDailyUpdateCommentReplyTo = null;
+    const loaded = await loadMingDailyUpdateComments(updateId);
+    if (loaded !== null) {
+      update.comments = loaded;
+      update.commentsCount = loaded.length;
+      rerenderFeeds();
+      paintDailyUpdateComments(updateId);
+      toast('Comment deleted', 'check');
+    }
+  }
+}
+
+async function openComments(id) {
+  const update = dailyUpdates.find(item => item.id === id);
+  if (!update) return;
+  activeDailyUpdateCommentReplyTo = null;
+  editingDailyUpdateCommentId = null;
+  const loaded = await loadMingDailyUpdateComments(id);
+  if (loaded === null) {
+    toast('Could not load comments. Please try again.', 'alert');
+    return;
+  }
+  update.comments = loaded;
+  update.commentsCount = loaded.length;
+  state.sheetCtx = { type: 'comments', id };
+  paintDailyUpdateComments(id);
+}
 function deleteUpdate(id) {
   openModal({
     title: 'Delete this update?',
