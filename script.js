@@ -13086,13 +13086,14 @@ document.addEventListener('click', async e => {
 });
 
 const ROLE_COPY = {
-  admin: 'Can manage members, assign eligible roles, invite and moderate. Cannot delete the Space or its owner.',
-  manager: 'Can coordinate work and moderate assigned Space activity, but cannot manage members or roles.',
-  moderator: 'Can moderate content and resolve disputes, but cannot remove members or appoint admins.',
+  owner: 'Creator with full control. Can appoint admins, remove any other member and delete the Space.',
+  admin: 'Can remove members, assign non-admin roles and regenerate invitations. Cannot appoint another admin, remove the owner or delete the Space.',
+  manager: 'Can coordinate work and manage shared Business Space documents, but cannot manage members or roles.',
+  moderator: 'Can moderate content and help resolve disputes, but cannot remove members or appoint admins.',
   seller: 'Can create and manage their own Marketplace listings.',
   buyer: 'Can buy, bid where enabled and open disputes.',
   member: 'Can view the directory, open member profiles, post and participate.',
-  guest: 'Can view permitted Space content but cannot post or manage members.'
+  guest: 'Read-only access: can view permitted content and the member directory, but cannot post, react, comment, upload or manage members.'
 };
 
 /* silly mini-game */
