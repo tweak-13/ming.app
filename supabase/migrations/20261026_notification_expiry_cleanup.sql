@@ -5,16 +5,19 @@ create or replace function public.cleanup_tweaklr_expired_notifications()
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
-  if auth.uid() is null then
+  if (select auth.uid()) is null then
     raise exception 'Authentication required.' using errcode = '42501';
+  end if;
+  if coalesce(cardinality(p_notification_ids),0) > 500 then
+    raise exception 'Too many notification IDs in one request.' using errcode = '22023';
   end if;
 
   update public.user_notification_reads
   set notification_payload = null
-  where user_id = auth.uid()
+  where user_id = (select auth.uid())
     and read_at is not null
     and read_at <= now() - interval '24 hours';
 end;
@@ -32,7 +35,7 @@ begin
   end if;
 
   insert into public.user_notification_reads (user_id, notification_id, read_at)
-  select auth.uid(), item.notification_id, now()
+  select (select auth.uid()), item.notification_id, now()
   from (
     select distinct unnest(coalesce(p_notification_ids, array[]::text[])) as notification_id
   ) as item
@@ -49,7 +52,7 @@ begin
 end;
 $$;
 
-revoke all on function public.cleanup_tweaklr_expired_notifications() from public;
+revoke all on function public.cleanup_tweaklr_expired_notifications() from public, anon, authenticated;
 grant execute on function public.cleanup_tweaklr_expired_notifications() to authenticated;
-revoke all on function public.mark_tweaklr_notifications_read(text[]) from public;
+revoke all on function public.mark_tweaklr_notifications_read(text[]) from public, anon, authenticated;
 grant execute on function public.mark_tweaklr_notifications_read(text[]) to authenticated;
