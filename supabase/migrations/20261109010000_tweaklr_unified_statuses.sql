@@ -60,7 +60,7 @@ alter table public.tweaklr_status_mutes enable row level security;
 revoke all on public.tweaklr_status_mutes from anon, authenticated;
 
 create or replace function public.tweaklr_status_can_view(p_status public.tweaklr_statuses, p_user uuid)
-returns boolean language plpgsql stable security definer set search_path=public as $$
+returns boolean language plpgsql stable security definer set search_path = '' as $$
 declare v_connected boolean := false; v_member boolean := false;
 begin
  if p_user is null then return false; end if;
@@ -88,7 +88,7 @@ create or replace function public.create_tweaklr_status(
  p_scope text,p_space_id uuid,p_status_type text,p_caption text,p_media_path text,p_media_mime text,
  p_text_background text default '#5B332A',p_audience text default 'connections',
  p_included_user_ids uuid[] default '{}',p_excluded_user_ids uuid[] default '{}'
-) returns uuid language plpgsql security definer set search_path=public as $$
+) returns uuid language plpgsql security definer set search_path = '' as $$
 declare v_user uuid:=auth.uid(); v_space public.ming_spaces; v_id uuid;
 begin
  if v_user is null then raise exception 'Authentication required'; end if;
@@ -116,7 +116,7 @@ end $$;
 
 create or replace function public.get_tweaklr_statuses(p_scope text,p_space_id uuid default null)
 returns table(id uuid,author_id uuid,status_type text,caption text,media_path text,media_mime text,text_background text,created_at timestamptz,expires_at timestamptz,view_count integer,viewed boolean,is_mine boolean,my_reaction text,author_username text,author_display_name text,author_avatar_url text)
-language sql stable security definer set search_path=public as $$
+language sql stable security definer set search_path = '' as $$
  select s.id,s.author_id,s.status_type,s.caption,s.media_path,s.media_mime,s.text_background,s.created_at,s.expires_at,
    (select count(*)::integer from public.tweaklr_status_views v where v.status_id=s.id),
    exists(select 1 from public.tweaklr_status_views v where v.status_id=s.id and v.viewer_id=auth.uid()),
@@ -130,7 +130,7 @@ language sql stable security definer set search_path=public as $$
 $$;
 
 create or replace function public.mark_tweaklr_status_viewed(p_status_id uuid)
-returns boolean language plpgsql security definer set search_path=public as $$
+returns boolean language plpgsql security definer set search_path = '' as $$
 declare v_status public.tweaklr_statuses;
 begin
  select * into v_status from public.tweaklr_statuses where id=p_status_id;
@@ -142,7 +142,7 @@ end $$;
 
 create or replace function public.get_tweaklr_status_viewers(p_status_id uuid)
 returns table(viewer_id uuid,viewed_at timestamptz,username text,display_name text,avatar_url text)
-language plpgsql stable security definer set search_path=public as $$
+language plpgsql stable security definer set search_path = '' as $$
 begin
  if not exists(select 1 from public.tweaklr_statuses s where s.id=p_status_id and s.author_id=auth.uid()) then raise exception 'Only the status owner can see viewers'; end if;
  return query select v.viewer_id,v.viewed_at,p.username,p.display_name,p.avatar_url
@@ -151,7 +151,7 @@ begin
 end $$;
 
 create or replace function public.delete_tweaklr_status(p_status_id uuid)
-returns text language plpgsql security definer set search_path=public as $$
+returns text language plpgsql security definer set search_path = '' as $$
 declare v_path text;
 begin
  delete from public.tweaklr_statuses where id=p_status_id and author_id=auth.uid() returning media_path into v_path;
@@ -160,7 +160,7 @@ begin
 end $$;
 
 create or replace function public.set_tweaklr_status_reaction(p_status_id uuid,p_reaction text)
-returns text language plpgsql security definer set search_path=public as $$
+returns text language plpgsql security definer set search_path = '' as $$
 declare v_status public.tweaklr_statuses; v_existing text;
 begin
  select * into v_status from public.tweaklr_statuses where id=p_status_id;
@@ -174,7 +174,7 @@ begin
 end $$;
 
 create or replace function public.toggle_tweaklr_status_mute(p_author_id uuid,p_muted boolean)
-returns boolean language plpgsql security definer set search_path=public as $$
+returns boolean language plpgsql security definer set search_path = '' as $$
 begin
  if p_author_id=auth.uid() then raise exception 'You cannot mute your own statuses'; end if;
  if p_muted then insert into public.tweaklr_status_mutes(user_id,author_id) values(auth.uid(),p_author_id) on conflict do nothing;
@@ -182,7 +182,7 @@ begin
  return p_muted;
 end $$;
 
-revoke all on function public.tweaklr_status_can_view(public.tweaklr_statuses,uuid) from public,anon;
+revoke all on function public.tweaklr_status_can_view(public.tweaklr_statuses,uuid) from public,anon,authenticated;
 revoke all on function public.create_tweaklr_status(text,uuid,text,text,text,text,text,text,uuid[],uuid[]) from public,anon;
 revoke all on function public.get_tweaklr_statuses(text,uuid) from public,anon;
 revoke all on function public.mark_tweaklr_status_viewed(uuid) from public,anon;
@@ -210,12 +210,12 @@ alter table public.tweaklr_status_settings enable row level security;
 revoke all on public.tweaklr_status_settings from anon,authenticated;
 
 create or replace function public.get_tweaklr_status_read_receipts()
-returns boolean language sql stable security definer set search_path=public as $$
+returns boolean language sql stable security definer set search_path = '' as $$
  select coalesce((select s.read_receipts from public.tweaklr_status_settings s where s.user_id=auth.uid()),true);
 $$;
 
 create or replace function public.set_tweaklr_status_read_receipts(p_enabled boolean)
-returns boolean language plpgsql security definer set search_path=public as $$
+returns boolean language plpgsql security definer set search_path = '' as $$
 begin
  if auth.uid() is null then raise exception 'Authentication required'; end if;
  insert into public.tweaklr_status_settings(user_id,read_receipts,updated_at)
@@ -225,7 +225,7 @@ begin
 end $$;
 
 create or replace function public.mark_tweaklr_status_viewed(p_status_id uuid)
-returns boolean language plpgsql security definer set search_path=public as $$
+returns boolean language plpgsql security definer set search_path = '' as $$
 declare v_status public.tweaklr_statuses;
 begin
  select * into v_status from public.tweaklr_statuses where id=p_status_id;
@@ -238,7 +238,7 @@ end $$;
 
 create or replace function public.get_tweaklr_status_viewers(p_status_id uuid)
 returns table(viewer_id uuid,viewed_at timestamptz,username text,display_name text,avatar_url text)
-language plpgsql stable security definer set search_path=public as $$
+language plpgsql stable security definer set search_path = '' as $$
 begin
  if not exists(select 1 from public.tweaklr_statuses s where s.id=p_status_id and s.author_id=auth.uid()) then raise exception 'Only the status owner can see viewers'; end if;
  if not public.get_tweaklr_status_read_receipts() then return; end if;
@@ -255,7 +255,7 @@ notify pgrst,'reload schema';
 
 create or replace function public.get_tweaklr_muted_status_authors()
 returns table(author_id uuid,username text,display_name text,avatar_url text)
-language sql stable security definer set search_path=public as $$
+language sql stable security definer set search_path = '' as $$
  select m.author_id,p.username,p.display_name,p.avatar_url
  from public.tweaklr_status_mutes m
  join public.profiles p on p.id=m.author_id
@@ -265,3 +265,124 @@ $$;
 revoke all on function public.get_tweaklr_muted_status_authors() from public,anon;
 grant execute on function public.get_tweaklr_muted_status_authors() to authenticated;
 notify pgrst,'reload schema';
+
+
+-- Storage objects are private by reference, not by bucket membership alone.
+-- Keep post media readable only by its owner, by users who can see a live
+-- Daily Update, by approved members of the owning Space, or by a permitted
+-- Status audience. This prevents signed-URL generation from bypassing the
+-- Status privacy RPC.
+create or replace function private.can_read_ming_post_media(p_path text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select (select auth.uid()) is not null
+    and p_path is not null
+    and (
+      split_part(p_path, '/', 1) = (select auth.uid())::text
+      or exists (
+        select 1
+        from public.daily_updates du
+        where du.created_at > now() - interval '24 hours'
+          and coalesce(du.media, '[]'::jsonb)
+            @> jsonb_build_array(jsonb_build_object('path', p_path))
+      )
+      or exists (
+        select 1
+        from public.ming_space_content c
+        join public.ming_space_members m
+          on m.space_id = c.space_id
+         and m.user_id = (select auth.uid())
+         and m.approved = true
+        where coalesce(c.payload->'media', '[]'::jsonb)
+          @> jsonb_build_array(jsonb_build_object('path', p_path))
+      )
+      or exists (
+        select 1
+        from public.tweaklr_statuses s
+        where s.media_path = p_path
+          and public.tweaklr_status_can_view(s, (select auth.uid()))
+      )
+    );
+$function$;
+
+revoke all on function private.can_read_ming_post_media(text) from public, anon;
+grant usage on schema private to authenticated;
+grant execute on function private.can_read_ming_post_media(text) to authenticated;
+
+drop policy if exists "Authenticated users can view Ming post media" on storage.objects;
+create policy "Authenticated users can view permitted Ming post media"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'ming-post-media'
+  and private.can_read_ming_post_media(name)
+);
+
+-- The voice helper is needed by Storage RLS, not as a public RPC. Move it to
+-- the private schema and keep its row-level membership/privacy checks.
+create or replace function private.can_read_ming_business_comment_voice(p_voice_path text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select (select auth.uid()) is not null and exists (
+    select 1
+    from public.ming_comments c
+    join public.ming_space_content p
+      on p.id = c.target_id and p.space_id = c.space_id
+      and (
+        (p.kind = 'business_post' and exists (
+          select 1 from public.ming_spaces sb
+          where sb.id = c.space_id and sb.nature = 'business'
+        ))
+        or
+        (p.kind = 'friend_post' and exists (
+          select 1 from public.ming_spaces sf
+          where sf.id = c.space_id and sf.nature = 'friendly'
+        ))
+      )
+    join public.ming_space_members m
+      on m.space_id = c.space_id
+     and m.user_id = (select auth.uid())
+     and m.approved = true
+    where c.target_type = 'space_content'
+      and c.voice_path = p_voice_path
+      and (
+        c.visibility <> 'private_to_post_author'
+        or c.author_id = (select auth.uid())
+        or p.author_id = (select auth.uid())
+      )
+  );
+$function$;
+
+revoke all on function private.can_read_ming_business_comment_voice(text) from public, anon;
+grant usage on schema private to authenticated;
+grant execute on function private.can_read_ming_business_comment_voice(text) to authenticated;
+
+revoke all on function public.can_read_ming_business_comment_voice(text) from public, anon, authenticated;
+drop policy if exists "Business comment voice read permitted" on storage.objects;
+create policy "Business comment voice read permitted"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'ming-business-comment-voice'
+  and private.can_read_ming_business_comment_voice(name)
+);
+
+-- Uploaded voice objects must be owned by the authenticated uploader.
+alter policy "Business comment voice upload own"
+on storage.objects
+with check (
+  bucket_id = 'ming-business-comment-voice'
+  and owner_id = (select auth.uid())::text
+);
+
+notify pgrst, 'reload schema';
