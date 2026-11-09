@@ -6964,9 +6964,6 @@ function playMingNotificationSound() {
 
 function showMingNotificationPopup(notification) {
   if (!notification || notification.read) return;
-  // Quiet Mode is scoped to an open Casual Space. Keep notifications in the
-  // inbox, but do not show a popup or play its sound while that Space is active.
-  if (typeof window.tweaklrQuietModeActive === 'function' && window.tweaklrQuietModeActive()) return;
   const host = ensureMingNotificationPopupHost();
   const popup = document.createElement('button');
   popup.type = 'button';
