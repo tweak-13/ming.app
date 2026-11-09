@@ -27,3 +27,12 @@ body:has(#auth-screen){background:radial-gradient(ellipse at 50% 0%,rgba(105,66,
 #auth-screen .auth-switch button{color:#e2b995;font-weight:800;background:none;border:0;padding:4px}
 #auth-screen .auth-form[hidden]{display:none!important}
 @media(max-width:380px){#auth-screen .auth-card{padding:22px 18px;border-radius:23px}}
+
+
+#auth-screen .auth-forgot{text-align:right;margin:-7px 0 14px}
+#auth-screen .auth-forgot button{border:0;background:transparent;color:#d9ad8a;font-size:10.5px;font-weight:750;padding:5px 0;cursor:pointer}
+#auth-screen .auth-forgot button:hover{color:#fff0e3;text-decoration:underline}
+#auth-screen .auth-message[aria-live]{min-height:22px}
+#auth-screen .auth-form button:disabled{opacity:.55;cursor:not-allowed}
+
+#auth-screen [hidden]{display:none!important}

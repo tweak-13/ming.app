@@ -46,15 +46,55 @@ Deno.serve(async req => {
       });
     }
 
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), {
+        status: 405,
+        headers: { ...corsHeaders(), "Content-Type": "application/json" }
+      });
+    }
+
     const body = await req.json();
     const recipientId = String(body.recipientId || "");
     const callId = String(body.callId || "");
-    const kind = body.kind === "video" ? "video" : "voice";
-    const callerName = String(body.callerName || "Someone").slice(0, 80);
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-    if (!recipientId || !callId) {
-      return new Response(JSON.stringify({ error: "Missing recipientId or callId" }), {
+    if (!uuidPattern.test(recipientId) || !uuidPattern.test(callId) || recipientId === user.id) {
+      return new Response(JSON.stringify({ error: "Invalid call invitation" }), {
         status: 400,
+        headers: { ...corsHeaders(), "Content-Type": "application/json" }
+      });
+    }
+
+    const now = new Date();
+    const { data: invite, error: inviteError } = await admin
+      .from("ming_call_invites")
+      .select("call_id, caller_id, recipient_id, kind, status, expires_at, push_sent_at")
+      .eq("call_id", callId)
+      .eq("caller_id", user.id)
+      .eq("recipient_id", recipientId)
+      .maybeSingle();
+
+    if (inviteError || !invite || invite.status !== "pending" || Date.parse(invite.expires_at) <= now.getTime()) {
+      return new Response(JSON.stringify({ error: "Call invitation is unavailable or expired" }), {
+        status: 410,
+        headers: { ...corsHeaders(), "Content-Type": "application/json" }
+      });
+    }
+    if (invite.push_sent_at) {
+      return new Response(JSON.stringify({ ok: true, sent: 0, duplicate: true }), {
+        headers: { ...corsHeaders(), "Content-Type": "application/json" }
+      });
+    }
+
+    const { count: recentCalls, error: rateError } = await admin
+      .from("ming_call_invites")
+      .select("id", { count: "exact", head: true })
+      .eq("caller_id", user.id)
+      .gte("created_at", new Date(now.getTime() - 60_000).toISOString());
+    if (rateError) throw rateError;
+    if ((recentCalls || 0) > 5) {
+      return new Response(JSON.stringify({ error: "Too many call attempts. Please wait a moment." }), {
+        status: 429,
         headers: { ...corsHeaders(), "Content-Type": "application/json" }
       });
     }
@@ -75,6 +115,35 @@ Deno.serve(async req => {
         headers: { ...corsHeaders(), "Content-Type": "application/json" }
       });
     }
+
+    // Atomic one-push claim prevents duplicate notifications if a client
+    // retries the same request or invokes the function repeatedly.
+    const { data: claimed, error: claimError } = await admin
+      .from("ming_call_invites")
+      .update({ push_sent_at: now.toISOString() })
+      .eq("call_id", callId)
+      .eq("caller_id", user.id)
+      .eq("recipient_id", recipientId)
+      .eq("status", "pending")
+      .is("push_sent_at", null)
+      .gt("expires_at", now.toISOString())
+      .select("call_id")
+      .maybeSingle();
+
+    if (claimError) throw claimError;
+    if (!claimed) {
+      return new Response(JSON.stringify({ ok: true, sent: 0, duplicate: true }), {
+        headers: { ...corsHeaders(), "Content-Type": "application/json" }
+      });
+    }
+
+    const { data: callerProfile } = await admin
+      .from("profiles")
+      .select("display_name, username")
+      .eq("id", user.id)
+      .maybeSingle();
+    const callerName = String(callerProfile?.display_name || callerProfile?.username || "Someone").slice(0, 80);
+    const kind = invite.kind === "video" ? "video" : "voice";
 
     const { data: subscriptions, error: subError } = await admin
       .from("ming_push_subscriptions")

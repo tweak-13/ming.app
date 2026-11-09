@@ -27,18 +27,26 @@ Deno.serve(async (req) => {
     if (!body?.message_id) return Response.json({ error: 'message_id is required' }, { status: 400, headers: corsHeaders });
 
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: prepared, error: prepareError } = await userClient.rpc('get_ming_view_once_media', { p_message_id: body.message_id });
+    if (prepareError || !prepared?.length || !prepared[0].object_path) {
+      return Response.json({ error: prepareError?.message || 'Media has already been opened or is unavailable' }, { status: 410, headers: corsHeaders });
+    }
+
+    const item = prepared[0];
+    const { data: signed, error: signError } = await admin.storage.from(item.bucket_id).createSignedUrl(item.object_path, 30);
+    if (signError || !signed?.signedUrl) {
+      return Response.json({ error: 'Could not prepare one-time media. You can try again.' }, { status: 503, headers: corsHeaders });
+    }
+
+    // Claim only after a signed URL has been prepared. The claim is atomic, so
+    // concurrent devices cannot both receive a usable one-time URL.
     const { data: claimed, error: claimError } = await userClient.rpc('ming_claim_view_once_media', { p_message_id: body.message_id });
     if (claimError || !claimed?.length || !claimed[0].object_path) {
       return Response.json({ error: claimError?.message || 'Media has already been opened or is unavailable' }, { status: 410, headers: corsHeaders });
     }
 
-    const item = claimed[0];
-    const { data: signed, error: signError } = await admin.storage.from(item.bucket_id).createSignedUrl(item.object_path, 30);
-    if (signError || !signed?.signedUrl) {
-      return Response.json({ error: 'Could not prepare one-time media' }, { status: 410, headers: corsHeaders });
-    }
     return Response.json(
-      { signed_url: signed.signedUrl, viewed_at: item.claimed_at, media_kind: item.media_kind },
+      { signed_url: signed.signedUrl, viewed_at: claimed[0].claimed_at, media_kind: item.media_kind },
       { headers: { ...corsHeaders, 'Cache-Control': 'no-store' } }
     );
   } catch (error) {

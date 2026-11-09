@@ -105,7 +105,7 @@ document.addEventListener('click',async e=>{
 
 /* Enhanced Casual, Romantic and Marketplace views; existing backend actions remain intact. */
 VIEWS.casual.now=s=>{
- const posts=contentOf(s.id,'now').slice().sort((a,b)=>Number(b.at||0)-Number(a.at||0)),polls=contentOf(s.id,'poll'),meet=contentOf(s.id,'meeting')[0];
+ const now=Date.now(),liveCutoff=now-6*36e5,posts=contentOf(s.id,'now').filter(p=>Number(p.at||0)>liveCutoff&&Number(p.at||0)<=now+60000).sort((a,b)=>Number(b.at||0)-Number(a.at||0)),polls=contentOf(s.id,'poll'),meet=contentOf(s.id,'meeting')[0];
  const close=s.expiresAt?new Date(s.expiresAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Auto-closes after its live window';
  let h='<div class="spx spx--casual"><section class="spx-hero spx-hero--casual"><span class="spx-eyebrow"><i></i> LIVE SPACE · CASUAL</span><h2>Make the most<br>of <em>right now.</em></h2><p>Quick plans, live updates and the people around the moment.</p><div class="spx-hero-meta"><span>◷ '+safe(close)+'</span><span>◎ '+Server.memberCount(s.id)+' members</span></div><button class="spx-primary" data-sp="new:now">＋ Share a live update</button></section>'+
  '<section class="spx-section"><div class="spx-section-head"><div><span>THE MOMENT</span><h3>Happening now</h3></div><small>'+posts.length+' updates</small></div>';
@@ -128,8 +128,8 @@ VIEWS.romantic.us=s=>{
 };
 
 VIEWS.marketplace.market=s=>{
- const products=Server.db.products.filter(p=>p.spaceId===s.id&&(sp.marketTab==='all'||p.category===sp.marketTab)),all=Server.db.products.filter(p=>p.spaceId===s.id&&p.status==='listed'),
- cats=['all',...new Set(Server.db.products.filter(p=>p.spaceId===s.id).map(p=>p.category))],seller=Server.can(s.id,'product.create');
+ const products=Server.db.products.filter(p=>p.spaceId===s.id&&p.status==='listed'&&(sp.marketTab==='all'||p.category===sp.marketTab)),all=Server.db.products.filter(p=>p.spaceId===s.id&&p.status==='listed'),
+ cats=['all',...new Set(Server.db.products.filter(p=>p.spaceId===s.id&&p.status==='listed').map(p=>p.category))],seller=Server.can(s.id,'product.create');
  let h='<div class="spx spx--market"><section class="spx-hero spx-hero--market"><span class="spx-eyebrow">TWEAKLR · MEMBER MARKET</span><h2>Good finds.<br><em>Better connections.</em></h2><p>Discover what members are offering, compare listings and keep conversations in one trusted place.</p><div class="spx-market-stats"><span><b>'+all.length+'</b><small>active listings</small></span><span><b>'+Server.memberCount(s.id)+'</b><small>members</small></span><span><b>'+Server.db.orders.filter(o=>o.spaceId===s.id).length+'</b><small>orders</small></span></div>'+
  (seller?'<button class="spx-primary" data-sp="new:product">＋ Create a listing</button>':'<button class="spx-secondary" data-sp="ask-seller">Request seller access</button>')+'</section><section class="spx-market-toolbar"><label class="searchbar"><svg><use href="#i-search"/></svg><input id="mk-search" type="search" placeholder="Search products, categories and details…" aria-label="Search marketplace listings"></label><div class="chips">'+cats.map(c=>'<button class="chip '+(sp.marketTab===c?'is-on':'')+'" data-sp="mkcat:'+safe(c)+'">'+(c==='all'?'Everything':safe(c))+'</button>').join('')+'</div></section>'+
  '<section class="spx-section"><div class="spx-section-head"><div><span>CURATED BY YOUR COMMUNITY</span><h3>Explore listings</h3></div><small>'+products.length+' shown</small></div><div class="mk-grid" id="mk-grid">';
@@ -137,13 +137,14 @@ VIEWS.marketplace.market=s=>{
  return h+'</div></section><div class="spx-market-notice"><b>Transaction transparency</b><p>Checkout and wallet flows are currently in development mode. No real money is held, transferred or protected by Tweaklr yet. Agree on payment and handover independently until a verified payment provider is connected.</p></div></div>';
 };
 
+VIEWS.marketplace.orders=s=>'<div class="spx-market-notice"><b>In-app orders are not active yet</b><p>Listings and non-binding bids are available, but Tweaklr does not create purchase orders, process payments, hold funds or manage delivery. Contact the seller directly to agree terms.</p></div>';
+VIEWS.marketplace.cases=s=>'<div class="spx-market-notice"><b>In-app dispute handling is not active yet</b><p>Tweaklr does not hold purchase funds, freeze payments, issue refunds or adjudicate delivery disputes. Keep your own payment and handover records and contact the seller directly.</p></div>';
+
 /* Marketplace is a simulated transaction workflow until a real custodian and
    payment provider are integrated. Remove language that could imply custody. */
-NATURES.marketplace.blurb='Buy and sell inside a Space with seller roles, order records and dispute workflows.';
-NATURES.marketplace.features=['Member listings','Seller approvals','Order status & evidence','Test-mode transaction flow'];
-FEATURE_OPTIONS.marketplace=(FEATURE_OPTIONS.marketplace||[]).map(f=>f.k==='escrow'
- ? {...f,t:'Test-mode checkout',s:'Internal test balances only. No real money is held or transferred.'}
- : f);
+NATURES.marketplace.blurb='Browse member listings, compare sellers and register non-binding bids. Contact sellers directly; Tweaklr checkout is not available yet.';
+NATURES.marketplace.features=['Live member listings','Seller profiles and messaging','Non-binding auction bids','In-app checkout coming soon'];
+FEATURE_OPTIONS.marketplace=(FEATURE_OPTIONS.marketplace||[]).filter(f=>!['escrow','disputes'].includes(f.k));
 ORDER_STATES.funded.t='Test balance reserved';
 ORDER_STATES.delivered.t='Delivery recorded · test flow';
 FLOW_COPY.funded=['Test balance reserved','Internal ledger only; no real funds are held'];
@@ -153,56 +154,57 @@ TRANSITION_LABEL.accept='Complete test order';
 TRANSITION_LABEL.resolve_release='Resolve test order · seller';
 TRANSITION_LABEL.resolve_refund='Resolve test order · buyer';
 
+openBidSheet=function(productId){
+ const p=Server.db.products.find(x=>x.id===productId);if(!p)return;
+ const endsAt=p.auction?.endsAt?new Date(p.auction.endsAt):null;
+ if(!p.auction?.enabled||!endsAt||Number.isNaN(endsAt.getTime())||endsAt<=new Date()){
+  openSheet({title:'Bidding unavailable',sub:p.title,body:'<div class="spx-market-notice"><b>This listing is not accepting bids</b><p>Only active auctions accept bids. Contact the seller if you are interested in the item.</p></div>',foot:'<button class="btn btn--soft btn--block" data-action="close-sheet">Close</button>'});
+  return;
+ }
+ const bids=Server.db.bids.filter(b=>b.productId===productId).sort((a,b)=>b.amount-a.amount);
+ const high=bids[0]?.amount||p.price||0;
+ openSheet({title:'Register a bid of interest',sub:p.title,
+  body:'<div class="sp-card"><div style="font-size:12px;color:var(--muted)">Current highest bid</div><div style="font-size:24px;font-weight:750;margin-top:5px">'+safe(money(high,p.asset))+'</div></div>'+
+   '<div class="field"><label for="bid-amount">Your bid ('+safe(p.asset||'USDT')+')</label><input id="bid-amount" type="number" min="'+(high+0.01)+'" step="0.01" placeholder="'+(high+1)+'" /></div>'+
+   '<div class="spx-market-notice"><b>Non-binding bid</b><p>Your bid is recorded in this Marketplace Space as an expression of interest. It does not charge, reserve or transfer money and does not create a purchase contract. Contact the seller to agree terms.</p></div>',
+  foot:'<button class="btn btn--primary btn--block" data-sp="bid-submit:'+productId+'">Submit bid of interest</button>'});
+};
+
 openProduct=function(id){
  const p=Server.db.products.find(x=>x.id===id);if(!p)return;
- const s=spaceById(p.spaceId),seller=personOf(p.sellerId);
+ const seller=personOf(p.sellerId);
+ const media=(Server.db.files||[]).filter(x=>x.productId===p.id);
  openSheet({title:p.title,sub:money(p.price,p.asset)+' · '+p.condition+' · '+p.handover,
-  body:'<div class="sp-card"><div style="height:145px;border-radius:14px;background:linear-gradient(150deg,hsl('+p.hue+' 30% 86%),hsl('+((p.hue+40)%360)+' 26% 60%));margin-bottom:12px"></div>'+
-  '<p style="font-size:13px;line-height:1.6">'+safe(p.description)+'</p><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px"><span class="trust">TEST-MODE LISTING</span><span class="trust">'+safe(p.qty)+' in stock</span><span class="trust">'+safe(p.category||'General')+'</span></div>'+
-  '<div class="mrow" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">'+avatar(seller,36)+'<div class="m"><div class="n">'+safe(seller.short||seller.name)+'</div><div class="s">Seller · '+safe(s?.name||'Marketplace Space')+'</div></div>'+
-  '<button class="btn btn--soft btn--sm" data-sp="msg-seller:'+p.sellerId+'">Message</button></div></div>'+
-  '<div class="spx-market-notice"><b>Before you continue</b><p>This is a development-mode marketplace. Tweaklr does not hold real funds, provide escrow protection or settle payments. Confirm payment and handover arrangements directly with the seller.</p></div>',
-  foot:p.sellerId===Server.session.userId?'<button class="btn btn--soft btn--block" data-action="close-sheet">This is your listing</button>':'<button class="btn btn--primary btn--block" data-sp="buy:'+p.id+'">Continue to test checkout</button>'});
+  body:'<div class="sp-card"><div style="display:flex;gap:7px;flex-wrap:wrap"><span class="trust">LIVE LISTING</span><span class="trust">'+safe(p.qty)+' in stock</span><span class="trust">'+safe(p.category||'General')+'</span></div>'+
+  '<p style="font-size:13px;line-height:1.6;margin-top:12px">'+safe(p.description)+'</p>'+
+  '<div class="mrow" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">'+avatar(seller,36)+'<div class="m"><div class="n">'+safe(seller.short||seller.name)+'</div><div class="s">Seller · '+safe(spaceById(p.spaceId)?.name||'Marketplace Space')+'</div></div>'+
+  '<button class="btn btn--soft btn--sm" data-sp="msg-seller:'+p.sellerId+'">Message</button></div>'+
+  (media.length?'<div class="spx-market-notice">'+media.length+' seller media attachment(s) are available in the listing record.</div>':'')+'</div>'+
+  '<div class="spx-market-notice"><b>Purchasing on Tweaklr</b><p>Listings and seller messaging are live. In-app checkout, wallet, escrow, refunds and disputes are not available yet. Contact the seller directly and independently verify payment and handover arrangements.</p></div>',
+  foot:'<button class="btn btn--soft" data-action="close-sheet">Close</button><button class="btn btn--primary" data-sp="buy:'+p.id+'">Contact seller</button>'});
 };
 
 openCheckout=function(productId){
  const p=Server.db.products.find(x=>x.id===productId);if(!p)return;
- const fee=Math.round(p.price*0.015*100)/100;
- openSheet({title:'Test checkout',sub:p.title+' · '+money(p.price,p.asset),
-  body:'<div class="sp-card" style="background:var(--surface-2);border:0"><div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0"><span>Listing price</span><b>'+safe(money(p.price,p.asset))+'</b></div>'+
-  '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:4px 0"><span>Indicative platform fee</span><span>'+safe(money(fee,p.asset))+'</span></div></div>'+
-  '<div class="spx-market-notice"><b>Development mode · no real payment</b><p>Continuing creates an internal test order and updates simulated balances only. No card, bank, crypto wallet or custody provider is connected. No money is charged, held, transferred or protected by Tweaklr.</p></div>',
-  foot:'<button class="btn btn--soft" data-action="close-sheet">Cancel</button><button class="btn btn--primary" data-sp="pay:'+p.id+'">Create test order</button>'});
+ openSheet({title:'Contact the seller',sub:p.title+' · '+money(p.price,p.asset),
+  body:'<div class="spx-market-notice"><b>In-app checkout is not active</b><p>Tweaklr does not currently collect payments, hold funds, provide escrow, process refunds or manage delivery disputes. No order or wallet balance will be created. Message the seller to agree the purchase independently.</p></div>',
+  foot:'<button class="btn btn--soft" data-action="close-sheet">Close</button><button class="btn btn--primary" data-sp="msg-seller:'+p.sellerId+'">Message seller</button>'});
 };
 
-const baseRenderOrder=renderOrder;
 renderOrder=function(){
- baseRenderOrder();
  const host=document.getElementById('ord-body');if(!host)return;
- host.innerHTML=host.innerHTML
-  .replace(/Escrow/g,'Test transaction flow')
-  .replace(/held by Tweaklr, not sent to the seller/gi,'internal test ledger only; no real funds are held')
-  .replace(/the platform releases the funds/gi,'the test workflow completes the order')
-  .replace(/The money has not moved\. It stays held by Tweaklr until a moderator decides\./g,'This is an internal test dispute. No real money is held or moved.')
-  .replace(/Returned to the buyer’s wallet\./g,'The internal test balance was restored.')
-  .replace(/The hold was released back to the buyer\./g,'The test order was cancelled.');
- host.insertAdjacentHTML('afterbegin','<div class="spx-market-notice"><b>Test transaction record</b><p>This order lifecycle is simulated. It does not represent a real payment, escrow service, refund or financial protection.</p></div>');
+ host.innerHTML='<div class="spx-market-notice"><b>Order management is coming soon</b><p>Marketplace listings are connected to Supabase, but Tweaklr has not yet connected a persistent order, payment or delivery backend. No order is created in the app. Contact the seller directly.</p></div>';
 };
 
-const baseRenderWallet=renderWallet;
 renderWallet=function(){
- baseRenderWallet();
  const host=document.getElementById('wallet-body');if(!host)return;
- host.innerHTML=host.innerHTML.replace(/held in escrow/gi,'reserved in the internal test ledger').replace(/Nothing held/gi,'No test balance reserved');
+ host.innerHTML='<div class="spx-market-notice"><b>Tweaklr Wallet is not active</b><p>No real or test balances are held by Tweaklr. Do not send funds to an in-app wallet. Payment and settlement integrations must be completed before checkout can be enabled.</p></div>';
 };
 
-openDisputeSheet=function(orderId){
- openSheet({title:'Report a problem',sub:'This records a dispute in the internal test ledger. It does not freeze or move real money.',
-  body:'<div class="field"><label>What went wrong?</label><div class="pick" id="dp-reason">'+
-  ['Not delivered','Not as described','Damaged','Wrong item','Other'].map((r,i)=>'<button type="button" data-pick="'+r+'" aria-pressed="'+(i===0)+'">'+r+'</button>').join('')+
-  '</div></div><div class="field"><label for="dp-detail">What happened?</label><textarea id="dp-detail" maxlength="400" placeholder="Be specific. Dates, condition, what you expected."></textarea></div>'+
-  '<div class="ephemeral-note"><span>Evidence review</span><span>Both sides can submit evidence for moderator review. This is a simulated workflow, not a financial dispute process.</span></div>',
-  foot:'<button class="btn btn--primary btn--block" data-sp="dispute-submit:'+orderId+'">Open test dispute</button>'});
+openDisputeSheet=function(){
+ openSheet({title:'In-app disputes are coming soon',sub:'Tweaklr does not currently hold or move purchase funds',
+  body:'<div class="spx-market-notice"><b>No in-app payment protection</b><p>Because checkout and escrow are not active, Tweaklr cannot freeze funds, issue refunds or adjudicate a payment dispute. Contact the seller directly and keep your own records.</p></div>',
+  foot:'<button class="btn btn--soft btn--block" data-action="close-sheet">Close</button>'});
 };
 
 })();

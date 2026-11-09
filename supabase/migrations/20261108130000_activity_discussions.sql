@@ -113,7 +113,9 @@ set search_path = ''
 as $function$
   select count(*)::bigint
   from public.daily_update_activity_comments
-  where update_id = p_update_id;
+  where update_id = p_update_id
+    and (select auth.uid()) is not null
+    and public.can_access_daily_update_activity(p_update_id, (select auth.uid()));
 $function$;
 
 create or replace function public.get_daily_update_activity_comment_counts(p_update_ids uuid[])
@@ -126,13 +128,15 @@ as $function$
   select c.update_id, count(*)::bigint
   from public.daily_update_activity_comments c
   where c.update_id = any(coalesce(p_update_ids, '{}'::uuid[]))
+    and (select auth.uid()) is not null
+    and public.can_access_daily_update_activity(c.update_id, (select auth.uid()))
   group by c.update_id;
 $function$;
 
 revoke all on function public.get_daily_update_activity_comment_counts(uuid[]) from public, anon;
 grant execute on function public.get_daily_update_activity_comment_counts(uuid[]) to authenticated;
 
-revoke all on function public.can_access_daily_update_activity(uuid,uuid) from public, anon;
+revoke all on function public.can_access_daily_update_activity(uuid,uuid) from public, anon, authenticated;
 revoke all on function public.get_daily_update_activity_comments(uuid) from public, anon;
 revoke all on function public.add_daily_update_activity_comment(uuid,text) from public, anon;
 revoke all on function public.get_daily_update_activity_comment_count(uuid) from public, anon;
@@ -143,3 +147,5 @@ grant execute on function public.get_daily_update_activity_comment_count(uuid) t
 
 notify pgrst, 'reload schema';
 commit;
+
+revoke all on function public.can_access_daily_update_activity(uuid,uuid) from public, anon, authenticated;
