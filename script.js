@@ -2055,7 +2055,15 @@ async function loadMingDailyUpdateComments(updateId) {
     return null;
   }
 
-  const comments = (rows || []).map(row => {
+  const comments = await Promise.all((rows || []).map(async row => {
+    let voiceUrl = '';
+    if (row.voice_path) {
+      const { data: signed, error: signedError } = await supabaseClient
+        .storage.from('ming-daily-update-comment-voice')
+        .createSignedUrl(row.voice_path, 1800);
+      if (!signedError) voiceUrl = signed?.signedUrl || '';
+    }
+
     const name = row.author_display_name || 'Tweaklr user';
     const profile = {
       id: row.author_id || ('anonymous-' + row.id),
@@ -2090,9 +2098,12 @@ async function loadMingDailyUpdateComments(updateId) {
       updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : new Date(row.created_at).getTime(),
       parentCommentId: row.parent_comment_id || null,
       likesCount: Number(row.likes_count || 0),
-      likedByMe: !!row.liked_by_me
+      likedByMe: !!row.liked_by_me,
+      voicePath: row.voice_path || '',
+      voiceDuration: Number(row.voice_duration || 0),
+      voiceUrl
     };
-  });
+  }));
 
   return comments;
 }
@@ -2653,17 +2664,20 @@ function renderDailyUpdateComment(comment, replies = []) {
   const content = editing
     ? '<form class="tw-comment-edit-form" data-comment-edit-form="' + esc(comment.id) + '"><textarea maxlength="1000" required data-comment-edit-input>' + esc(comment.text) + '</textarea><div><button type="button" data-comment-action="cancel-edit">Cancel</button><button type="submit">Save changes</button></div></form>'
     : (comment.text ? '<div class="biz-comment-bubble">' + esc(comment.text) + '</div>' : '');
+  const voice = comment.voiceUrl
+    ? '<div class="biz-comment-voice"><span class="biz-comment-voice-icon">' + icon('volume-2') + '</span><audio controls preload="none" src="' + esc(comment.voiceUrl) + '"></audio></div>'
+    : '';
   const privacy = (comment.isAnonymous ? '<span class="biz-comment-tag">' + icon('user-round') + ' Anonymous</span>' : '') +
     (comment.isPrivate ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>' : '');
   const repliesHtml = replies.length ? '<div class="biz-comment-replies">' + replies.map(reply => renderDailyUpdateComment(reply, [])).join('') + '</div>' : '';
   const identity = comment.isAnonymous
     ? '<div class="biz-comment-avatar biz-comment-avatar--anonymous" aria-label="Anonymous member">' + icon('user-round') + '</div>'
-    : '<div class="biz-comment-avatar">' + avatar(profile, 38) + '</div>';
+    : '<div class="biz-comment-avatar">' + avatar(profile, 40) + '</div>';
   return '<div class="biz-comment-thread' + (comment.parentCommentId ? ' is-reply' : '') + '" data-comment-id="' + esc(comment.id) + '">' +
     '<article class="biz-comment-card">' + identity +
     '<div class="biz-comment-content"><div class="biz-comment-heading"><strong>' + esc(comment.authorLabel || profile.short || profile.name || 'Tweaklr user') + '</strong>' +
     '<span class="biz-comment-time">' + esc(timeAgo(comment.at)) + (edited ? ' · Edited' : '') + '</span>' + privacy + '</div>' +
-    content + '<div class="biz-comment-actions">' + actions + '</div></div></article>' + repliesHtml + '</div>';
+    content + voice + '<div class="biz-comment-actions">' + actions + '</div></div></article>' + repliesHtml + '</div>';
 }
 function paintDailyUpdateComments(id, focusComposer = false) {
   const update = dailyUpdates.find(item => item.id === id);
@@ -2686,68 +2700,151 @@ function paintDailyUpdateComments(id, focusComposer = false) {
     '<p>' + (comments.length ? 'Thoughts, questions and moments shared around this update.' : 'Share a thought or ask a question about this update.') + '</p></div></div>' +
     '<div class="biz-comments-list-head"><span>COMMENTS</span><span class="biz-comments-count">' + comments.length + '</span></div>' +
     '<div class="biz-comment-list" aria-live="polite">' + rows + '</div></section>';
+
   const replyName = replyTarget && (replyTarget.authorId === currentUser.id ? 'your comment' : (byId(replyTarget.authorId)?.short || byId(replyTarget.authorId)?.name || 'comment'));
   const replyBanner = replyTarget
     ? '<div class="tw-comment-replying"><span>Replying to <strong>' + esc(replyName) + '</strong></span><button type="button" data-comment-action="cancel-reply" aria-label="Cancel reply">' + icon('x') + '</button></div>'
     : '';
   const replyIsPrivate = !!replyTarget?.isPrivate;
-  const foot = '<form id="comment-form" class="biz-comment-composer tw-home-comment-composer">' + replyBanner +
-    '<div class="biz-comment-compose-heading"><div><span class="biz-comments-eyebrow">YOUR TURN</span><strong>' + (replyTarget ? 'Reply to the conversation' : 'Add to the conversation') + '</strong></div>' +
-    '<span id="tw-comment-char-count">0 / 1000</span></div>' +
-    '<div class="biz-comment-input-wrap"><textarea id="comment-input" rows="2" maxlength="1000" placeholder="' + (replyTarget ? 'Write your reply…' : 'Write something thoughtful…') + '" aria-label="' + (replyTarget ? 'Write a reply' : 'Write a comment') + '"></textarea></div>' +
-    '<div class="biz-comment-compose-bottom">' +
-    '<div class="biz-comment-record-copy"><strong>' + (replyTarget ? 'Your reply' : 'Your comment') + '</strong><span>Keep it thoughtful. You control who can see it.</span></div>' +
-    '<button class="biz-comment-submit" id="tw-comment-submit" type="submit" disabled><span>' + (replyTarget ? 'Post reply' : 'Post comment') + '</span>' + icon('arrow-up-right') + '</button></div>' +
-    '<div class="tw-comment-privacy-options"><label><input type="checkbox" id="comment-anonymous"> <span>' + icon('user-round') + ' Post anonymously</span></label>' +
-    '<label><input type="checkbox" id="comment-private" ' + (replyIsPrivate ? 'checked disabled' : '') + '> <span>' + icon('lock') + ' Private to post owner</span></label></div>' +
-    '<p class="biz-comment-privacy-note">' + icon('shield-check') + '<span>Your privacy choice applies only to this comment. You can post with your name, anonymously, or privately to the post owner.</span></p></form>';
-  openSheet({ title: 'Comments', sub: update.title + ' · ' + lifeLabel(update), body: body, foot: foot });
+  const composer =
+    '<form id="biz-comment-form" class="biz-comment-composer tw-home-comment-composer">' + replyBanner +
+      '<div class="biz-comment-compose-heading"><div><span class="biz-comments-eyebrow">YOUR TURN</span><strong>' + (replyTarget ? 'Reply to the conversation' : 'Add to the conversation') + '</strong></div>' +
+      '<span id="biz-comment-char-count">0 / 1000</span></div>' +
+      '<div class="biz-comment-input-wrap"><textarea id="biz-comment-input" rows="2" maxlength="1000" placeholder="' + (replyTarget ? 'Write your reply…' : 'Write something thoughtful…') + '" aria-label="' + (replyTarget ? 'Write a reply' : 'Write a comment') + '"></textarea></div>' +
+      '<div id="biz-comment-audio-preview" class="biz-comment-audio-preview" hidden></div>' +
+      '<section id="biz-comment-category-prompt" class="biz-comment-category-prompt" hidden>' +
+        '<div class="biz-comment-category-heading"><span class="biz-comment-category-kicker">BEFORE YOU POST</span><strong>How should this comment appear?</strong><small>Choose who can see this contribution.</small></div>' +
+        '<div class="biz-comment-category-grid">' +
+          '<label class="biz-comment-category-choice ' + (replyIsPrivate ? '' : 'is-selected') + '"><input type="radio" name="biz-comment-category" value="everyone" ' + (replyIsPrivate ? 'disabled' : 'checked') + '><span class="biz-comment-category-symbol">' + icon('users') + '</span><span><strong>Everyone</strong><small>Visible to people who can view this update</small></span><i></i></label>' +
+          '<label class="biz-comment-category-choice"><input type="radio" name="biz-comment-category" value="anonymous" ' + (replyIsPrivate ? 'disabled' : '') + '><span class="biz-comment-category-symbol">' + icon('user-round') + '</span><span><strong>Anonymous</strong><small>Your profile stays hidden</small></span><i></i></label>' +
+          '<label class="biz-comment-category-choice ' + (replyIsPrivate ? 'is-selected' : '') + '"><input type="radio" name="biz-comment-category" value="private" ' + (replyIsPrivate ? 'checked' : '') + '><span class="biz-comment-category-symbol">' + icon('lock') + '</span><span><strong>Private</strong><small>Only you and the update owner</small></span><i></i></label>' +
+        '</div>' +
+      '</section>' +
+      '<div class="biz-comment-compose-bottom">' +
+        '<button class="biz-comment-mic" id="biz-comment-mic" type="button" aria-label="Record a voice comment" title="Record a voice comment">' + icon('mic') + '</button>' +
+        '<div class="biz-comment-record-copy"><strong id="biz-comment-record-title">Add a voice note</strong><span id="biz-comment-record-status">Up to 2 minutes · preview before posting</span></div>' +
+        '<button class="biz-comment-submit" id="biz-comment-submit" type="submit" disabled><span>' + (replyTarget ? 'Post reply' : 'Post comment') + '</span>' + icon('arrow-up-right') + '</button>' +
+      '</div>' +
+      '<p class="biz-comment-privacy-note">' + icon('shield-check') + '<span>Your privacy choice applies only to this comment. Choose Everyone, Anonymous, or Private before posting.</span></p>' +
+    '</form>';
 
-  const form = $('#comment-form');
-  const input = $('#comment-input');
-  const count = $('#tw-comment-char-count');
-  const submitButton = $('#tw-comment-submit');
-  if (input && count) input.addEventListener('input', () => {
-    count.textContent = input.value.length + ' / 1000';
-    if (submitButton) submitButton.disabled = !input.value.trim();
-  });
-  $('#sheet-body').onclick = handleDailyUpdateCommentAction;
-  $('#sheet-foot').onclick = handleDailyUpdateCommentAction;
+  openSheet({ title: 'Comments', sub: update.title + ' · ' + lifeLabel(update), body: body + composer, foot: '' });
 
-  form?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const bodyText = input?.value.trim() || '';
-    if (!bodyText) return;
-    const submit = form.querySelector('button[type="submit"]');
-    if (submit) { submit.disabled = true; submit.classList.add('is-loading'); const label = submit.querySelector('span'); if (label) label.textContent = 'Posting…'; }
-    if (input) input.disabled = true;
-    const { error } = await supabaseClient.from('daily_update_comments').insert({
-      update_id: id, author_id: currentUser.id, body: bodyText,
-      parent_comment_id: activeDailyUpdateCommentReplyTo,
-      is_anonymous: !!$('#comment-anonymous')?.checked,
-      is_private: !!replyTarget?.isPrivate || !!$('#comment-private')?.checked
+  const form = $('#biz-comment-form');
+  const input = $('#biz-comment-input');
+  const count = $('#biz-comment-char-count');
+  const submit = $('#biz-comment-submit');
+  const mic = $('#biz-comment-mic');
+  const preview = $('#biz-comment-audio-preview');
+  const status = $('#biz-comment-record-status');
+  const recordTitle = $('#biz-comment-record-title');
+  const categoryPrompt = $('#biz-comment-category-prompt');
+  let recorder = null;
+  let recordStream = null;
+  let recordChunks = [];
+  let voiceBlob = null;
+  let voiceDuration = 0;
+  let recordStarted = 0;
+  let recordLimit = null;
+  let recordTicker = null;
+  let previewUrl = '';
+  let posting = false;
+
+  const releaseRecording = () => {
+    if (recordLimit) clearTimeout(recordLimit);
+    if (recordTicker) clearInterval(recordTicker);
+    recordLimit = null;
+    recordTicker = null;
+    recordStream?.getTracks().forEach(track => track.stop());
+    recordStream = null;
+  };
+  const stopRecording = () => {
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  };
+  const updateComposer = () => {
+    const hasContent = !!(input?.value.trim() || voiceBlob);
+    if (categoryPrompt) categoryPrompt.hidden = !hasContent;
+    if (submit) submit.disabled = posting || !hasContent;
+    if (count) count.textContent = (input?.value.length || 0) + ' / 1000';
+    categoryPrompt?.querySelectorAll('.biz-comment-category-choice').forEach(choice => {
+      const radio = choice.querySelector('input');
+      choice.classList.toggle('is-selected', !!radio?.checked);
     });
-    if (error) {
-      console.warn('Tweaklr: Daily Update comment failed.', error.message);
-      toast('Could not post your comment.', 'alert');
-      if (submit) { submit.classList.remove('is-loading'); submit.disabled = !input?.value.trim(); const label = submit.querySelector('span'); if (label) label.textContent = replyTarget ? 'Post reply' : 'Post comment'; }
-      if (input) input.disabled = false;
+  };
+
+  input?.addEventListener('input', updateComposer);
+  categoryPrompt?.addEventListener('change', updateComposer);
+  updateComposer();
+
+  mic?.addEventListener('click', async () => {
+    if (posting) return;
+    if (recorder && recorder.state === 'recording') { stopRecording(); return; }
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      toast('Voice comments are not supported in this browser.', 'alert');
       return;
     }
-    activeDailyUpdateCommentReplyTo = null;
-    editingDailyUpdateCommentId = null;
-    const loaded = await loadMingDailyUpdateComments(id);
-    if (loaded !== null) {
-      update.comments = loaded;
-      update.commentsCount = loaded.length;
-      rerenderFeeds();
-      paintDailyUpdateComments(id);
-      toast('Comment posted', 'check');
-    } else {
-      toast('Comment posted, but the conversation could not refresh.', 'alert');
+    try {
+      recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+      recorder = new MediaRecorder(recordStream, mime ? { mimeType: mime } : undefined);
+      recordChunks = [];
+      recordStarted = Date.now();
+      mic.classList.add('is-recording');
+      mic.setAttribute('aria-label', 'Stop recording');
+      recordTitle.textContent = 'Recording your voice…';
+      status.textContent = '00:00 · Tap the button to finish';
+
+      recorder.ondataavailable = event => { if (event.data?.size) recordChunks.push(event.data); };
+      recorder.onstop = () => {
+        const duration = Math.max(1, Math.min(120, Math.round((Date.now() - recordStarted) / 1000)));
+        voiceDuration = duration;
+        const recordedMime = recorder?.mimeType || 'audio/webm';
+        voiceBlob = new Blob(recordChunks, { type: recordedMime });
+        recorder = null;
+        releaseRecording();
+        recordChunks = [];
+        mic.classList.remove('is-recording');
+        mic.setAttribute('aria-label', 'Record a voice comment');
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = URL.createObjectURL(voiceBlob);
+        preview.hidden = false;
+        preview.innerHTML =
+          '<div class="biz-comment-preview-label">' + icon('audio-lines') + '<span><strong>Voice note ready</strong><small>' + duration + ' seconds · listen before posting</small></span></div>' +
+          '<audio controls preload="metadata" src="' + previewUrl + '"></audio>' +
+          '<button type="button" id="biz-comment-discard-audio" aria-label="Remove voice note">' + icon('x') + '</button>';
+        $('#biz-comment-discard-audio')?.addEventListener('click', () => {
+          voiceBlob = null;
+          voiceDuration = 0;
+          preview.hidden = true;
+          preview.innerHTML = '';
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+          previewUrl = '';
+          recordTitle.textContent = 'Add a voice note';
+          status.textContent = 'Up to 2 minutes · preview before posting';
+          updateComposer();
+        });
+        recordTitle.textContent = 'Voice note attached';
+        status.textContent = 'Ready to post · ' + duration + ' seconds';
+        updateComposer();
+      };
+      recorder.start();
+      recordTicker = setInterval(() => {
+        const elapsed = Math.min(120, Math.floor((Date.now() - recordStarted) / 1000));
+        status.textContent = String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(elapsed % 60).padStart(2, '0') + ' · Tap the button to finish';
+      }, 500);
+      recordLimit = setTimeout(stopRecording, 120000);
+    } catch (error) {
+      releaseRecording();
+      mic.classList.remove('is-recording');
+      recordTitle.textContent = 'Add a voice note';
+      status.textContent = 'Microphone access was not available';
+      toast('Microphone permission was not granted.', 'alert');
     }
   });
 
+  $('#sheet-body').onclick = handleDailyUpdateCommentAction;
   $('#sheet-body').querySelectorAll('[data-comment-edit-form]').forEach(editForm => {
     editForm.addEventListener('submit', async event => {
       event.preventDefault();
@@ -2774,6 +2871,82 @@ function paintDailyUpdateComments(id, focusComposer = false) {
       }
     });
   });
+
+  form?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (posting) return;
+    const bodyText = input?.value.trim() || '';
+    if (!bodyText && !voiceBlob) {
+      toast('Write a comment or record a voice note first.', 'alert');
+      return;
+    }
+
+    posting = true;
+    updateComposer();
+    if (input) input.disabled = true;
+    if (mic) mic.disabled = true;
+    categoryPrompt?.querySelectorAll('input').forEach(control => control.disabled = true);
+    const category = categoryPrompt?.querySelector('input[name="biz-comment-category"]:checked')?.value || (replyIsPrivate ? 'private' : 'everyone');
+    let voicePath = null;
+
+    if (voiceBlob) {
+      const rawMime = (voiceBlob.type || 'audio/webm').split(';')[0].toLowerCase();
+      const mime = ['audio/webm','audio/ogg','audio/mp4','audio/mpeg'].includes(rawMime) ? rawMime : 'audio/webm';
+      const extension = mime === 'audio/ogg' ? 'ogg' : (mime === 'audio/mp4' ? 'm4a' : (mime === 'audio/mpeg' ? 'mp3' : 'webm'));
+      voicePath = currentUser.id + '/' + crypto.randomUUID() + '.' + extension;
+      const { error: uploadError } = await supabaseClient.storage
+        .from('ming-daily-update-comment-voice')
+        .upload(voicePath, voiceBlob, { contentType: mime, cacheControl: '3600', upsert: false });
+      if (uploadError) {
+        posting = false;
+        if (input) input.disabled = false;
+        if (mic) mic.disabled = false;
+        categoryPrompt?.querySelectorAll('input').forEach(control => control.disabled = false);
+        updateComposer();
+        toast(uploadError.message || 'Voice note could not be uploaded.', 'alert');
+        return;
+      }
+    }
+
+    const { error } = await supabaseClient.from('daily_update_comments').insert({
+      update_id: id,
+      author_id: currentUser.id,
+      body: bodyText,
+      parent_comment_id: activeDailyUpdateCommentReplyTo,
+      is_anonymous: category === 'anonymous',
+      is_private: category === 'private',
+      voice_path: voicePath,
+      voice_duration: voiceDuration || null
+    });
+
+    if (error) {
+      if (voicePath) await supabaseClient.storage.from('ming-daily-update-comment-voice').remove([voicePath]);
+      posting = false;
+      if (input) input.disabled = false;
+      if (mic) mic.disabled = false;
+      categoryPrompt?.querySelectorAll('input').forEach(control => control.disabled = false);
+      updateComposer();
+      console.warn('Tweaklr: Daily Update comment failed.', error.message);
+      toast('Could not post your comment.', 'alert');
+      return;
+    }
+
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    releaseRecording();
+    activeDailyUpdateCommentReplyTo = null;
+    editingDailyUpdateCommentId = null;
+    const loaded = await loadMingDailyUpdateComments(id);
+    if (loaded !== null) {
+      update.comments = loaded;
+      update.commentsCount = loaded.length;
+      rerenderFeeds();
+      paintDailyUpdateComments(id);
+      toast('Comment posted', 'check');
+    } else {
+      toast('Comment posted, but the conversation could not refresh.', 'alert');
+    }
+  });
+
   if (focusComposer && input) input.focus();
 }
 
