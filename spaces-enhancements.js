@@ -186,7 +186,7 @@
 
     // Business Spaces use the Home experience; remove the legacy Board Mode panel.
     // Marketplace Deal Studio remains removed. Other Space tools stay unchanged.
-    if (nature === 'business' || nature === 'marketplace' || nature === 'friendly') {
+    if (nature === 'business' || nature === 'marketplace' || nature === 'friendly' || nature === 'casual') {
       panel?.remove();
       return;
     }
