@@ -15,7 +15,7 @@ They have already been applied to the connected project and their effects were s
 
 ## Important: historical migration drift
 
-The existing migrations directory predates this pass and is not yet a fully reproducible clean-install history. At audit time it contained 38 SQL files while the connected project reported 36 applied migration records. Several historical filenames have version/name differences from the database ledger, and some applied ledger entries do not have a matching source file in this directory.
+The existing migrations directory predates this pass and is not yet a fully reproducible clean-install history. Before this pass, the main branch contained 38 legacy SQL files. This pass adds four files aligned to the connected project's migration ledger; the project now reports 36 applied migration records. Several historical filenames have version/name differences from the database ledger, and some applied ledger entries do not have a matching source file in this directory. Several historical filenames have version/name differences from the database ledger, and some applied ledger entries do not have a matching source file in this directory.
 
 I have not renamed or replayed those historical scripts: the database ledger records migration names and versions, but does not retain every original SQL body, so guessing a mapping could cause destructive duplicate DDL or silently omit prior changes.
 
