@@ -2656,8 +2656,11 @@ function renderDailyUpdateComment(comment, replies = []) {
   const privacy = (comment.isAnonymous ? '<span class="biz-comment-tag">' + icon('user-round') + ' Anonymous</span>' : '') +
     (comment.isPrivate ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>' : '');
   const repliesHtml = replies.length ? '<div class="biz-comment-replies">' + replies.map(reply => renderDailyUpdateComment(reply, [])).join('') + '</div>' : '';
+  const identity = comment.isAnonymous
+    ? '<div class="biz-comment-avatar biz-comment-avatar--anonymous" aria-label="Anonymous member">' + icon('user-round') + '</div>'
+    : '<div class="biz-comment-avatar">' + avatar(profile, 38) + '</div>';
   return '<div class="biz-comment-thread' + (comment.parentCommentId ? ' is-reply' : '') + '" data-comment-id="' + esc(comment.id) + '">' +
-    '<article class="biz-comment-card"><div class="biz-comment-avatar">' + avatar(profile, 38) + '</div>' +
+    '<article class="biz-comment-card">' + identity +
     '<div class="biz-comment-content"><div class="biz-comment-heading"><strong>' + esc(comment.authorLabel || profile.short || profile.name || 'Tweaklr user') + '</strong>' +
     '<span class="biz-comment-time">' + esc(timeAgo(comment.at)) + (edited ? ' · Edited' : '') + '</span>' + privacy + '</div>' +
     content + '<div class="biz-comment-actions">' + actions + '</div></div></article>' + repliesHtml + '</div>';
