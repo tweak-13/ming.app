@@ -12581,7 +12581,21 @@ document.addEventListener('click', async e => {
       if (trigger) trigger.setAttribute('aria-expanded', String(open));
       break;
     }
-    case 'tab': sp.tab = a; renderSpace(); if (S().nature === 'business' && a === 'brief') void refreshOpenRoles(S().id); if (S().nature === 'business' && a === 'log') void refreshSpaceActivity(S().id); break;
+    case 'tab': {
+      sp.tab = a;
+      renderSpace();
+      if (S().nature === 'business' && a === 'people') {
+        const teamSpaceId = S().id;
+        // Refresh the membership RPC whenever Team opens so owners and members
+        // don't rely on a stale in-memory directory loaded before the backend fix.
+        void loadSpacesFromDatabase().then(() => {
+          if (sp.activeId === teamSpaceId && sp.tab === 'people') renderSpace();
+        });
+      }
+      if (S().nature === 'business' && a === 'brief') void refreshOpenRoles(S().id);
+      if (S().nature === 'business' && a === 'log') void refreshSpaceActivity(S().id);
+      break;
+    }
     case 'invite': closeSheet(); setTimeout(() => openInviteSheet(a), 150); break;
     case 'settings': openSpaceSettings(a); break;
     case 'delete-space': {
