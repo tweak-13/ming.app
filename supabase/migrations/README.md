@@ -10,12 +10,13 @@ These files use the exact version identifiers recorded in the connected project'
 - `20261109023319_space_content_and_business_feature_guards.sql`
 - `20261109023346_marketplace_and_space_file_security.sql`
 - `20261109023959_require_storage_removal_before_file_record_delete.sql`
+- `20261109024608_hide_missing_space_file_objects.sql`
 
 They have already been applied to the connected project and their effects were smoke-tested.
 
 ## Important: historical migration drift
 
-The existing migrations directory predates this pass and is not yet a fully reproducible clean-install history. Before this pass, the main branch contained 38 legacy SQL files. This pass adds four files aligned to the connected project's migration ledger; the project now reports 36 applied migration records. Several historical filenames have version/name differences from the database ledger, and some applied ledger entries do not have a matching source file in this directory. Several historical filenames have version/name differences from the database ledger, and some applied ledger entries do not have a matching source file in this directory.
+The existing migrations directory predates this pass and is not yet a fully reproducible clean-install history. Before this pass, the main branch contained 38 legacy SQL files. This pass adds five files aligned to the connected project's migration ledger; the project now reports 37 applied migration records. Several historical filenames have version/name differences from the database ledger, and some applied ledger entries do not have a matching source file in this directory. Several historical filenames have version/name differences from the database ledger, and some applied ledger entries do not have a matching source file in this directory.
 
 I have not renamed or replayed those historical scripts: the database ledger records migration names and versions, but does not retain every original SQL body, so guessing a mapping could cause destructive duplicate DDL or silently omit prior changes.
 
