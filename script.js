@@ -9218,6 +9218,24 @@ const Server = (() => {
       case 'space.post': {
         if (!can(p.spaceId, 'space.post')) return deny('You cannot post in this Space.');
         const targetSpace = db.spaces.find(x => x.id === p.spaceId);
+        const allowedKinds = {
+          business: ['business_post','doc','announcement','task'],
+          friendly: ['friend_post','moment','poll','event','memory'],
+          casual: ['now','answer','event','meeting','poll'],
+          romantic: ['memory','love_letter','plan','milestone','nickname','health','list']
+        };
+        if (!(allowedKinds[targetSpace?.nature] || []).includes(p.kind)) {
+          return deny('That content type is not available in this Space.');
+        }
+        const featureKey = ({
+          'business:doc':'documents','business:announcement':'announcements','business:task':'tasks',
+          'friendly:friend_post':'moments','friendly:moment':'moments','friendly:poll':'polls','friendly:event':'events','friendly:memory':'memories',
+          'casual:now':'now','casual:answer':'now','casual:poll':'polls','casual:event':'meet','casual:meeting':'meet',
+          'romantic:memory':'memories','romantic:plan':'plans','romantic:milestone':'milestones','romantic:love_letter':'loveletter','romantic:nickname':'lists','romantic:list':'lists'
+        })[targetSpace?.nature + ':' + p.kind];
+        if (featureKey && targetSpace?.features?.[featureKey] === false) {
+          return deny('This feature has been disabled by the Space owner.');
+        }
         if (targetSpace?.nature === 'business' && targetSpace.features?.businessMessaging === 'owner' && roleOf(p.spaceId) !== 'owner') return deny('Only the creator can publish in this Business Space.');
         const { data: created, error } = await supabaseClient.rpc('create_ming_space_content', {
           p_space_id: p.spaceId,
@@ -9234,6 +9252,7 @@ const Server = (() => {
       case 'content.mutate': {
         const row = db.content.find(c => c.id === p.id);
         if (!row) return deny('Gone.');
+        const previousRow = JSON.parse(JSON.stringify(row));
         if (!can(row.spaceId, 'space.post')) return deny('Your Space role is read-only.');
         if (p.op === 'react') {
           row.reacts = row.reacts || {};
@@ -9265,7 +9284,7 @@ const Server = (() => {
         if (p.op === 'listtoggle') row.items[p.index].done = !row.items[p.index].done;
         const payload = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','spaceId','authorId','kind','at','updatedAt'].includes(k)));
         const { error } = await supabaseClient.rpc('update_ming_space_content', { p_id: row.id, p_payload: payload });
-        if (error) return deny(error.message || 'Could not save the change.');
+        if (error) { Object.assign(row, previousRow); return deny(error.message || 'Could not save the change.'); }
         if (p.op === 'taskupdate' && row.kind === 'task') {
           audit(row.spaceId, 'task.updated', { status: row.status || (row.done ? 'completed' : 'todo'), priority: row.priority || 'medium' });
         }
@@ -9294,103 +9313,12 @@ const Server = (() => {
         return { ok: true, data: { row } };
       }
 
-      case 'order.create': {
-        const prod = db.products.find(x => x.id === p.productId);
-        if (!prod || prod.status !== 'listed') return deny('That listing is no longer available.');
-        if (prod.sellerId === session.userId) return deny('You cannot buy your own listing.');
-        if (!can(prod.spaceId, 'order.create')) return deny('Join this Space to buy.');
-        /* Price comes from the listing row, never from the client. */
-        const order = {
-          id: 'MO-' + Date.now().toString(36).toUpperCase().slice(-6),
-          spaceId: prod.spaceId, productId: prod.id,
-          buyerId: session.userId, sellerId: prod.sellerId,
-          unit: prod.price, qty: 1, total: prod.price,
-          asset: prod.asset, status: 'pending',
-          idempotencyKey: p.idempotencyKey,
-          createdAt: Date.now(), acceptanceDeadline: null
-        };
-        const dupe = db.orders.find(o => o.idempotencyKey === p.idempotencyKey);
-        if (dupe) return { ok: true, data: { order: dupe } };   // replay-safe
-        db.orders.unshift(order);
-        orderEvent(order, null, 'pending', 'create');
-        audit(prod.spaceId, 'order.created', { id: order.id });
-        return { ok: true, data: { order } };
-      }
-
-      case 'order.transition': {
-        const order = db.orders.find(o => o.id === p.orderId);
-        if (!order) return deny('Order not found.');
-        const allowed = ORDER_FLOW[order.status] || {};
-        const rule = allowed[p.transition];
-        if (!rule) return deny(`"${p.transition}" is not possible while this order is ${order.status.replace('_', ' ')}.`);
-        const party = partyOf(order);
-        if (!party || !rule.who.includes(party)) return deny('You are not a party to that step.');
-
-        const from = order.status;
-
-        if (p.transition === 'fund') {
-          if (!hold(order.buyerId, order.asset, order.total, order.id)) {
-            return deny('Not enough available balance in your development wallet.');
-          }
-        }
-        if (p.transition === 'confirm_delivery') {
-          order.acceptanceDeadline = Date.now() + 72 * 3600e3;   // buyer acceptance window
-        }
-        if (p.transition === 'cancel' && from === 'funded') releaseHold(order, false);
-        if (p.transition === 'resolve_release') releaseHold(order, true);
-        if (p.transition === 'resolve_refund') releaseHold(order, false);
-
-        order.status = rule.to;
-        orderEvent(order, from, order.status, p.transition, p.meta);
-        audit(order.spaceId, 'order.' + p.transition, { id: order.id, to: order.status });
-
-        /* Release is a system step, not a user action: acceptance triggers it. */
-        if (order.status === 'accepted') {
-          releaseHold(order, true);
-          order.status = 'completed';
-          orderEvent(order, 'accepted', 'completed', 'release', { by: 'system' });
-          audit(order.spaceId, 'order.released', { id: order.id });
-        }
-        if (TERMINAL.includes(order.status)) {
-          const prod = db.products.find(x => x.id === order.productId);
-          if (prod && order.status === 'completed') { prod.qty -= order.qty; if (prod.qty <= 0) prod.status = 'sold'; }
-        }
-        return { ok: true, data: { order } };
-      }
-
-      case 'dispute.open': {
-        const order = db.orders.find(o => o.id === p.orderId);
-        if (!order) return deny('Order not found.');
-        const party = partyOf(order);
-        if (party !== 'buyer' && party !== 'seller') return deny('Only the buyer or seller can open a dispute.');
-        const res = await submit('order.transition', { orderId: order.id, transition: 'dispute', meta: { reason: p.reason } });
-        if (!res.ok) return res;
-        const d = {
-          id: 'dp_' + Math.random().toString(36).slice(2, 8),
-          orderId: order.id, spaceId: order.spaceId,
-          openedBy: session.userId, reason: p.reason, detail: p.detail,
-          status: 'evidence', openedAt: Date.now(),
-          evidenceDeadline: Date.now() + 96 * 3600e3
-        };
-        db.disputes.unshift(d);
-        audit(order.spaceId, 'dispute.opened', { orderId: order.id, reason: p.reason });
-        return { ok: true, data: { dispute: d } };
-      }
-
-      case 'dispute.evidence': {
-        const d = db.disputes.find(x => x.id === p.disputeId);
-        if (!d) return deny('Dispute not found.');
-        const order = db.orders.find(o => o.id === d.orderId);
-        const party = partyOf(order);
-        if (!party) return deny('You are not a party to this dispute.');
-        db.evidence.push(Object.freeze({
-          id: 'ev_' + db.evidence.length, disputeId: d.id, party,
-          userId: session.userId, kind: p.kind, label: p.label, at: Date.now()
-        }));
-        audit(d.spaceId, 'dispute.evidence_added', { disputeId: d.id, kind: p.kind });
-        return { ok: true, data: { dispute: d } };
-      }
-
+      case 'order.create':
+      case 'order.transition':
+      case 'dispute.open':
+      case 'dispute.evidence':
+        return deny('In-app checkout, order tracking and disputes are not available yet. Message the seller directly.');
+      
       default: return deny('Unknown action.');
     }
   }
@@ -13005,45 +12933,22 @@ document.addEventListener('click', async e => {
       Server.db.bids.unshift({ id:data.id, productId:data.product_id, bidderId:data.bidder_id, amount:Number(data.amount), createdAt:new Date(data.created_at).getTime() });
       closeSheet(); refreshSpace(); toast('Bid placed', 'check'); break;
     }
-    case 'pay': {
-      const idem = 'idem_' + a + '_' + Date.now();
-      const created = await Server.submit('order.create', { productId: a, idempotencyKey: idem });
-      if (!created.ok) { toast(created.error, 'x'); return; }
-      const funded = await Server.submit('order.transition', { orderId: created.data.order.id, transition: 'fund' });
+    case 'pay':
       closeSheet();
-      if (!funded.ok) { toast(funded.error, 'x'); renderSpace(); return; }
-      toast('Payment held in escrow', 'shield');
-      setTimeout(() => openOrder(created.data.order.id), 240);
+      toast('In-app checkout is not available yet. Message the seller directly.', 'info');
       break;
-    }
-    case 'order': openOrder(a); break;
-    case 'trans': {
-      if (b === 'dispute') { openDisputeSheet(a); break; }
-      const res = await Server.submit('order.transition', { orderId: a, transition: b });
-      if (!res.ok) { toast(res.error, 'x'); return; }
+    case 'order':
       renderOrder();
-      const st = ORDER_STATES[res.data.order.status];
-      toast(st.t, res.data.order.status === 'completed' ? 'check' : 'shield');
       break;
-    }
-    case 'dispute-submit': {
-      const reason = $('#dp-reason').querySelector('[aria-pressed="true"]').dataset.pick;
-      const res = await Server.submit('dispute.open', { orderId: a, reason, detail: $('#dp-detail').value.trim() });
-      if (!res.ok) { toast(res.error, 'x'); return; }
-      closeSheet(); renderOrder();
-      toast('Dispute opened — funds stay held', 'shield');
+    case 'trans':
+      toast('In-app order tracking is not available yet.', 'info');
       break;
-    }
-    case 'evidence': openEvidenceSheet(a); break;
-    case 'evidence-submit': {
-      const sel = $('#ev-kind').querySelector('[aria-pressed="true"]');
-      const label = $('#ev-label').value.trim();
-      if (!label) { toast('Describe the evidence', 'x'); return; }
-      const res = await Server.submit('dispute.evidence', { disputeId: a, kind: sel.dataset.pick, label });
-      if (!res.ok) { toast(res.error, 'x'); return; }
-      closeSheet(); renderOrder(); toast('Evidence recorded', 'check');
+    case 'dispute-submit':
+    case 'evidence':
+    case 'evidence-submit':
+      closeSheet();
+      toast('In-app dispute handling is not available yet. Contact the seller directly.', 'info');
       break;
-    }
     case 'product-submit': {
       const price = parseFloat($('#pf-price').value);
       const res = await Server.submit('product.create', {
