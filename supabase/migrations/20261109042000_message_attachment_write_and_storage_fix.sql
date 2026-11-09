@@ -1,5 +1,34 @@
 begin;
 
+create or replace function private.is_message_reply_target_valid(
+  p_reply_to_id uuid,
+  p_sender_id uuid,
+  p_recipient_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select (select auth.uid()) = p_sender_id
+    and p_reply_to_id is not null
+    and exists (
+      select 1
+      from public.messages m
+      where m.id = p_reply_to_id
+        and (
+          (m.sender_id = p_sender_id and m.recipient_id = p_recipient_id)
+          or
+          (m.sender_id = p_recipient_id and m.recipient_id = p_sender_id)
+        )
+    );
+$function$;
+grant usage on schema private to authenticated;
+grant execute on function private.is_message_reply_target_valid(uuid,uuid,uuid) to authenticated;
+revoke all on function private.is_message_reply_target_valid(uuid,uuid,uuid) from public, anon;
+
+
 -- The UI supports 50 MB attachments and these MIME types. The previous
 -- bucket limit (15 MB) and allow-list rejected videos and HEIC/HEIF files.
 update storage.buckets
