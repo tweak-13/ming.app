@@ -3014,6 +3014,12 @@ async function handleDailyUpdateCommentAction(event) {
       button.disabled = false;
       return;
     }
+    if (target.voicePath) {
+      const { error: voiceDeleteError } = await supabaseClient.storage
+        .from('ming-daily-update-comment-voice')
+        .remove([target.voicePath]);
+      if (voiceDeleteError) console.warn('Tweaklr: deleted comment voice file could not be cleaned up.', voiceDeleteError.message);
+    }
     activeDailyUpdateCommentReplyTo = null;
     const loaded = await loadMingDailyUpdateComments(updateId);
     if (loaded !== null) {
