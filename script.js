@@ -2707,7 +2707,7 @@ function paintDailyUpdateComments(id, focusComposer = false) {
     : '';
   const replyIsPrivate = !!replyTarget?.isPrivate;
   const composer =
-    '<form id="biz-comment-form" class="biz-comment-composer tw-home-comment-composer">' + replyBanner +
+    '<form id="biz-comment-form" class="biz-comment-composer">' + replyBanner +
       '<div class="biz-comment-compose-heading"><div><span class="biz-comments-eyebrow">YOUR TURN</span><strong>' + (replyTarget ? 'Reply to the conversation' : 'Add to the conversation') + '</strong></div>' +
       '<span id="biz-comment-char-count">0 / 1000</span></div>' +
       '<div class="biz-comment-input-wrap"><textarea id="biz-comment-input" rows="2" maxlength="1000" placeholder="' + (replyTarget ? 'Write your reply…' : 'Write something thoughtful…') + '" aria-label="' + (replyTarget ? 'Write a reply' : 'Write a comment') + '"></textarea></div>' +
