@@ -1,0 +1,1 @@
+update public.daily_update_comments set updated_at=created_at where updated_at>created_at;
