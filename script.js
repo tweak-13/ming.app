@@ -2988,7 +2988,6 @@ async function handleDailyUpdateCommentAction(event) {
     button.textContent = 'Preparing…';
     let audio = null;
     let objectUrl = '';
-    let playbackStarted = false;
     let playbackEnded = false;
     let claimed = false;
     try {
@@ -3050,7 +3049,7 @@ async function handleDailyUpdateCommentAction(event) {
       while (audio.currentTime < 0.15 && !audio.paused && !playbackEnded && Date.now() < progressDeadline) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      if (audio.paused || (!playbackEnded && audio.currentTime < 0.15)) {
+      if ((!playbackEnded && (audio.paused || audio.currentTime < 0.15)) || (playbackEnded && audio.currentTime < 0.05)) {
         throw new Error('Audio playback did not progress');
       }
 
