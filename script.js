@@ -8991,7 +8991,7 @@ const Server = (() => {
       {
         name: 'content',
         rpc: 'get_my_ming_space_content',
-        map: row => ({ id: row.id, spaceId: row.space_id, kind: row.kind, authorId: row.author_id, at: new Date(row.created_at).getTime(), updatedAt: new Date(row.updated_at).getTime(), ...(row.payload || {}) })
+        map: row => ({ ...(row.payload || {}), id: row.id, spaceId: row.space_id, kind: row.kind, authorId: row.author_id, at: new Date(row.created_at).getTime(), updatedAt: new Date(row.updated_at).getTime() })
       },
       {
         name: 'products',
@@ -9243,7 +9243,7 @@ const Server = (() => {
           p_payload: p.payload || {}
         });
         if (error) return deny(error.message || 'Could not save this Space content.');
-        const row = { id: created.id, spaceId: created.space_id, kind: created.kind, authorId: created.author_id, at: new Date(created.created_at).getTime(), ...(created.payload || {}) };
+        const row = { ...(created.payload || {}), id: created.id, spaceId: created.space_id, kind: created.kind, authorId: created.author_id, at: new Date(created.created_at).getTime() };
         db.content.unshift(row);
         audit(p.spaceId, 'content.created', { kind: p.kind });
         return { ok: true, data: { row } };
