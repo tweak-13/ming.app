@@ -2987,41 +2987,85 @@ async function handleDailyUpdateCommentAction(event) {
     button.disabled = true;
     button.textContent = 'Preparing…';
     let audio = null;
+    let objectUrl = '';
+    let playbackStarted = false;
+    let playbackEnded = false;
+    let claimed = false;
     try {
       const { data: signed, error: signedError } = await supabaseClient.storage
         .from('ming-daily-update-comment-voice')
         .createSignedUrl(comment.voicePath, 90);
       if (signedError || !signed?.signedUrl) throw signedError || new Error('Audio URL unavailable');
 
-      // Start playback first. A failed or blocked play() must never consume the note.
+      // Download the complete clip before opening the player. This avoids treating a
+      // prematurely closed/failed stream as a completed one-time listen on mobile.
+      const response = await fetch(signed.signedUrl);
+      if (!response.ok) throw new Error('Could not download the voice note');
+      const audioBlob = await response.blob();
+      if (!audioBlob.size) throw new Error('The voice note is empty');
+      objectUrl = URL.createObjectURL(audioBlob);
+
       audio = document.createElement('audio');
       audio.controls = true;
       audio.preload = 'auto';
-      audio.src = signed.signedUrl;
+      audio.src = objectUrl;
       audio.addEventListener('ended', () => {
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
-        holder.classList.add('is-consumed');
-        holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
-      }, { once: true });
+        playbackEnded = true;
+        if (claimed) {
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
+          URL.revokeObjectURL(objectUrl);
+          objectUrl = '';
+          holder.classList.add('is-consumed');
+          holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
+        }
+      });
 
       holder.replaceChildren(
         Object.assign(document.createElement('span'), { innerHTML: icon('headphones') }),
         audio
       );
-      await audio.play();
 
-      // The server records the one-time view only after the browser confirms playback started.
-      const { data: claimed, error: claimError } = await supabaseClient.rpc(
+      // play() resolving alone is not enough on mobile browsers. Wait until the
+      // media element actually enters the playing state and advances its timeline.
+      const playing = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Audio did not begin playing')), 12000);
+        const onPlaying = () => {
+          audio.removeEventListener('playing', onPlaying);
+          clearTimeout(timeout);
+          resolve();
+        };
+        audio.addEventListener('playing', onPlaying, { once: true });
+        audio.addEventListener('error', () => {
+          clearTimeout(timeout);
+          reject(new Error('The voice note could not be decoded'));
+        }, { once: true });
+      });
+      await audio.play();
+      await playing;
+
+      // Require measurable progress, not merely the player opening.
+      const progressDeadline = Date.now() + 2500;
+      while (audio.currentTime < 0.15 && !audio.paused && !playbackEnded && Date.now() < progressDeadline) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      if (audio.paused || (!playbackEnded && audio.currentTime < 0.15)) {
+        throw new Error('Audio playback did not progress');
+      }
+
+      // Only now reserve this recipient's one-time listen.
+      const { data: claimedResult, error: claimError } = await supabaseClient.rpc(
         'claim_daily_update_comment_voice_once',
         { p_comment_id: commentId }
       );
       if (claimError) throw claimError;
-      if (claimed !== true) {
+      if (claimedResult !== true) {
         audio.pause();
         audio.removeAttribute('src');
         audio.load();
+        URL.revokeObjectURL(objectUrl);
+        objectUrl = '';
         comment.voiceViewed = true;
         comment.voicePath = '';
         holder.classList.add('is-consumed');
@@ -3029,19 +3073,30 @@ async function handleDailyUpdateCommentAction(event) {
         return;
       }
 
+      claimed = true;
       comment.voiceViewed = true;
       comment.voicePath = '';
+      if (playbackEnded) {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+        URL.revokeObjectURL(objectUrl);
+        objectUrl = '';
+        holder.classList.add('is-consumed');
+        holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
+      }
     } catch (error) {
       audio?.pause();
       if (audio) {
         audio.removeAttribute('src');
         audio.load();
       }
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       console.warn('Tweaklr: Home comment view-once playback failed.', error?.message || error);
       comment.voiceViewed = false;
       holder.classList.remove('is-consumed');
       holder.innerHTML = '<span>' + icon('headphones') + '</span><div><strong>One-time voice note</strong><small>Playback did not start. Your listen is still available.</small></div><button type="button" class="biz-comment-once-play" data-comment-action="listen-once" data-comment-id="' + esc(comment.id) + '">Try again</button>';
-      toast('Playback did not start. Your one-time listen is still available.', 'alert');
+      toast('The voice note did not actually start playing, so your one-time listen has not been used. Please try again.', 'alert');
     }
     return;
   }
