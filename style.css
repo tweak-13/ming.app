@@ -5886,3 +5886,16 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 .tw-comment-send svg{width:17px;height:17px}
 .tw-comment-compose-hint{display:flex;justify-content:space-between;gap:8px;padding:6px 3px 0;color:var(--muted);font-size:9px}
 @media(max-width:380px){.tw-comment-replies{margin-left:34px;padding-left:9px}.tw-comment-actions{gap:9px}.tw-comment-bubble{padding:9px 11px}}
+
+
+/* Daily Update comment privacy controls */
+.tw-comment-privacy-options{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 2px 46px}
+.tw-comment-privacy-options label{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--line,rgba(120,100,80,.2));border-radius:999px;font-size:11px;color:var(--muted,#8b8178);cursor:pointer}
+.tw-comment-privacy-options input{accent-color:#493224}
+.tw-comment-privacy-options label:has(input:checked){border-color:#493224;color:var(--text,#493224);background:rgba(73,50,36,.07)}
+.tw-comment-privacy-options label:has(input:disabled){opacity:.65;cursor:default}
+.tw-comment-privacy-options label span{display:inline-flex;align-items:center;gap:5px}
+.tw-comment-privacy-options svg{width:13px;height:13px}
+.tw-comment-privacy-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.tw-comment-privacy{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:rgba(73,50,36,.07);font-size:10px;color:var(--muted,#76685e)}
+.tw-comment-privacy svg{width:11px;height:11px}
