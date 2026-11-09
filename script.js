@@ -2057,7 +2057,7 @@ async function loadMingDailyUpdateComments(updateId) {
 
   const comments = await Promise.all((rows || []).map(async row => {
     let voiceUrl = '';
-    if (row.voice_path) {
+    if (row.voice_path && !row.voice_view_once) {
       const { data: signed, error: signedError } = await supabaseClient
         .storage.from('ming-daily-update-comment-voice')
         .createSignedUrl(row.voice_path, 1800);
@@ -2101,6 +2101,8 @@ async function loadMingDailyUpdateComments(updateId) {
       likedByMe: !!row.liked_by_me,
       voicePath: row.voice_path || '',
       voiceDuration: Number(row.voice_duration || 0),
+      voiceViewOnce: !!row.voice_view_once,
+      voiceViewed: !!row.voice_viewed,
       voiceUrl
     };
   }));
@@ -2664,9 +2666,11 @@ function renderDailyUpdateComment(comment, replies = []) {
   const content = editing
     ? '<form class="tw-comment-edit-form" data-comment-edit-form="' + esc(comment.id) + '"><textarea maxlength="1000" required data-comment-edit-input>' + esc(comment.text) + '</textarea><div><button type="button" data-comment-action="cancel-edit">Cancel</button><button type="submit">Save changes</button></div></form>'
     : (comment.text ? '<div class="biz-comment-bubble">' + esc(comment.text) + '</div>' : '');
-  const voice = comment.voiceUrl
-    ? '<div class="biz-comment-voice"><span class="biz-comment-voice-icon">' + icon('volume-2') + '</span><audio controls preload="none" src="' + esc(comment.voiceUrl) + '"></audio></div>'
-    : '';
+  const voice = comment.voiceViewOnce
+    ? (comment.voiceViewed
+      ? '<div class="biz-comment-voice-once is-consumed"><span>' + icon('headphones') + '</span><span>This voice note has already been played.</span></div>'
+      : '<div class="biz-comment-voice-once"><span>' + icon('headphones') + '</span><div><strong>One-time voice note</strong><small>Available for one listen</small></div><button type="button" class="biz-comment-once-play" data-comment-action="listen-once" data-comment-id="' + esc(comment.id) + '">Listen once</button></div>')
+    : (comment.voiceUrl ? '<div class="biz-comment-voice"><span class="biz-comment-voice-icon">' + icon('volume-2') + '</span><audio controls preload="none" src="' + esc(comment.voiceUrl) + '"></audio></div>' : '');
   const privacy = (comment.isAnonymous ? '<span class="biz-comment-tag">' + icon('user-round') + ' Anonymous</span>' : '') +
     (comment.isPrivate ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>' : '');
   const repliesHtml = replies.length ? '<div class="biz-comment-replies">' + replies.map(reply => renderDailyUpdateComment(reply, [])).join('') + '</div>' : '';
@@ -2719,6 +2723,7 @@ function paintDailyUpdateComments(id, focusComposer = false) {
           '<label class="biz-comment-category-choice"><input type="radio" name="biz-comment-category" value="anonymous" ' + (replyIsPrivate ? 'disabled' : '') + '><span class="biz-comment-category-symbol">' + icon('user-round') + '</span><span><strong>Anonymous</strong><small>Your profile stays hidden</small></span><i></i></label>' +
           '<label class="biz-comment-category-choice ' + (replyIsPrivate ? 'is-selected' : '') + '"><input type="radio" name="biz-comment-category" value="private" ' + (replyIsPrivate ? 'checked' : '') + '><span class="biz-comment-category-symbol">' + icon('lock') + '</span><span><strong>Private</strong><small>Only you and the update owner</small></span><i></i></label>' +
         '</div>' +
+        '<label id="biz-comment-view-once-wrap" class="biz-comment-view-once" hidden><input id="biz-comment-view-once" type="checkbox"><span class="biz-comment-view-once-icon">' + icon('eye') + '</span><span><strong>View once</strong><small>Voice note can be opened once by each recipient</small></span><i></i></label>' +
       '</section>' +
       '<div class="biz-comment-compose-bottom">' +
         '<button class="biz-comment-mic" id="biz-comment-mic" type="button" aria-label="Record a voice comment" title="Record a voice comment">' + icon('mic') + '</button>' +
@@ -2739,6 +2744,8 @@ function paintDailyUpdateComments(id, focusComposer = false) {
   const status = $('#biz-comment-record-status');
   const recordTitle = $('#biz-comment-record-title');
   const categoryPrompt = $('#biz-comment-category-prompt');
+  const viewOnceWrap = $('#biz-comment-view-once-wrap');
+  const viewOnceToggle = $('#biz-comment-view-once');
   let recorder = null;
   let recordStream = null;
   let recordChunks = [];
@@ -2764,6 +2771,8 @@ function paintDailyUpdateComments(id, focusComposer = false) {
   const updateComposer = () => {
     const hasContent = !!(input?.value.trim() || voiceBlob);
     if (categoryPrompt) categoryPrompt.hidden = !hasContent;
+    if (viewOnceWrap) viewOnceWrap.hidden = !voiceBlob;
+    if (!voiceBlob && viewOnceToggle) viewOnceToggle.checked = false;
     if (submit) submit.disabled = posting || recorder?.state === 'recording' || !hasContent;
     if (count) count.textContent = (input?.value.length || 0) + ' / 1000';
     categoryPrompt?.querySelectorAll('.biz-comment-category-choice').forEach(choice => {
@@ -2922,7 +2931,8 @@ function paintDailyUpdateComments(id, focusComposer = false) {
       is_anonymous: category === 'anonymous',
       is_private: category === 'private',
       voice_path: voicePath,
-      voice_duration: voiceDuration || null
+      voice_duration: voiceDuration || null,
+      voice_view_once: !!(voiceBlob && viewOnceToggle?.checked)
     });
 
     if (error) {
@@ -2964,6 +2974,62 @@ async function handleDailyUpdateCommentAction(event) {
   const updateId = state.sheetCtx?.type === 'comments' ? state.sheetCtx.id : null;
   const update = dailyUpdates.find(item => item.id === updateId);
   if (!update) return;
+  if (action === 'listen-once') {
+    const comment = update.comments.find(item => String(item.id) === String(commentId));
+    const holder = button.closest('.biz-comment-voice-once');
+    if (!comment?.voicePath || !comment.voiceViewOnce || comment.voiceViewed) {
+      button.disabled = true;
+      button.textContent = 'Already played';
+      return;
+    }
+    button.disabled = true;
+    button.textContent = 'Preparing…';
+    try {
+      const { data: signed, error: signedError } = await supabaseClient.storage
+        .from('ming-daily-update-comment-voice')
+        .createSignedUrl(comment.voicePath, 90);
+      if (signedError || !signed?.signedUrl) throw signedError || new Error('Audio URL unavailable');
+
+      const { data: claimed, error: claimError } = await supabaseClient.rpc(
+        'claim_daily_update_comment_voice_once',
+        { p_comment_id: commentId }
+      );
+      if (claimError) throw claimError;
+      if (claimed !== true) {
+        comment.voiceViewed = true;
+        comment.voicePath = '';
+        holder?.classList.add('is-consumed');
+        holder?.replaceChildren(document.createTextNode('This voice note has already been played.'));
+        return;
+      }
+
+      comment.voiceViewed = true;
+      comment.voicePath = '';
+      if (!holder) return;
+      holder.innerHTML = '<span>' + icon('headphones') + '</span><audio controls autoplay preload="auto" src="' + esc(signed.signedUrl) + '"></audio>';
+      const audio = holder.querySelector('audio');
+      audio.addEventListener('ended', () => {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+        holder.classList.add('is-consumed');
+        holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
+      }, { once: true });
+      audio.addEventListener('error', () => {
+        holder.classList.add('is-consumed');
+        holder.replaceChildren(document.createTextNode('This one-time voice note was claimed, but playback failed.'));
+        toast('The one-time listen was used, but playback failed.', 'alert');
+      }, { once: true });
+    } catch (error) {
+      console.warn('Tweaklr: Home comment view-once playback failed.', error?.message || error);
+      if (button.isConnected) {
+        button.disabled = false;
+        button.textContent = 'Try again';
+      }
+      toast('Could not prepare the one-time voice note. Please try again.', 'alert');
+    }
+    return;
+  }
   if (action === 'cancel-reply') {
     activeDailyUpdateCommentReplyTo = null;
     paintDailyUpdateComments(updateId);
