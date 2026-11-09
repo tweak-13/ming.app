@@ -3643,9 +3643,9 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
 }
 
 
-/* TWEAKLR HOME COMMENTS — harden the sheet's scroll viewport for mobile WebViews.
-   The sheet gets a definite height; the body becomes the only vertical scroller. */
-#sheet:has(.biz-comments-shell) {
+/* TWEAKLR HOME COMMENTS — keep the list scrollable and the composer visible.
+   Home's composer lives in .sheet-foot; Business Space keeps its own in-body composer. */
+#sheet:has(.tw-home-comments-shell) {
   display: flex !important;
   flex-direction: column !important;
   height: 90dvh !important;
@@ -3653,7 +3653,7 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
   min-height: 0 !important;
   overflow: hidden !important;
 }
-#sheet:has(.biz-comments-shell) > .sheet-body {
+#sheet:has(.tw-home-comments-shell) > .sheet-body {
   display: block !important;
   flex: 1 1 0% !important;
   height: 0 !important;
@@ -3664,12 +3664,19 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
   -webkit-overflow-scrolling: touch !important;
   overscroll-behavior-y: contain;
   touch-action: pan-y !important;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+  padding-bottom: 16px !important;
 }
-#sheet:has(.biz-comments-shell) > .sheet-foot {
-  display: none !important;
+#sheet:has(.tw-home-comments-shell) > .sheet-foot {
+  display: block !important;
+  flex: 0 0 auto !important;
+  max-height: 48dvh !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+  border-top: 1px solid var(--border) !important;
+  background: var(--surface) !important;
 }
-#sheet:has(.biz-comments-shell) .biz-comment-list {
+#sheet:has(.tw-home-comments-shell) .biz-comment-list {
   max-height: none !important;
   overflow: visible !important;
 }
