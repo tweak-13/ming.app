@@ -8640,6 +8640,8 @@ const Server = (() => {
   function can(spaceId, action, userId = session.userId) {
     const r = roleOf(spaceId, userId);
     if (!r) return false;
+    // Marketplace selling is a separate opt-in role, not an automatic admin privilege.
+    if (action === 'product.create') return r === 'owner' || r === 'seller';
     const need = NEEDS[action];
     if (need === undefined) return true;
     return RANK[r] >= need;
