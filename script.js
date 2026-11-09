@@ -1417,6 +1417,7 @@ function skeletonRail() {
    TWEAK — TikTok Display API integration
    OAuth and access tokens are handled by Supabase Edge Functions.
 ------------------------------------------------------------ */
+const TWEAK_TIKTOK_ENABLED = false; // Integration intentionally paused until the TikTok API review and Edge Functions are ready.
 let tweakTikTokReturnHandled = false;
 
 function renderTweak() {
@@ -1436,26 +1437,33 @@ function renderTweak() {
         '<div class="pulse-planet"></div>',
       '</div>',
     '</section>',
-    '<button type="button" class="pulse-glass pulse-connect" data-action="tweak-connect">',
+    '<div class="pulse-glass pulse-connect pulse-connect--paused" aria-disabled="true">',
       '<span class="pulse-connect-icon" aria-hidden="true">♪</span>',
-      '<span class="pulse-connect-copy"><b>Connect your TikTok</b><span>Bring your eligible public videos into your Pulse space.</span></span>',
-      '<span class="pulse-connect-action">Connect</span>',
-    '</button>',
-    '<p id="tweak-account-status" class="pulse-account-status" aria-live="polite">Checking TikTok connection…</p>',
+      '<span class="pulse-connect-copy"><b>TikTok integration paused</b><span>Creator linking will return after API review and server deployment.</span></span>',
+      '<span class="pulse-connect-action">Coming soon</span>',
+    '</div>',
+    '<p id="tweak-account-status" class="pulse-account-status" aria-live="polite">TikTok creator import is paused for launch.</p>',
     '<div class="pulse-grid" aria-label="About Pulse">',
       '<div class="pulse-glass pulse-tile"><span class="pulse-tile-icon" aria-hidden="true">✧</span><b>Your creator orbit</b><span>Discover videos from accounts you connect.</span></div>',
       '<div class="pulse-glass pulse-tile"><span class="pulse-tile-icon" aria-hidden="true">◌</span><b>Native to Tweaklr</b><span>Your connections and conversations stay here.</span></div>',
     '</div>',
     '<section class="pulse-video-section">',
       '<div class="pulse-section-head"><div><div class="pulse-eyebrow">YOUR CONNECTED UNIVERSE</div><h2>Your videos</h2><p>Public videos shared by your linked creator account.</p></div>',
-      '<button type="button" class="pulse-refresh" data-action="tweak-refresh">Refresh ↻</button></div>',
+      '<button type="button" class="pulse-refresh" disabled aria-disabled="true">Refresh unavailable</button></div>',
       '<div id="tweak-video-feed" class="pulse-video-feed" aria-live="polite"><div class="tweak-video-message">Your connected videos will appear here.</div></div>',
     '</section>',
     '<p class="pulse-footnote">TikTok access tokens stay on the server. Likes, comments, follows, connections and messages remain native to Tweaklr and are separate from TikTok actions.</p>'
   ].join('');
 
-  handleTweakTikTokReturn();
-  loadTweakTikTokData();
+  if (TWEAK_TIKTOK_ENABLED) {
+    handleTweakTikTokReturn();
+    loadTweakTikTokData();
+  } else {
+    const statusEl = $('#tweak-account-status');
+    const feedEl = $('#tweak-video-feed');
+    if (statusEl) statusEl.textContent = 'TikTok creator imports are temporarily paused.';
+    if (feedEl) feedEl.innerHTML = '<div class="tweak-video-message">Pulse creator imports will be enabled after TikTok API review, callback configuration and server deployment. Your Tweaklr account and native social features remain available.</div>';
+  }
 }
 function handleTweakTikTokReturn() {
   if (tweakTikTokReturnHandled) return;
@@ -1501,6 +1509,10 @@ function safeTweakTikTokUrl(value) {
 
 async function loadTweakTikTokData(showToast = false) {
   const statusEl = $('#tweak-account-status');
+  if (!TWEAK_TIKTOK_ENABLED) {
+    if (statusEl) statusEl.textContent = 'TikTok creator imports are temporarily paused.';
+    return;
+  }
   const feedEl = $('#tweak-video-feed');
   if (!statusEl || !feedEl) return;
 
@@ -1552,6 +1564,10 @@ async function loadTweakTikTokData(showToast = false) {
 }
 
 async function beginTweakSetup() {
+  if (!TWEAK_TIKTOK_ENABLED) {
+    toast('TikTok linking is paused until the API integration is ready.', 'alert');
+    return;
+  }
   try {
     const { data, error } = await supabaseClient.functions.invoke('tweak-tiktok-auth-start', { body: {} });
     if (error) throw error;
@@ -9202,6 +9218,24 @@ const Server = (() => {
       case 'space.post': {
         if (!can(p.spaceId, 'space.post')) return deny('You cannot post in this Space.');
         const targetSpace = db.spaces.find(x => x.id === p.spaceId);
+        const allowedKinds = {
+          business: ['business_post','doc','announcement','task'],
+          friendly: ['friend_post','moment','poll','event','memory'],
+          casual: ['now','answer','event','meeting','poll'],
+          romantic: ['memory','love_letter','plan','milestone','nickname','health','list']
+        };
+        if (!(allowedKinds[targetSpace?.nature] || []).includes(p.kind)) {
+          return deny('That content type is not available in this Space.');
+        }
+        const featureKey = ({
+          'business:doc':'documents','business:announcement':'announcements','business:task':'tasks',
+          'friendly:friend_post':'moments','friendly:moment':'moments','friendly:poll':'polls','friendly:event':'events','friendly:memory':'memories',
+          'casual:now':'now','casual:answer':'now','casual:poll':'polls','casual:event':'meet','casual:meeting':'meet',
+          'romantic:memory':'memories','romantic:plan':'plans','romantic:milestone':'milestones','romantic:love_letter':'loveletter','romantic:nickname':'lists','romantic:list':'lists'
+        })[targetSpace?.nature + ':' + p.kind];
+        if (featureKey && targetSpace?.features?.[featureKey] === false) {
+          return deny('This feature has been disabled by the Space owner.');
+        }
         if (targetSpace?.nature === 'business' && targetSpace.features?.businessMessaging === 'owner' && roleOf(p.spaceId) !== 'owner') return deny('Only the creator can publish in this Business Space.');
         const { data: created, error } = await supabaseClient.rpc('create_ming_space_content', {
           p_space_id: p.spaceId,
@@ -9218,6 +9252,7 @@ const Server = (() => {
       case 'content.mutate': {
         const row = db.content.find(c => c.id === p.id);
         if (!row) return deny('Gone.');
+        const previousRow = JSON.parse(JSON.stringify(row));
         if (!can(row.spaceId, 'space.post')) return deny('Your Space role is read-only.');
         if (p.op === 'react') {
           row.reacts = row.reacts || {};
@@ -9249,7 +9284,7 @@ const Server = (() => {
         if (p.op === 'listtoggle') row.items[p.index].done = !row.items[p.index].done;
         const payload = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','spaceId','authorId','kind','at','updatedAt'].includes(k)));
         const { error } = await supabaseClient.rpc('update_ming_space_content', { p_id: row.id, p_payload: payload });
-        if (error) return deny(error.message || 'Could not save the change.');
+        if (error) { Object.keys(row).forEach(key => delete row[key]); Object.assign(row, previousRow); return deny(error.message || 'Could not save the change.'); }
         if (p.op === 'taskupdate' && row.kind === 'task') {
           audit(row.spaceId, 'task.updated', { status: row.status || (row.done ? 'completed' : 'todo'), priority: row.priority || 'medium' });
         }
@@ -9278,103 +9313,12 @@ const Server = (() => {
         return { ok: true, data: { row } };
       }
 
-      case 'order.create': {
-        const prod = db.products.find(x => x.id === p.productId);
-        if (!prod || prod.status !== 'listed') return deny('That listing is no longer available.');
-        if (prod.sellerId === session.userId) return deny('You cannot buy your own listing.');
-        if (!can(prod.spaceId, 'order.create')) return deny('Join this Space to buy.');
-        /* Price comes from the listing row, never from the client. */
-        const order = {
-          id: 'MO-' + Date.now().toString(36).toUpperCase().slice(-6),
-          spaceId: prod.spaceId, productId: prod.id,
-          buyerId: session.userId, sellerId: prod.sellerId,
-          unit: prod.price, qty: 1, total: prod.price,
-          asset: prod.asset, status: 'pending',
-          idempotencyKey: p.idempotencyKey,
-          createdAt: Date.now(), acceptanceDeadline: null
-        };
-        const dupe = db.orders.find(o => o.idempotencyKey === p.idempotencyKey);
-        if (dupe) return { ok: true, data: { order: dupe } };   // replay-safe
-        db.orders.unshift(order);
-        orderEvent(order, null, 'pending', 'create');
-        audit(prod.spaceId, 'order.created', { id: order.id });
-        return { ok: true, data: { order } };
-      }
-
-      case 'order.transition': {
-        const order = db.orders.find(o => o.id === p.orderId);
-        if (!order) return deny('Order not found.');
-        const allowed = ORDER_FLOW[order.status] || {};
-        const rule = allowed[p.transition];
-        if (!rule) return deny(`"${p.transition}" is not possible while this order is ${order.status.replace('_', ' ')}.`);
-        const party = partyOf(order);
-        if (!party || !rule.who.includes(party)) return deny('You are not a party to that step.');
-
-        const from = order.status;
-
-        if (p.transition === 'fund') {
-          if (!hold(order.buyerId, order.asset, order.total, order.id)) {
-            return deny('Not enough available balance in your development wallet.');
-          }
-        }
-        if (p.transition === 'confirm_delivery') {
-          order.acceptanceDeadline = Date.now() + 72 * 3600e3;   // buyer acceptance window
-        }
-        if (p.transition === 'cancel' && from === 'funded') releaseHold(order, false);
-        if (p.transition === 'resolve_release') releaseHold(order, true);
-        if (p.transition === 'resolve_refund') releaseHold(order, false);
-
-        order.status = rule.to;
-        orderEvent(order, from, order.status, p.transition, p.meta);
-        audit(order.spaceId, 'order.' + p.transition, { id: order.id, to: order.status });
-
-        /* Release is a system step, not a user action: acceptance triggers it. */
-        if (order.status === 'accepted') {
-          releaseHold(order, true);
-          order.status = 'completed';
-          orderEvent(order, 'accepted', 'completed', 'release', { by: 'system' });
-          audit(order.spaceId, 'order.released', { id: order.id });
-        }
-        if (TERMINAL.includes(order.status)) {
-          const prod = db.products.find(x => x.id === order.productId);
-          if (prod && order.status === 'completed') { prod.qty -= order.qty; if (prod.qty <= 0) prod.status = 'sold'; }
-        }
-        return { ok: true, data: { order } };
-      }
-
-      case 'dispute.open': {
-        const order = db.orders.find(o => o.id === p.orderId);
-        if (!order) return deny('Order not found.');
-        const party = partyOf(order);
-        if (party !== 'buyer' && party !== 'seller') return deny('Only the buyer or seller can open a dispute.');
-        const res = await submit('order.transition', { orderId: order.id, transition: 'dispute', meta: { reason: p.reason } });
-        if (!res.ok) return res;
-        const d = {
-          id: 'dp_' + Math.random().toString(36).slice(2, 8),
-          orderId: order.id, spaceId: order.spaceId,
-          openedBy: session.userId, reason: p.reason, detail: p.detail,
-          status: 'evidence', openedAt: Date.now(),
-          evidenceDeadline: Date.now() + 96 * 3600e3
-        };
-        db.disputes.unshift(d);
-        audit(order.spaceId, 'dispute.opened', { orderId: order.id, reason: p.reason });
-        return { ok: true, data: { dispute: d } };
-      }
-
-      case 'dispute.evidence': {
-        const d = db.disputes.find(x => x.id === p.disputeId);
-        if (!d) return deny('Dispute not found.');
-        const order = db.orders.find(o => o.id === d.orderId);
-        const party = partyOf(order);
-        if (!party) return deny('You are not a party to this dispute.');
-        db.evidence.push(Object.freeze({
-          id: 'ev_' + db.evidence.length, disputeId: d.id, party,
-          userId: session.userId, kind: p.kind, label: p.label, at: Date.now()
-        }));
-        audit(d.spaceId, 'dispute.evidence_added', { disputeId: d.id, kind: p.kind });
-        return { ok: true, data: { dispute: d } };
-      }
-
+      case 'order.create':
+      case 'order.transition':
+      case 'dispute.open':
+      case 'dispute.evidence':
+        return deny('In-app checkout, order tracking and disputes are not available yet. Message the seller directly.');
+      
       default: return deny('Unknown action.');
     }
   }
@@ -10289,12 +10233,12 @@ VIEWS.business.files = s => {
     return '<article class="sp-card sp-doc-card" data-doc-card data-doc-name="' + esc((title+' '+type+' '+category).toLowerCase()) + '" data-doc-category="' + esc(category) + '">' +
       '<button type="button" class="sp-doc-open" data-sp="file-open:' + f.id + '" aria-label="Open ' + esc(title) + '"><span class="sp-doc-icon">' + icon(type.startsWith('image/')?'sp-camera':type.startsWith('video/')?'sp-bolt':'sp-doc') + '</span><span class="sp-doc-copy"><b>' + esc(title) + '</b><small>' + esc(category) + ' · ' + esc(type) + '</small><small>' + esc(sizeLabel) + ' · ' + esc(date) + '</small><small>Shared by ' + esc(nameOf(f.ownerId)) + '</small></span><span class="sp-doc-openmark">' + icon('chev') + '</span></button><div class="sp-doc-actions"><button type="button" class="btn btn--soft btn--sm" data-sp="file-open:' + f.id + '">Open</button><button type="button" class="btn btn--soft btn--sm" data-sp="file-download:' + f.id + '">Download</button>' +
       ((canManage || f.ownerId === currentUser.id) ? '<button type="button" class="btn btn--soft btn--sm" data-sp="doc-rename:' + f.id + '">Rename</button><button type="button" class="btn btn--soft btn--sm" data-sp="doc-category:' + f.id + '">Category</button>' : '') +
-      (f.ownerId === currentUser.id ? '<button type="button" class="btn btn--ghost btn--sm sp-doc-delete" data-sp="doc-delete:' + f.id + '">Delete</button>' : '') + '</div></article>';
+      ((f.ownerId === currentUser.id || Server.can(sp.activeId,'space.post.pin')) ? '<button type="button" class="btn btn--ghost btn--sm sp-doc-delete" data-sp="doc-delete:' + f.id + '">Delete</button>' : '') + '</div></article>';
   }).join('');
-  return '<div class="sp-documents"><section class="sp-doc-hero"><div class="sp-doc-hero-mark">' + icon('sp-doc') + '</div><div class="sp-doc-hero-copy"><span class="sp-doc-eyebrow">BUSINESS SPACE · LIBRARY</span><h2>Documents</h2><p>One polished home for your team’s shared files, references and working documents.</p><div class="sp-doc-statline"><span>' + files.length + ' file' + (files.length===1?'':'s') + '</span><span>Private to this Space</span></div></div><button type="button" class="btn btn--primary sp-doc-upload" data-sp="doc-upload">＋ Add document</button></section>' +
+  return '<div class="sp-documents"><section class="sp-doc-hero"><div class="sp-doc-hero-mark">' + icon('sp-doc') + '</div><div class="sp-doc-hero-copy"><span class="sp-doc-eyebrow">BUSINESS SPACE · LIBRARY</span><h2>Documents</h2><p>One polished home for your team’s shared files, references and working documents.</p><div class="sp-doc-statline"><span>' + files.length + ' file' + (files.length===1?'':'s') + '</span><span>Private to this Space</span></div></div>' + (canManage ? '<button type="button" class="btn btn--primary sp-doc-upload" data-sp="doc-upload">＋ Add document</button>' : '') + '</section>' +
     '<section class="sp-doc-toolbar"><label class="sp-doc-search"><span aria-hidden="true">⌕</span><input id="docs-search" type="search" placeholder="Search by name, type or category…" aria-label="Search documents"></label><label class="sp-doc-filter"><span>Category</span><select id="docs-category" aria-label="Filter documents by category"><option value="">All categories</option><option>General</option><option>Contracts</option><option>Finance</option><option>Design</option><option>Reports</option><option>Policies</option><option>Other</option></select></label></section>' +
     '<section class="sp-doc-library"><div class="sp-doc-section-head"><div><span class="sp-doc-eyebrow">YOUR WORKSPACE</span><h3>Shared files</h3></div><span class="sp-doc-count">' + files.length + ' items</span></div>' +
-    (files.length ? '<div class="sp-doc-grid" id="docs-grid">' + fileRows + '</div><div class="sp-doc-no-results" id="docs-no-results" hidden>No documents match your search. Try another name or category.</div>' : '<div class="sp-doc-empty"><div class="sp-doc-empty-icon">' + icon('sp-doc') + '</div><h3>Your document library starts here</h3><p>Upload a proposal, contract, report, spreadsheet or image. Files are stored in your private Tweaklr Space.</p><button type="button" class="btn btn--primary" data-sp="doc-upload">Upload your first document</button></div>') +
+    (files.length ? '<div class="sp-doc-grid" id="docs-grid">' + fileRows + '</div><div class="sp-doc-no-results" id="docs-no-results" hidden>No documents match your search. Try another name or category.</div>' : '<div class="sp-doc-empty"><div class="sp-doc-empty-icon">' + icon('sp-doc') + '</div><h3>Your document library starts here</h3><p>Upload a proposal, contract, report, spreadsheet or image. Files are stored in your private Tweaklr Space.</p>' + (canManage ? '<button type="button" class="btn btn--primary" data-sp="doc-upload">Upload your first document</button>' : '<p>Ask a Space owner, admin or manager to upload the first document.</p>') + '</div>') +
     '</section>' + (docs.length ? '<section class="sp-doc-notes"><div class="sp-doc-section-head"><div><span class="sp-doc-eyebrow">SPACE NOTES</span><h3>Document notes</h3></div><span class="sp-doc-count">' + docs.length + ' notes</span></div><div class="sp-doc-note-grid">' + docs.map(d=>'<article class="sp-card sp-doc-note"><span class="sp-doc-note-label">NOTE</span><b>'+esc(d.title||'Document note')+'</b><p>'+esc(d.body||'Saved in this Space.')+'</p></article>').join('')+'</div></section>' : '') +
     '<p class="sp-doc-footnote">' + icon('lock') + ' Files are only available to approved members of this Space. Supported previews open in a new tab; other files can be downloaded from there.</p></div>';
 };
@@ -12989,45 +12933,22 @@ document.addEventListener('click', async e => {
       Server.db.bids.unshift({ id:data.id, productId:data.product_id, bidderId:data.bidder_id, amount:Number(data.amount), createdAt:new Date(data.created_at).getTime() });
       closeSheet(); refreshSpace(); toast('Bid placed', 'check'); break;
     }
-    case 'pay': {
-      const idem = 'idem_' + a + '_' + Date.now();
-      const created = await Server.submit('order.create', { productId: a, idempotencyKey: idem });
-      if (!created.ok) { toast(created.error, 'x'); return; }
-      const funded = await Server.submit('order.transition', { orderId: created.data.order.id, transition: 'fund' });
+    case 'pay':
       closeSheet();
-      if (!funded.ok) { toast(funded.error, 'x'); renderSpace(); return; }
-      toast('Payment held in escrow', 'shield');
-      setTimeout(() => openOrder(created.data.order.id), 240);
+      toast('In-app checkout is not available yet. Message the seller directly.', 'info');
       break;
-    }
-    case 'order': openOrder(a); break;
-    case 'trans': {
-      if (b === 'dispute') { openDisputeSheet(a); break; }
-      const res = await Server.submit('order.transition', { orderId: a, transition: b });
-      if (!res.ok) { toast(res.error, 'x'); return; }
+    case 'order':
       renderOrder();
-      const st = ORDER_STATES[res.data.order.status];
-      toast(st.t, res.data.order.status === 'completed' ? 'check' : 'shield');
       break;
-    }
-    case 'dispute-submit': {
-      const reason = $('#dp-reason').querySelector('[aria-pressed="true"]').dataset.pick;
-      const res = await Server.submit('dispute.open', { orderId: a, reason, detail: $('#dp-detail').value.trim() });
-      if (!res.ok) { toast(res.error, 'x'); return; }
-      closeSheet(); renderOrder();
-      toast('Dispute opened — funds stay held', 'shield');
+    case 'trans':
+      toast('In-app order tracking is not available yet.', 'info');
       break;
-    }
-    case 'evidence': openEvidenceSheet(a); break;
-    case 'evidence-submit': {
-      const sel = $('#ev-kind').querySelector('[aria-pressed="true"]');
-      const label = $('#ev-label').value.trim();
-      if (!label) { toast('Describe the evidence', 'x'); return; }
-      const res = await Server.submit('dispute.evidence', { disputeId: a, kind: sel.dataset.pick, label });
-      if (!res.ok) { toast(res.error, 'x'); return; }
-      closeSheet(); renderOrder(); toast('Evidence recorded', 'check');
+    case 'dispute-submit':
+    case 'evidence':
+    case 'evidence-submit':
+      closeSheet();
+      toast('In-app dispute handling is not available yet. Contact the seller directly.', 'info');
       break;
-    }
     case 'product-submit': {
       const price = parseFloat($('#pf-price').value);
       const res = await Server.submit('product.create', {
@@ -13516,7 +13437,7 @@ document.addEventListener('DOMContentLoaded', () => {
      - must begin/end with letter or number
   */
   function isValidUsername(username) {
-    return /^[A-Za-z0-9](?:[A-Za-z0-9_-]{1,28}[A-Za-z0-9])?$/.test(
+    return /^[A-Za-z0-9][A-Za-z0-9_-]{1,28}[A-Za-z0-9]$/.test(
       username
     );
   }
@@ -13894,13 +13815,17 @@ window.location.href = 'app.html';
   } = await supabaseClient.auth.getSession();
 
   if (error || !session?.user) {
-    console.log('Tweaklr: no authenticated session. Returning to login.');
-
     window.location.href = 'index.html';
-
     return;
   }
 
-  console.log('Tweaklr: authenticated session detected.');
+  // getSession() reads the locally stored session; getUser() verifies the
+  // bearer token with Supabase before the app trusts the session identity.
+  const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+  if (userError || !user?.id || user.id !== session.user.id) {
+    await supabaseClient.auth.signOut({ scope: 'local' }).catch(() => {});
+    window.location.href = 'index.html';
+    return;
+  }
 
 })();
