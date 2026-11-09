@@ -2646,22 +2646,21 @@ function renderDailyUpdateComment(comment, replies = []) {
   const editing = editingDailyUpdateCommentId === comment.id;
   let actions = '';
   if (!editing) {
-    actions = (comment.parentCommentId ? '' : '<button type="button" data-comment-action="reply" data-comment-id="' + esc(comment.id) + '">Reply</button>') +
-      '<button type="button" data-comment-action="like" data-comment-id="' + esc(comment.id) + '" aria-pressed="' + (comment.likedByMe ? 'true' : 'false') + '" class="' + (comment.likedByMe ? 'is-liked' : '') + '">' + icon('heart') + ' <span>' + Number(comment.likesCount || 0) + '</span></button>' +
-      (mine ? '<button type="button" data-comment-action="edit" data-comment-id="' + esc(comment.id) + '">Edit</button><button type="button" data-comment-action="delete" data-comment-id="' + esc(comment.id) + '">Delete</button>' : '');
+    actions = (comment.parentCommentId ? '' : '<button type="button" data-comment-action="reply" data-comment-id="' + esc(comment.id) + '">' + icon('reply') + ' Reply</button>') +
+      '<button type="button" data-comment-action="like" data-comment-id="' + esc(comment.id) + '" aria-pressed="' + (comment.likedByMe ? 'true' : 'false') + '" class="' + (comment.likedByMe ? 'is-liked' : '') + '">' + icon('heart') + ' ' + Number(comment.likesCount || 0) + '</button>' +
+      (mine ? '<button type="button" data-comment-action="edit" data-comment-id="' + esc(comment.id) + '">' + icon('pencil') + ' Edit</button><button type="button" class="is-delete" data-comment-action="delete" data-comment-id="' + esc(comment.id) + '">' + icon('trash') + ' Delete</button>' : '');
   }
   const content = editing
     ? '<form class="tw-comment-edit-form" data-comment-edit-form="' + esc(comment.id) + '"><textarea maxlength="1000" required data-comment-edit-input>' + esc(comment.text) + '</textarea><div><button type="button" data-comment-action="cancel-edit">Cancel</button><button type="submit">Save changes</button></div></form>'
-    : '<div class="tw-comment-text">' + esc(comment.text) + '</div>';
-  const privacy = (comment.isAnonymous ? '<span class="tw-comment-privacy">' + icon('user-round') + ' Anonymous</span>' : '') +
-    (comment.isPrivate ? '<span class="tw-comment-privacy">' + icon('lock') + ' Private</span>' : '');
-  const repliesHtml = replies.length ? '<div class="tw-comment-replies">' + replies.map(reply => renderDailyUpdateComment(reply, [])).join('') + '</div>' : '';
-  return '<article class="tw-comment" data-comment-id="' + esc(comment.id) + '">' +
-    '<div class="tw-comment-main"><div class="tw-comment-avatar">' + avatar(profile, 36) + '</div>' +
-    '<div class="tw-comment-content"><div class="tw-comment-bubble"><div class="tw-comment-author">' + esc(comment.authorLabel || profile.short || profile.name || 'Tweaklr user') + '</div>' + content + '</div>' +
-    '<div class="tw-comment-meta"><span>' + esc(timeAgo(comment.at)) + (edited ? ' · Edited' : '') + '</span><div class="tw-comment-actions">' + actions + '</div></div>' +
-    (privacy ? '<div class="tw-comment-privacy-row">' + privacy + '</div>' : '') + '</div></div>' +
-    repliesHtml + '</article>';
+    : (comment.text ? '<div class="biz-comment-bubble">' + esc(comment.text) + '</div>' : '');
+  const privacy = (comment.isAnonymous ? '<span class="biz-comment-tag">' + icon('user-round') + ' Anonymous</span>' : '') +
+    (comment.isPrivate ? '<span class="biz-comment-tag biz-comment-tag--private">' + icon('lock') + ' Private to author</span>' : '');
+  const repliesHtml = replies.length ? '<div class="biz-comment-replies">' + replies.map(reply => renderDailyUpdateComment(reply, [])).join('') + '</div>' : '';
+  return '<div class="biz-comment-thread' + (comment.parentCommentId ? ' is-reply' : '') + '" data-comment-id="' + esc(comment.id) + '">' +
+    '<article class="biz-comment-card"><div class="biz-comment-avatar">' + avatar(profile, 38) + '</div>' +
+    '<div class="biz-comment-content"><div class="biz-comment-heading"><strong>' + esc(comment.authorLabel || profile.short || profile.name || 'Tweaklr user') + '</strong>' +
+    '<span class="biz-comment-time">' + esc(timeAgo(comment.at)) + (edited ? ' · Edited' : '') + '</span>' + privacy + '</div>' +
+    content + '<div class="biz-comment-actions">' + actions + '</div></div></article>' + repliesHtml + '</div>';
 }
 function paintDailyUpdateComments(id, focusComposer = false) {
   const update = dailyUpdates.find(item => item.id === id);
@@ -2677,22 +2676,27 @@ function paintDailyUpdateComments(id, focusComposer = false) {
   const replyTarget = comments.find(comment => comment.id === activeDailyUpdateCommentReplyTo);
   const rows = roots.length
     ? roots.map(comment => renderDailyUpdateComment(comment, byParent.get(comment.id) || [])).join('')
-    : '<div class="tw-comments-empty"><span>' + icon('message-circle') + '</span><strong>Start the conversation</strong><p>Share a thought or ask a question about this update.</p></div>';
-  const body = '<section class="tw-comments-panel" aria-label="Comments on ' + esc(update.title) + '">' +
-    '<div class="tw-comments-toolbar"><div><span class="tw-comments-kicker">THE CONVERSATION</span><strong>' + comments.length + ' ' + (comments.length === 1 ? 'comment' : 'comments') + '</strong></div><span class="tw-comments-live"><i></i> Conversation</span></div>' +
-    '<div class="tw-comments-list" aria-live="polite">' + rows + '</div></section>';
+    : '<div class="biz-comment-empty"><span>' + icon('message-circle') + '</span><strong>It’s quiet in here.</strong><p>Be the first to add something meaningful to this conversation.</p></div>';
+  const body = '<section class="biz-comments-shell" aria-label="Comments on ' + esc(update.title) + '">' +
+    '<div class="biz-comments-intro"><div class="biz-comments-intro-mark">' + icon('messages-square') + '</div>' +
+    '<div><span class="biz-comments-eyebrow">THE CONVERSATION</span><h3>' + (comments.length ? 'Good conversations start here.' : 'Make the first move.') + '</h3>' +
+    '<p>' + (comments.length ? 'Thoughts, questions and moments shared around this update.' : 'Share a thought or ask a question about this update.') + '</p></div></div>' +
+    '<div class="biz-comments-list-head"><span>COMMENTS</span><span class="biz-comments-count">' + comments.length + '</span></div>' +
+    '<div class="biz-comment-list" aria-live="polite">' + rows + '</div></section>';
   const replyName = replyTarget && (replyTarget.authorId === currentUser.id ? 'your comment' : (byId(replyTarget.authorId)?.short || byId(replyTarget.authorId)?.name || 'comment'));
   const replyBanner = replyTarget
     ? '<div class="tw-comment-replying"><span>Replying to <strong>' + esc(replyName) + '</strong></span><button type="button" data-comment-action="cancel-reply" aria-label="Cancel reply">' + icon('x') + '</button></div>'
     : '';
   const replyIsPrivate = !!replyTarget?.isPrivate;
-  const foot = '<div class="tw-comment-composer-wrap">' + replyBanner +
-    '<form id="comment-form" class="tw-comment-composer"><div class="tw-comment-compose-avatar">' + avatar(currentUser, 28) + '</div>' +
-    '<textarea id="comment-input" rows="1" maxlength="1000" placeholder="' + (replyTarget ? 'Write your reply…' : 'Add to the conversation…') + '" aria-label="' + (replyTarget ? 'Write a reply' : 'Write a comment') + '"></textarea>' +
-    '<button class="tw-comment-send" type="submit" aria-label="' + (replyTarget ? 'Post reply' : 'Post comment') + '">' + icon('arrow-up') + '</button></form>' +
+  const foot = '<form id="comment-form" class="biz-comment-composer">' + replyBanner +
+    '<div class="biz-comment-compose-heading"><div><span class="biz-comments-eyebrow">YOUR TURN</span><strong>' + (replyTarget ? 'Reply to the conversation' : 'Add to the conversation') + '</strong></div>' +
+    '<span id="tw-comment-char-count">0 / 1000</span></div>' +
+    '<div class="biz-comment-input-wrap"><textarea id="comment-input" rows="2" maxlength="1000" placeholder="' + (replyTarget ? 'Write your reply…' : 'Write something thoughtful…') + '" aria-label="' + (replyTarget ? 'Write a reply' : 'Write a comment') + '"></textarea></div>' +
+    '<div class="biz-comment-compose-bottom"><div class="biz-comment-compose-avatar">' + avatar(currentUser, 28) + '</div>' +
+    '<button class="biz-comment-send" type="submit" aria-label="' + (replyTarget ? 'Post reply' : 'Post comment') + '">' + icon('arrow-up') + '</button></div>' +
     '<div class="tw-comment-privacy-options"><label><input type="checkbox" id="comment-anonymous"> <span>' + icon('user-round') + ' Post anonymously</span></label>' +
     '<label><input type="checkbox" id="comment-private" ' + (replyIsPrivate ? 'checked disabled' : '') + '> <span>' + icon('lock') + ' Private to post owner</span></label></div>' +
-    '<div class="tw-comment-compose-hint"><span>Be kind. Keep it thoughtful.</span><span id="tw-comment-char-count">0 / 1000</span></div></div>';
+    '<p class="biz-comment-privacy-note">' + icon('shield-check') + '<span>Your privacy choice applies only to this comment. You can post with your name, anonymously, or privately to the post owner.</span></p></form>';
   openSheet({ title: 'Comments', sub: update.title + ' · ' + lifeLabel(update), body: body, foot: foot });
 
   const form = $('#comment-form');
