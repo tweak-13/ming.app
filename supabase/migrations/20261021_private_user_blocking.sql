@@ -60,9 +60,6 @@ for each row execute function public.tweaklr_reject_blocked_message();
 
 grant select, insert, delete on public.user_blocks to authenticated;
 
-revoke all on function public.tweaklr_reject_blocked_message() from public, anon, authenticated;
-revoke all on function public.tweaklr_reject_blocked_connection() from public, anon, authenticated;
-
 -- Prevent a new connection from being created if either person has blocked the other.
 create or replace function public.tweaklr_reject_blocked_connection()
 returns trigger
@@ -100,3 +97,6 @@ create trigger tweaklr_blocked_connection_update_guard
 before update of status on public.connections
 for each row when (new.status = 'accepted')
 execute function public.tweaklr_reject_blocked_connection();
+
+revoke all on function public.tweaklr_reject_blocked_message() from public, anon, authenticated;
+revoke all on function public.tweaklr_reject_blocked_connection() from public, anon, authenticated;
