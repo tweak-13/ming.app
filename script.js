@@ -11544,20 +11544,47 @@ VIEWS.business.people = s => businessTeamView(s);
 function businessTeamView(s) {
   const role = Server.roleOf(s.id);
   const canManageTeam = ['owner', 'admin', 'manager'].includes(role);
-  const approvedCount = Server.db.members.filter(m => m.spaceId === s.id && m.approved !== false).length;
+  const allMembers = Server.db.members.filter(m => m.spaceId === s.id);
+  const approvedMembers = allMembers.filter(m => m.approved !== false);
+  const visibleMembers = canManageTeam ? allMembers : approvedMembers;
+  const canRole = Server.can(s.id, 'space.member.role');
 
-  // Keep the full directory and management controls restricted to authorised roles.
-  if (canManageTeam) {
-    return membersView(s, 'Roles decide what each person can do. Changes are enforced on the server.');
-  }
+  const rows = visibleMembers.map(m => {
+    const p = personOf(m.userId);
+    const displayName = p.short || p.name || 'Tweaklr member';
+    const rawUsername = String(p.username || '').trim();
+    const username = rawUsername ? (rawUsername.startsWith('@') ? rawUsername : '@' + rawUsername) : '@username unavailable';
+    const pending = m.approved === false;
+    return `<div class="mrow biz-team-member">
+      ${avatar(p, 44, {status:false})}
+      <div class="m">
+        <div class="n">${esc(displayName)}</div>
+        <div class="s">${esc(username)} · ${pending ? 'Awaiting approval' : 'Joined ' + esc(timeAgo(m.joinedAt))}</div>
+      </div>
+      ${canRole && m.role !== 'owner'
+        ? `<button class="role" data-sp="role:${s.id}:${m.userId}">${esc(m.role)}</button>`
+        : `<span class="role">${esc(m.role)}</span>`}
+      ${canManageTeam && ['owner','admin'].includes(role) && m.role !== 'owner' && m.userId !== currentUser.id
+        ? `<button class="biz-member-remove" data-sp="biz-remove-member:${m.userId}" aria-label="Remove ${esc(displayName)}">Remove</button>`
+        : ''}
+    </div>`;
+  }).join('');
 
   return `<div class="sp-sec biz-team-public">
-    <div class="sp-card" style="padding:22px;text-align:center">
-      <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700">BUSINESS TEAM</div>
-      <div style="font-size:42px;line-height:1.15;font-weight:750;color:var(--text);margin:12px 0 4px">${approvedCount}</div>
-      <div style="font-size:14px;color:var(--muted)">approved ${approvedCount === 1 ? 'member' : 'members'}</div>
-      <p style="font-size:12px;color:var(--muted);line-height:1.55;margin:14px auto 0;max-width:320px">The people who are part of this Business Space. Member details and team controls are available to authorised administrators.</p>
+    <div class="sp-card" style="padding:20px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700">BUSINESS TEAM</div>
+          <div style="font-size:36px;line-height:1.15;font-weight:750;color:var(--text);margin-top:7px">${approvedMembers.length}</div>
+          <div style="font-size:13px;color:var(--muted)">${approvedMembers.length === 1 ? 'person' : 'people'} in this team</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);text-align:right">Owners, admins<br>and members</div>
+      </div>
+      <div class="biz-team-directory">
+        ${rows || '<div class="sp-empty"><p>No approved team members to show yet.</p></div>'}
+      </div>
     </div>
+    ${canManageTeam ? '<p style="font-size:12px;color:var(--muted);padding:6px 2px;line-height:1.5">Roles decide what each person can do. Changes are enforced on the server.</p><button class="btn btn--soft btn--block" style="margin-top:6px" data-sp="invite:' + s.id + '">' + icon('sp-key') + 'Invite someone</button>' : ''}
   </div>`;
 }
 function auditEventLabel(event) {
