@@ -2058,22 +2058,22 @@ async function loadMingDailyUpdateComments(updateId) {
   const comments = (rows || []).map(row => {
     const name = row.author_display_name || 'Tweaklr user';
     const profile = {
-      id: row.author_id,
+      id: row.author_id || ('anonymous-' + row.id),
       name,
-      short: name.split(' ')[0] || name,
+      short: row.is_anonymous && !row.author_id ? 'Anonymous' : (name.split(' ')[0] || name),
       hue: 24,
       tag: 'Tweaklr member',
       interests: [],
       bio: '',
       avatarUrl: row.author_avatar_url || '',
-      username: row.author_username ? '@' + row.author_username.replace(/^@/, '') : '',
+      username: row.author_username && row.author_username !== 'anonymous' ? '@' + row.author_username.replace(/^@/, '') : '',
       activity: '',
       status: 'on',
       visitor: false,
       km: null
     };
 
-    if (row.author_id !== currentUser.id) {
+    if (row.author_id && row.author_id !== currentUser.id) {
       const existing = mingConnectionProfiles.get(row.author_id);
       mingConnectionProfiles.set(row.author_id, { ...(existing || {}), ...profile });
     }
@@ -2081,6 +2081,10 @@ async function loadMingDailyUpdateComments(updateId) {
     return {
       id: row.id,
       authorId: row.author_id,
+      authorLabel: row.is_anonymous && !row.author_id ? 'Anonymous' : name,
+      authorAvatar: row.author_avatar_url || '',
+      isAnonymous: !!row.is_anonymous,
+      isPrivate: !!row.is_private,
       text: row.body,
       at: new Date(row.created_at).getTime(),
       updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : new Date(row.created_at).getTime(),
@@ -2636,8 +2640,8 @@ let activeDailyUpdateCommentReplyTo = null;
 let editingDailyUpdateCommentId = null;
 
 function renderDailyUpdateComment(comment, replies = []) {
-  const profile = comment.authorId === currentUser.id ? currentUser : (byId(comment.authorId) || { id: comment.authorId, name: 'Tweaklr user', short: 'Tweaklr user', avatarUrl: '' });
   const mine = comment.authorId === currentUser.id;
+  const profile = mine ? currentUser : (comment.authorId ? (byId(comment.authorId) || { id: comment.authorId, name: comment.authorLabel || 'Tweaklr user', short: comment.authorLabel || 'Tweaklr user', avatarUrl: comment.authorAvatar || '' }) : { id: 'anonymous-' + comment.id, name: 'Anonymous', short: 'Anonymous', avatarUrl: '' });
   const edited = Number(comment.updatedAt || 0) > Number(comment.at || 0) + 1000;
   const editing = editingDailyUpdateCommentId === comment.id;
   let actions = '';
@@ -2649,14 +2653,16 @@ function renderDailyUpdateComment(comment, replies = []) {
   const content = editing
     ? '<form class="tw-comment-edit-form" data-comment-edit-form="' + esc(comment.id) + '"><textarea maxlength="1000" required data-comment-edit-input>' + esc(comment.text) + '</textarea><div><button type="button" data-comment-action="cancel-edit">Cancel</button><button type="submit">Save changes</button></div></form>'
     : '<div class="tw-comment-text">' + esc(comment.text) + '</div>';
+  const privacy = (comment.isAnonymous ? '<span class="tw-comment-privacy">' + icon('user-round') + ' Anonymous</span>' : '') +
+    (comment.isPrivate ? '<span class="tw-comment-privacy">' + icon('lock') + ' Private</span>' : '');
   const repliesHtml = replies.length ? '<div class="tw-comment-replies">' + replies.map(reply => renderDailyUpdateComment(reply, [])).join('') + '</div>' : '';
   return '<article class="tw-comment" data-comment-id="' + esc(comment.id) + '">' +
     '<div class="tw-comment-main"><div class="tw-comment-avatar">' + avatar(profile, 36) + '</div>' +
-    '<div class="tw-comment-content"><div class="tw-comment-bubble"><div class="tw-comment-author">' + esc(profile.short || profile.name || 'Tweaklr user') + '</div>' + content + '</div>' +
-    '<div class="tw-comment-meta"><span>' + esc(timeAgo(comment.at)) + (edited ? ' · Edited' : '') + '</span><div class="tw-comment-actions">' + actions + '</div></div></div></div>' +
+    '<div class="tw-comment-content"><div class="tw-comment-bubble"><div class="tw-comment-author">' + esc(comment.authorLabel || profile.short || profile.name || 'Tweaklr user') + '</div>' + content + '</div>' +
+    '<div class="tw-comment-meta"><span>' + esc(timeAgo(comment.at)) + (edited ? ' · Edited' : '') + '</span><div class="tw-comment-actions">' + actions + '</div></div>' +
+    (privacy ? '<div class="tw-comment-privacy-row">' + privacy + '</div>' : '') + '</div></div>' +
     repliesHtml + '</article>';
 }
-
 function paintDailyUpdateComments(id, focusComposer = false) {
   const update = dailyUpdates.find(item => item.id === id);
   if (!update) return;
@@ -2679,10 +2685,13 @@ function paintDailyUpdateComments(id, focusComposer = false) {
   const replyBanner = replyTarget
     ? '<div class="tw-comment-replying"><span>Replying to <strong>' + esc(replyName) + '</strong></span><button type="button" data-comment-action="cancel-reply" aria-label="Cancel reply">' + icon('x') + '</button></div>'
     : '';
+  const replyIsPrivate = !!replyTarget?.isPrivate;
   const foot = '<div class="tw-comment-composer-wrap">' + replyBanner +
     '<form id="comment-form" class="tw-comment-composer"><div class="tw-comment-compose-avatar">' + avatar(currentUser, 34) + '</div>' +
     '<textarea id="comment-input" rows="1" maxlength="1000" placeholder="' + (replyTarget ? 'Write your reply…' : 'Add to the conversation…') + '" aria-label="' + (replyTarget ? 'Write a reply' : 'Write a comment') + '"></textarea>' +
     '<button class="tw-comment-send" type="submit" aria-label="' + (replyTarget ? 'Post reply' : 'Post comment') + '">' + icon('arrow-up') + '</button></form>' +
+    '<div class="tw-comment-privacy-options"><label><input type="checkbox" id="comment-anonymous"> <span>' + icon('user-round') + ' Post anonymously</span></label>' +
+    '<label><input type="checkbox" id="comment-private" ' + (replyIsPrivate ? 'checked disabled' : '') + '> <span>' + icon('lock') + ' Private to post owner</span></label></div>' +
     '<div class="tw-comment-compose-hint"><span>Be kind. Keep it thoughtful.</span><span id="tw-comment-char-count">0 / 1000</span></div></div>';
   openSheet({ title: 'Comments', sub: update.title + ' · ' + lifeLabel(update), body: body, foot: foot });
 
@@ -2702,7 +2711,9 @@ function paintDailyUpdateComments(id, focusComposer = false) {
     if (input) input.disabled = true;
     const { error } = await supabaseClient.from('daily_update_comments').insert({
       update_id: id, author_id: currentUser.id, body: bodyText,
-      parent_comment_id: activeDailyUpdateCommentReplyTo
+      parent_comment_id: activeDailyUpdateCommentReplyTo,
+      is_anonymous: !!$('#comment-anonymous')?.checked,
+      is_private: !!replyTarget?.isPrivate || !!$('#comment-private')?.checked
     });
     if (error) {
       console.warn('Tweaklr: Daily Update comment failed.', error.message);
