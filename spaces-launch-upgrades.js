@@ -128,8 +128,8 @@ VIEWS.romantic.us=s=>{
 };
 
 VIEWS.marketplace.market=s=>{
- const products=Server.db.products.filter(p=>p.spaceId===s.id&&(sp.marketTab==='all'||p.category===sp.marketTab)),all=Server.db.products.filter(p=>p.spaceId===s.id&&p.status==='listed'),
- cats=['all',...new Set(Server.db.products.filter(p=>p.spaceId===s.id).map(p=>p.category))],seller=Server.can(s.id,'product.create');
+ const products=Server.db.products.filter(p=>p.spaceId===s.id&&p.status==='listed'&&(sp.marketTab==='all'||p.category===sp.marketTab)),all=Server.db.products.filter(p=>p.spaceId===s.id&&p.status==='listed'),
+ cats=['all',...new Set(Server.db.products.filter(p=>p.spaceId===s.id&&p.status==='listed').map(p=>p.category))],seller=Server.can(s.id,'product.create');
  let h='<div class="spx spx--market"><section class="spx-hero spx-hero--market"><span class="spx-eyebrow">TWEAKLR · MEMBER MARKET</span><h2>Good finds.<br><em>Better connections.</em></h2><p>Discover what members are offering, compare listings and keep conversations in one trusted place.</p><div class="spx-market-stats"><span><b>'+all.length+'</b><small>active listings</small></span><span><b>'+Server.memberCount(s.id)+'</b><small>members</small></span><span><b>'+Server.db.orders.filter(o=>o.spaceId===s.id).length+'</b><small>orders</small></span></div>'+
  (seller?'<button class="spx-primary" data-sp="new:product">＋ Create a listing</button>':'<button class="spx-secondary" data-sp="ask-seller">Request seller access</button>')+'</section><section class="spx-market-toolbar"><label class="searchbar"><svg><use href="#i-search"/></svg><input id="mk-search" type="search" placeholder="Search products, categories and details…" aria-label="Search marketplace listings"></label><div class="chips">'+cats.map(c=>'<button class="chip '+(sp.marketTab===c?'is-on':'')+'" data-sp="mkcat:'+safe(c)+'">'+(c==='all'?'Everything':safe(c))+'</button>').join('')+'</div></section>'+
  '<section class="spx-section"><div class="spx-section-head"><div><span>CURATED BY YOUR COMMUNITY</span><h3>Explore listings</h3></div><small>'+products.length+' shown</small></div><div class="mk-grid" id="mk-grid">';
