@@ -9284,7 +9284,7 @@ const Server = (() => {
         if (p.op === 'listtoggle') row.items[p.index].done = !row.items[p.index].done;
         const payload = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','spaceId','authorId','kind','at','updatedAt'].includes(k)));
         const { error } = await supabaseClient.rpc('update_ming_space_content', { p_id: row.id, p_payload: payload });
-        if (error) { Object.assign(row, previousRow); return deny(error.message || 'Could not save the change.'); }
+        if (error) { Object.keys(row).forEach(key => delete row[key]); Object.assign(row, previousRow); return deny(error.message || 'Could not save the change.'); }
         if (p.op === 'taskupdate' && row.kind === 'task') {
           audit(row.spaceId, 'task.updated', { status: row.status || (row.done ? 'completed' : 'todo'), priority: row.priority || 'medium' });
         }
