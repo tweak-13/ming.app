@@ -20,7 +20,7 @@ drop policy if exists "Users can delete their expired notification read state" o
 create policy "Users can delete their expired notification read state"
   on public.user_notification_reads
   for delete to authenticated
-  using (user_id = auth.uid());
+  using (user_id = (select auth.uid()));
 
 create or replace function public.mark_tweaklr_notifications_read(p_notification_ids text[])
 returns void
@@ -47,7 +47,7 @@ begin
   do update set read_at = excluded.read_at;
 
   delete from public.user_notification_reads
-  where user_id = auth.uid()
+  where user_id = (select auth.uid())
     and read_at <= now() - interval '24 hours';
 end;
 $$;
