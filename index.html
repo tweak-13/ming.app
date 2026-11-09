@@ -116,6 +116,7 @@ document.documentElement.classList.add('tweaklr-auth-intro-pending');
         <input
           id="login-password"
           type="password"
+          maxlength="128"
           placeholder="Your password"
           autocomplete="current-password"
           required
@@ -123,6 +124,8 @@ document.documentElement.classList.add('tweaklr-auth-intro-pending');
 
       </div>
 
+
+      <p class="auth-forgot"><button type="button" id="forgot-password">Forgot password?</button></p>
 
       <button
         type="submit"
@@ -273,6 +276,29 @@ document.documentElement.classList.add('tweaklr-auth-intro-pending');
       </p>
 
     </form>
+
+    <!-- PASSWORD RECOVERY -->
+    <form id="recovery-form" class="auth-form" hidden>
+      <div class="auth-form-heading">
+        <span class="auth-form-eyebrow">SECURE ACCOUNT RECOVERY</span>
+        <h2>Choose a new password</h2>
+        <p class="auth-subtitle">Use at least 12 characters. A longer, unique passphrase is best.</p>
+      </div>
+
+      <div class="field">
+        <label for="recovery-password">New password</label>
+        <input id="recovery-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" placeholder="12–128 characters" required />
+      </div>
+
+      <div class="field">
+        <label for="recovery-confirm">Confirm new password</label>
+        <input id="recovery-confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" placeholder="Repeat your new password" required />
+      </div>
+
+      <button type="submit" class="btn btn--primary">Update password</button>
+      <p id="recovery-message" class="auth-message" aria-live="polite"></p>
+    </form>
+
 
   </div>
 
