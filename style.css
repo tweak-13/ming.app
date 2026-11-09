@@ -5905,3 +5905,317 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 .tw-comment-compose-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 28px;width:28px;height:28px;overflow:hidden}
 .tw-comment-compose-avatar .av{width:28px;height:28px;min-width:28px;max-width:28px;flex:0 0 28px}
 .tw-comment-compose-avatar .av img{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:cover;border-radius:50%}
+
+
+/* ============================================================
+   TWEAKLR HOME — REFINED DAILY UPDATE COMMENTS
+   Presentation-only layer. Keeps the existing comment, reply,
+   privacy, edit, delete and like behaviour intact.
+============================================================ */
+#sheet-body:has(.tw-comments-panel) {
+  padding: 0 18px 18px;
+  background: var(--bg);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-panel {
+  padding: 0;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-toolbar {
+  position: relative;
+  align-items: center;
+  margin: 0 -2px 4px;
+  padding: 15px 2px 14px;
+  border-bottom: 1px solid var(--border);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-toolbar > div {
+  gap: 5px;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-kicker {
+  color: var(--sage);
+  font-size: 9px;
+  letter-spacing: .19em;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-toolbar strong {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 760;
+  letter-spacing: -.035em;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-live {
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-live i {
+  width: 6px;
+  height: 6px;
+  background: var(--sage);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sage) 15%, transparent);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-list {
+  padding: 5px 0 2px;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment {
+  padding: 13px 0 5px;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-main {
+  gap: 10px;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-avatar {
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--border), var(--shadow-xs);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-avatar .av,
+#sheet-body:has(.tw-comments-panel) .tw-comment-avatar img {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-content {
+  min-width: 0;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-bubble {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 11px 14px 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px 17px 17px 17px;
+  background: var(--surface);
+  box-shadow: 0 3px 12px rgba(30, 22, 16, .035);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-author {
+  margin: 0 0 5px;
+  color: var(--coffee);
+  font-size: 12px;
+  font-weight: 780;
+  letter-spacing: -.01em;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-text {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.62;
+  letter-spacing: .002em;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-meta {
+  justify-content: flex-start;
+  gap: 13px;
+  padding: 7px 3px 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-actions {
+  gap: 13px;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-actions button {
+  min-height: 24px;
+  gap: 5px;
+  padding: 2px 1px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 720;
+  transition: color .18s ease, transform .18s ease;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-actions button:hover {
+  color: var(--coffee);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-actions button:active {
+  transform: scale(.96);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-actions button svg {
+  width: 13px;
+  height: 13px;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-actions button.is-liked {
+  color: var(--burgundy);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-replies {
+  margin: 9px 0 0 45px;
+  padding: 1px 0 1px 12px;
+  border-left: 2px solid color-mix(in srgb, var(--sage) 28%, var(--border));
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-replies .tw-comment {
+  padding: 8px 0 2px;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-replies .tw-comment-avatar {
+  width: 29px;
+  height: 29px;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-replies .tw-comment-bubble {
+  padding: 9px 11px 10px;
+  border-radius: 5px 14px 14px 14px;
+  background: var(--surface-2);
+  box-shadow: none;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-privacy-row {
+  gap: 6px;
+  margin: 6px 2px 0;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-privacy {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comment-edit-form textarea {
+  min-height: 76px;
+  border-color: var(--border-strong);
+  border-radius: 13px;
+  background: var(--bg);
+  color: var(--text);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-empty {
+  margin: 15px 0 9px;
+  padding: 34px 18px 36px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 21px;
+  background: var(--surface);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-empty > span {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 13px;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: var(--surface-2);
+  color: var(--sage);
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-empty strong {
+  font-size: 14px;
+  letter-spacing: -.02em;
+}
+#sheet-body:has(.tw-comments-panel) .tw-comments-empty p {
+  max-width: 245px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) {
+  padding: 12px 18px calc(13px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 -10px 28px rgba(30, 22, 16, .045);
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-composer-wrap {
+  padding: 0;
+  border: 0;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-replying {
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-replying strong {
+  color: var(--text);
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-composer {
+  align-items: flex-end;
+  gap: 9px;
+  padding: 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 21px;
+  background: var(--bg);
+  box-shadow: inset 0 1px 2px rgba(30, 22, 16, .025);
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-compose-avatar {
+  align-self: flex-end;
+  margin: 0 0 2px 2px;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-composer textarea {
+  min-height: 40px;
+  max-height: 112px;
+  padding: 10px 5px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: none;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-composer textarea::placeholder {
+  color: var(--muted);
+  opacity: .9;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-composer textarea:focus {
+  border: 0;
+  box-shadow: none;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-send {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  margin: 0 0 1px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--coffee-dark);
+  color: #fff8ef;
+  box-shadow: var(--shadow-sm);
+  transition: transform .18s ease, opacity .18s ease;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-send:active {
+  transform: scale(.94);
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-send svg {
+  width: 17px;
+  height: 17px;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-privacy-options {
+  gap: 7px;
+  margin: 10px 0 1px 2px;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-privacy-options label {
+  gap: 6px;
+  padding: 7px 10px;
+  border-color: var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  transition: border-color .18s ease, background .18s ease, color .18s ease;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-privacy-options label:has(input:checked) {
+  border-color: color-mix(in srgb, var(--sage) 48%, var(--border));
+  background: color-mix(in srgb, var(--sage) 10%, var(--surface));
+  color: var(--sage);
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-privacy-options input {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--sage);
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-privacy-options svg {
+  width: 12px;
+  height: 12px;
+}
+#sheet-foot:has(.tw-comment-composer-wrap) .tw-comment-compose-hint {
+  padding: 8px 3px 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+@media (max-width: 380px) {
+  #sheet-body:has(.tw-comments-panel) { padding-inline: 13px; }
+  #sheet-foot:has(.tw-comment-composer-wrap) { padding-inline: 13px; }
+  #sheet-body:has(.tw-comments-panel) .tw-comment-replies { margin-left: 36px; padding-left: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #sheet-body:has(.tw-comments-panel) *,
+  #sheet-foot:has(.tw-comment-composer-wrap) * { transition: none !important; }
+}
