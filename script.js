@@ -2687,7 +2687,7 @@ function paintDailyUpdateComments(id, focusComposer = false) {
     : '';
   const replyIsPrivate = !!replyTarget?.isPrivate;
   const foot = '<div class="tw-comment-composer-wrap">' + replyBanner +
-    '<form id="comment-form" class="tw-comment-composer"><div class="tw-comment-compose-avatar">' + avatar(currentUser, 34) + '</div>' +
+    '<form id="comment-form" class="tw-comment-composer"><div class="tw-comment-compose-avatar">' + avatar(currentUser, 28) + '</div>' +
     '<textarea id="comment-input" rows="1" maxlength="1000" placeholder="' + (replyTarget ? 'Write your reply…' : 'Add to the conversation…') + '" aria-label="' + (replyTarget ? 'Write a reply' : 'Write a comment') + '"></textarea>' +
     '<button class="tw-comment-send" type="submit" aria-label="' + (replyTarget ? 'Post reply' : 'Post comment') + '">' + icon('arrow-up') + '</button></form>' +
     '<div class="tw-comment-privacy-options"><label><input type="checkbox" id="comment-anonymous"> <span>' + icon('user-round') + ' Post anonymously</span></label>' +
