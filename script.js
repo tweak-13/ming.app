@@ -2691,12 +2691,13 @@ function paintDailyUpdateComments(id, focusComposer = false) {
     ? '<div class="tw-comment-replying"><span>Replying to <strong>' + esc(replyName) + '</strong></span><button type="button" data-comment-action="cancel-reply" aria-label="Cancel reply">' + icon('x') + '</button></div>'
     : '';
   const replyIsPrivate = !!replyTarget?.isPrivate;
-  const foot = '<form id="comment-form" class="biz-comment-composer">' + replyBanner +
+  const foot = '<form id="comment-form" class="biz-comment-composer tw-home-comment-composer">' + replyBanner +
     '<div class="biz-comment-compose-heading"><div><span class="biz-comments-eyebrow">YOUR TURN</span><strong>' + (replyTarget ? 'Reply to the conversation' : 'Add to the conversation') + '</strong></div>' +
     '<span id="tw-comment-char-count">0 / 1000</span></div>' +
     '<div class="biz-comment-input-wrap"><textarea id="comment-input" rows="2" maxlength="1000" placeholder="' + (replyTarget ? 'Write your reply…' : 'Write something thoughtful…') + '" aria-label="' + (replyTarget ? 'Write a reply' : 'Write a comment') + '"></textarea></div>' +
-    '<div class="biz-comment-compose-bottom"><div class="biz-comment-compose-avatar">' + avatar(currentUser, 28) + '</div>' +
-    '<button class="biz-comment-send" type="submit" aria-label="' + (replyTarget ? 'Post reply' : 'Post comment') + '">' + icon('arrow-up') + '</button></div>' +
+    '<div class="biz-comment-compose-bottom">' +
+    '<div class="biz-comment-record-copy"><strong>' + (replyTarget ? 'Your reply' : 'Your comment') + '</strong><span>Keep it thoughtful. You control who can see it.</span></div>' +
+    '<button class="biz-comment-submit" id="tw-comment-submit" type="submit" disabled><span>' + (replyTarget ? 'Post reply' : 'Post comment') + '</span>' + icon('arrow-up-right') + '</button></div>' +
     '<div class="tw-comment-privacy-options"><label><input type="checkbox" id="comment-anonymous"> <span>' + icon('user-round') + ' Post anonymously</span></label>' +
     '<label><input type="checkbox" id="comment-private" ' + (replyIsPrivate ? 'checked disabled' : '') + '> <span>' + icon('lock') + ' Private to post owner</span></label></div>' +
     '<p class="biz-comment-privacy-note">' + icon('shield-check') + '<span>Your privacy choice applies only to this comment. You can post with your name, anonymously, or privately to the post owner.</span></p></form>';
@@ -2705,7 +2706,11 @@ function paintDailyUpdateComments(id, focusComposer = false) {
   const form = $('#comment-form');
   const input = $('#comment-input');
   const count = $('#tw-comment-char-count');
-  if (input && count) input.addEventListener('input', () => { count.textContent = input.value.length + ' / 1000'; });
+  const submitButton = $('#tw-comment-submit');
+  if (input && count) input.addEventListener('input', () => {
+    count.textContent = input.value.length + ' / 1000';
+    if (submitButton) submitButton.disabled = !input.value.trim();
+  });
   $('#sheet-body').onclick = handleDailyUpdateCommentAction;
   $('#sheet-foot').onclick = handleDailyUpdateCommentAction;
 
@@ -2714,7 +2719,7 @@ function paintDailyUpdateComments(id, focusComposer = false) {
     const bodyText = input?.value.trim() || '';
     if (!bodyText) return;
     const submit = form.querySelector('button[type="submit"]');
-    if (submit) submit.disabled = true;
+    if (submit) { submit.disabled = true; submit.classList.add('is-loading'); const label = submit.querySelector('span'); if (label) label.textContent = 'Posting…'; }
     if (input) input.disabled = true;
     const { error } = await supabaseClient.from('daily_update_comments').insert({
       update_id: id, author_id: currentUser.id, body: bodyText,
@@ -2725,7 +2730,7 @@ function paintDailyUpdateComments(id, focusComposer = false) {
     if (error) {
       console.warn('Tweaklr: Daily Update comment failed.', error.message);
       toast('Could not post your comment.', 'alert');
-      if (submit) submit.disabled = false;
+      if (submit) { submit.classList.remove('is-loading'); submit.disabled = !input?.value.trim(); const label = submit.querySelector('span'); if (label) label.textContent = replyTarget ? 'Post reply' : 'Post comment'; }
       if (input) input.disabled = false;
       return;
     }
