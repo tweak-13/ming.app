@@ -141,9 +141,7 @@ VIEWS.marketplace.market=s=>{
    payment provider are integrated. Remove language that could imply custody. */
 NATURES.marketplace.blurb='Browse member listings, compare sellers and register non-binding bids. Contact sellers directly; Tweaklr checkout is not available yet.';
 NATURES.marketplace.features=['Live member listings','Seller profiles and messaging','Non-binding auction bids','In-app checkout coming soon'];
-FEATURE_OPTIONS.marketplace=(FEATURE_OPTIONS.marketplace||[]).map(f=>f.k==='escrow'
- ? {...f,t:'Test-mode checkout',s:'Internal test balances only. No real money is held or transferred.'}
- : f);
+FEATURE_OPTIONS.marketplace=(FEATURE_OPTIONS.marketplace||[]).filter(f=>!['escrow','disputes'].includes(f.k));
 ORDER_STATES.funded.t='Test balance reserved';
 ORDER_STATES.delivered.t='Delivery recorded · test flow';
 FLOW_COPY.funded=['Test balance reserved','Internal ledger only; no real funds are held'];
