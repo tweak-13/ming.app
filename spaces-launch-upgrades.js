@@ -105,14 +105,14 @@ document.addEventListener('click',async e=>{
 
 /* Enhanced Casual, Romantic and Marketplace views; existing backend actions remain intact. */
 VIEWS.casual.now=s=>{
- const posts=contentOf(s.id,'now').slice().sort((a,b)=>Number(b.at||0)-Number(a.at||0)),polls=contentOf(s.id,'poll'),meet=contentOf(s.id,'meet')[0];
+ const posts=contentOf(s.id,'now').slice().sort((a,b)=>Number(b.at||0)-Number(a.at||0)),polls=contentOf(s.id,'poll'),meet=contentOf(s.id,'meeting')[0];
  const close=s.expiresAt?new Date(s.expiresAt).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Auto-closes after its live window';
  let h='<div class="spx spx--casual"><section class="spx-hero spx-hero--casual"><span class="spx-eyebrow"><i></i> LIVE SPACE · CASUAL</span><h2>Make the most<br>of <em>right now.</em></h2><p>Quick plans, live updates and the people around the moment.</p><div class="spx-hero-meta"><span>◷ '+safe(close)+'</span><span>◎ '+Server.memberCount(s.id)+' members</span></div><button class="spx-primary" data-sp="new:now">＋ Share a live update</button></section>'+
  '<section class="spx-section"><div class="spx-section-head"><div><span>THE MOMENT</span><h3>Happening now</h3></div><small>'+posts.length+' updates</small></div>';
  h+=posts.length?posts.map(p=>'<article class="spx-live-post"><div class="spx-post-author">'+avatar(personOf(p.authorId),34,{status:false})+'<div><b>'+safe(nameOf(p.authorId))+'</b><small>'+safe(timeAgo(p.at))+'</small></div><span>LIVE</span></div><p>'+safe(p.text)+'</p><small class="spx-expiry">◷ '+Math.max(1,Math.round((Number(p.at||Date.now())+6*36e5-Date.now())/36e5))+'h left</small></article>').join(''):'<div class="spx-empty"><span>✧</span><b>Nothing happening yet</b><p>Drop a quick update and give the room a reason to come alive.</p><button class="spx-secondary" data-sp="new:now">Post the first update</button></div>';
  h+='</section><section class="spx-section"><div class="spx-section-head"><div><span>DECIDE TOGETHER</span><h3>Quick polls</h3></div><button data-sp="new:poll">＋ New poll</button></div>';
  h+=polls.length?polls.map(pollCard).join(''):'<div class="spx-empty spx-empty--compact"><b>Make the group decision easier.</b><p>Ask where to go, what to do or when to meet.</p><button class="spx-secondary" data-sp="new:poll">Create a poll</button></div>';
- h+='</section><section class="spx-meet"><div><span>SHARED MEETING POINT</span><h3>'+safe(meet?.title||'No meeting point yet')+'</h3><p>'+(meet?'Visible only to approved members of this Space.':'Choose a simple place for everyone to meet.')+'</p></div><button class="spx-secondary" data-sp="new:meet">'+(meet?'Update':'Set a point')+'</button></section></div>';
+ h+='</section><section class="spx-meet"><div><span>SHARED MEETING POINT</span><h3>'+safe(meet?.title||'No meeting point yet')+'</h3><p>'+(meet?'Visible only to approved members of this Space.':'Choose a simple place for everyone to meet.')+'</p></div><button class="spx-secondary" data-sp="new:meeting">'+(meet?'Update gathering':'Host a gathering')+'</button></section></div>';
  return h;
 };
 
@@ -136,4 +136,73 @@ VIEWS.marketplace.market=s=>{
  h+=products.map(productCard).join('')||'<div class="spx-empty" style="grid-column:1/-1"><span>◇</span><b>No listings in this category yet.</b><p>New listings from approved sellers will appear here.</p>'+(seller?'<button class="spx-secondary" data-sp="new:product">List an item</button>':'')+'</div>';
  return h+'</div></section><div class="spx-market-notice"><b>Transaction transparency</b><p>Checkout and wallet flows are currently in development mode. No real money is held, transferred or protected by Tweaklr yet. Agree on payment and handover independently until a verified payment provider is connected.</p></div></div>';
 };
+
+/* Marketplace is a simulated transaction workflow until a real custodian and
+   payment provider are integrated. Remove language that could imply custody. */
+NATURES.marketplace.blurb='Buy and sell inside a Space with seller roles, order records and dispute workflows.';
+NATURES.marketplace.features=['Member listings','Seller approvals','Order status & evidence','Test-mode transaction flow'];
+FEATURE_OPTIONS.marketplace=(FEATURE_OPTIONS.marketplace||[]).map(f=>f.k==='escrow'
+ ? {...f,t:'Test-mode checkout',s:'Internal test balances only. No real money is held or transferred.'}
+ : f);
+ORDER_STATES.funded.t='Test balance reserved';
+ORDER_STATES.delivered.t='Delivery recorded · test flow';
+FLOW_COPY.funded=['Test balance reserved','Internal ledger only; no real funds are held'];
+FLOW_COPY.completed=['Test order completed','No real funds are transferred'];
+TRANSITION_LABEL.fund='Reserve test balance';
+TRANSITION_LABEL.accept='Complete test order';
+TRANSITION_LABEL.resolve_release='Resolve test order · seller';
+TRANSITION_LABEL.resolve_refund='Resolve test order · buyer';
+
+openProduct=function(id){
+ const p=Server.db.products.find(x=>x.id===id);if(!p)return;
+ const s=spaceById(p.spaceId),seller=personOf(p.sellerId);
+ openSheet({title:p.title,sub:money(p.price,p.asset)+' · '+p.condition+' · '+p.handover,
+  body:'<div class="sp-card"><div style="height:145px;border-radius:14px;background:linear-gradient(150deg,hsl('+p.hue+' 30% 86%),hsl('+((p.hue+40)%360)+' 26% 60%));margin-bottom:12px"></div>'+
+  '<p style="font-size:13px;line-height:1.6">'+safe(p.description)+'</p><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px"><span class="trust">TEST-MODE LISTING</span><span class="trust">'+safe(p.qty)+' in stock</span><span class="trust">'+safe(p.category||'General')+'</span></div>'+
+  '<div class="mrow" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">'+avatar(seller,36)+'<div class="m"><div class="n">'+safe(seller.short||seller.name)+'</div><div class="s">Seller · '+safe(s?.name||'Marketplace Space')+'</div></div>'+
+  '<button class="btn btn--soft btn--sm" data-sp="msg-seller:'+p.sellerId+'">Message</button></div></div>'+
+  '<div class="spx-market-notice"><b>Before you continue</b><p>This is a development-mode marketplace. Tweaklr does not hold real funds, provide escrow protection or settle payments. Confirm payment and handover arrangements directly with the seller.</p></div>',
+  foot:p.sellerId===Server.session.userId?'<button class="btn btn--soft btn--block" data-action="close-sheet">This is your listing</button>':'<button class="btn btn--primary btn--block" data-sp="buy:'+p.id+'">Continue to test checkout</button>'});
+};
+
+openCheckout=function(productId){
+ const p=Server.db.products.find(x=>x.id===productId);if(!p)return;
+ const fee=Math.round(p.price*0.015*100)/100;
+ openSheet({title:'Test checkout',sub:p.title+' · '+money(p.price,p.asset),
+  body:'<div class="sp-card" style="background:var(--surface-2);border:0"><div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0"><span>Listing price</span><b>'+safe(money(p.price,p.asset))+'</b></div>'+
+  '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:4px 0"><span>Indicative platform fee</span><span>'+safe(money(fee,p.asset))+'</span></div></div>'+
+  '<div class="spx-market-notice"><b>Development mode · no real payment</b><p>Continuing creates an internal test order and updates simulated balances only. No card, bank, crypto wallet or custody provider is connected. No money is charged, held, transferred or protected by Tweaklr.</p></div>',
+  foot:'<button class="btn btn--soft" data-action="close-sheet">Cancel</button><button class="btn btn--primary" data-sp="pay:'+p.id+'">Create test order</button>'});
+};
+
+const baseRenderOrder=renderOrder;
+renderOrder=function(){
+ baseRenderOrder();
+ const host=document.getElementById('ord-body');if(!host)return;
+ host.innerHTML=host.innerHTML
+  .replace(/Escrow/g,'Test transaction flow')
+  .replace(/held by Tweaklr, not sent to the seller/gi,'internal test ledger only; no real funds are held')
+  .replace(/the platform releases the funds/gi,'the test workflow completes the order')
+  .replace(/The money has not moved\\. It stays held by Tweaklr until a moderator decides\\./g,'This is an internal test dispute. No real money is held or moved.')
+  .replace(/Returned to the buyer’s wallet\\./g,'The internal test balance was restored.')
+  .replace(/The hold was released back to the buyer\\./g,'The test order was cancelled.');
+ host.insertAdjacentHTML('afterbegin','<div class="spx-market-notice"><b>Test transaction record</b><p>This order lifecycle is simulated. It does not represent a real payment, escrow service, refund or financial protection.</p></div>');
+};
+
+const baseRenderWallet=renderWallet;
+renderWallet=function(){
+ baseRenderWallet();
+ const host=document.getElementById('wallet-body');if(!host)return;
+ host.innerHTML=host.innerHTML.replace(/held in escrow/gi,'reserved in the internal test ledger').replace(/Nothing held/gi,'No test balance reserved');
+};
+
+openDisputeSheet=function(orderId){
+ openSheet({title:'Report a problem',sub:'This records a dispute in the internal test ledger. It does not freeze or move real money.',
+  body:'<div class="field"><label>What went wrong?</label><div class="pick" id="dp-reason">'+
+  ['Not delivered','Not as described','Damaged','Wrong item','Other'].map((r,i)=>'<button type="button" data-pick="'+r+'" aria-pressed="'+(i===0)+'">'+r+'</button>').join('')+
+  '</div></div><div class="field"><label for="dp-detail">What happened?</label><textarea id="dp-detail" maxlength="400" placeholder="Be specific. Dates, condition, what you expected."></textarea></div>'+
+  '<div class="ephemeral-note"><span>Evidence review</span><span>Both sides can submit evidence for moderator review. This is a simulated workflow, not a financial dispute process.</span></div>',
+  foot:'<button class="btn btn--primary btn--block" data-sp="dispute-submit:'+orderId+'">Open test dispute</button>'});
+};
+
 })();
