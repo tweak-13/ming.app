@@ -2642,7 +2642,7 @@ function renderDailyUpdateComment(comment, replies = []) {
   const editing = editingDailyUpdateCommentId === comment.id;
   let actions = '';
   if (!editing) {
-    actions = '<button type="button" data-comment-action="reply" data-comment-id="' + esc(comment.id) + '">Reply</button>' +
+    actions = (comment.parentCommentId ? '' : '<button type="button" data-comment-action="reply" data-comment-id="' + esc(comment.id) + '">Reply</button>') +
       '<button type="button" data-comment-action="like" data-comment-id="' + esc(comment.id) + '" aria-pressed="' + (comment.likedByMe ? 'true' : 'false') + '" class="' + (comment.likedByMe ? 'is-liked' : '') + '">' + icon('heart') + ' <span>' + Number(comment.likesCount || 0) + '</span></button>' +
       (mine ? '<button type="button" data-comment-action="edit" data-comment-id="' + esc(comment.id) + '">Edit</button><button type="button" data-comment-action="delete" data-comment-id="' + esc(comment.id) + '">Delete</button>' : '');
   }
@@ -2690,8 +2690,8 @@ function paintDailyUpdateComments(id, focusComposer = false) {
   const input = $('#comment-input');
   const count = $('#tw-comment-char-count');
   if (input && count) input.addEventListener('input', () => { count.textContent = input.value.length + ' / 1000'; });
-  $('#sheet-body').addEventListener('click', handleDailyUpdateCommentAction);
-  $('#sheet-foot').addEventListener('click', handleDailyUpdateCommentAction);
+  $('#sheet-body').onclick = handleDailyUpdateCommentAction;
+  $('#sheet-foot').onclick = handleDailyUpdateCommentAction;
 
   form?.addEventListener('submit', async event => {
     event.preventDefault();
