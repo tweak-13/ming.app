@@ -76,15 +76,7 @@ with check (
   and (not view_once or message_type in ('voice','image','file'))
   and (
     reply_to_id is null
-    or exists (
-      select 1 from public.messages m
-      where m.id = messages.reply_to_id
-        and (
-          (m.sender_id = (select auth.uid()) and m.recipient_id = messages.recipient_id)
-          or
-          (m.sender_id = messages.recipient_id and m.recipient_id = (select auth.uid()))
-        )
-    )
+    or private.is_message_reply_target_valid(reply_to_id,sender_id,recipient_id)
   )
   and exists (
     select 1 from public.connections c
