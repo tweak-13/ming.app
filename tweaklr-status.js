@@ -81,16 +81,17 @@ function openComposer(scope,spaceId){
  const main=scope==='main',people=main?(app().connections||[]).map(c=>c.personId).filter(Boolean):[];
  const profiles=people.map(id=>app().mingConnectionProfiles?.get(id)).filter(Boolean);
  const privacy=main?'<div class="tw-status-field"><label>Status privacy</label><select id="tw-status-audience"><option value="connections">My connections</option><option value="except">My connections except…</option><option value="selected">Only share with…</option></select></div><div class="tw-status-field" id="tw-status-privacy-people" hidden><label>Select people</label><div class="tw-status-people">'+profiles.map(p=>'<label><input type="checkbox" value="'+escS(p.id)+'"><span>'+(p.avatarUrl?'<img src="'+escS(p.avatarUrl)+'">':'')+escS(p.short||p.name)+'</span></label>').join('')+'</div></div>':'<p class="tw-status-note">Visible to approved members of this '+(scope==='friendly'?'Friendly':'Business')+' Space.</p>';
- const html='<div class="tw-status-compose" data-scope="'+scope+'" data-space="'+escS(spaceId||'')+'"><div class="tw-status-type-switch"><button class="on" data-tw-type="text">Text</button><button data-tw-type="media">Photo / video</button></div><div id="tw-status-text-panel"><textarea id="tw-status-caption" maxlength="700" placeholder="Type a status…"></textarea><div class="tw-status-colors">'+['#493224','#8B3543','#263B52','#315448','#5A4775','#202020'].map(c=>'<button style="background:'+c+'" data-tw-bg="'+c+'" aria-label="Text background"></button>').join('')+'</div></div><div id="tw-status-media-panel" class="tw-status-media-panel" hidden>
- <div class="tw-media-intro"><span class="tw-media-eyebrow">VISUAL UPDATE</span><b>Share a moment</b><small>Choose a photo or a short video from your device.</small></div>
- <div class="tw-media-pick-grid">
-  <button type="button" class="tw-media-pick-card" data-tw-pick-media="image"><span class="tw-media-pick-icon">▧</span><b>Photo</b><small>JPG, PNG, WEBP</small></button>
-  <button type="button" class="tw-media-pick-card" data-tw-pick-media="video"><span class="tw-media-pick-icon">▶</span><b>Video</b><small>MP4, MOV, WEBM</small></button>
- </div>
- <input id="tw-status-file" class="tw-status-file-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime">
- <div id="tw-status-preview" class="tw-status-preview"></div>
- <div class="tw-media-limits"><span>↗</span><p><b>Keep it crisp.</b> Photos up to 15 MB. Videos up to 50 MB and 60 seconds.</p></div>
-</div>'+privacy+'</div>';
+ const html = '<div class="tw-status-compose" data-scope="' + escS(scope) + '" data-space="' + escS(spaceId||'') + '"><div class="tw-status-type-switch"><button class="on" data-tw-type="text">Text</button><button data-tw-type="media">Photo / video</button></div><div id="tw-status-text-panel"><textarea id="tw-status-caption" maxlength="700" placeholder="Type a status…"></textarea><div class="tw-status-colors">' +
+  ['#493224','#8B3543','#263B52','#315448','#5A4775','#202020'].map(c=>'<button style="background:'+c+'" data-tw-bg="'+c+'" aria-label="Text background"></button>').join('') +
+  '</div></div><div id="tw-status-media-panel" class="tw-status-media-panel" hidden>' +
+  '<div class="tw-media-intro"><span class="tw-media-eyebrow">VISUAL UPDATE</span><b>Share a moment</b><small>Choose a photo or a short video from your device.</small></div>' +
+  '<div class="tw-media-pick-grid">' +
+  '<button type="button" class="tw-media-pick-card" data-tw-pick-media="image"><span class="tw-media-pick-icon">▧</span><b>Photo</b><small>JPG, PNG, WEBP</small></button>' +
+  '<button type="button" class="tw-media-pick-card" data-tw-pick-media="video"><span class="tw-media-pick-icon">▶</span><b>Video</b><small>MP4, MOV, WEBM</small></button>' +
+  '</div><input id="tw-status-file" class="tw-status-file-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime">' +
+  '<div id="tw-status-preview" class="tw-status-preview"></div>' +
+  '<div class="tw-media-limits"><span>↗</span><p><b>Keep it crisp.</b> Photos up to 15 MB. Videos up to 50 MB and 60 seconds.</p></div>' +
+  '</div>' + privacy + '</div>';
  const overlay=document.createElement('div');overlay.className='tw-status-modal';overlay.innerHTML='<div class="tw-status-dialog"><header><button data-tw-close>×</button><div><b>Create status</b><small>It disappears after 24 hours.</small></div></header><div class="tw-status-compose-body">'+html+'</div><footer><button class="tw-status-publish" data-tw-publish>Share status</button></footer></div>';document.body.append(overlay);
  overlay.addEventListener('click',async e=>{
   if(e.target===overlay){overlay.remove();return;}
