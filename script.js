@@ -9173,8 +9173,12 @@ const Server = (() => {
         if (!can(p.spaceId, 'space.member.role')) return deny('Only the creator or an admin can remove members.');
         const { data, error } = await supabaseClient.rpc('remove_ming_business_space_member', { p_space_id:p.spaceId, p_user_id:p.userId });
         if (error) return deny(error.message || 'Member could not be removed.');
+        // The RPC removes the membership row in Supabase. Refresh the full
+        // Space snapshot so the removed person disappears from every local view.
         db.members = db.members.filter(m => !(m.spaceId === p.spaceId && m.userId === p.userId));
         audit(p.spaceId, 'member.removed', { userId:p.userId });
+        await loadSpacesFromDatabase();
+        db.members = db.members.filter(m => !(m.spaceId === p.spaceId && m.userId === p.userId));
         return { ok:true, data:data || {} };
       }
 
@@ -12848,7 +12852,7 @@ document.addEventListener('click', async e => {
     case 'biz-remove-member': {
       const member=Server.db.members.find(m=>m.spaceId===sp.activeId&&m.userId===a);
       if(!member||!['owner','admin'].includes(Server.roleOf(sp.activeId))||member.role==='owner'){toast('This member cannot be removed.','x');break;}
-      openModal({title:'Remove this member?',lede:'They will lose access to this Business Space. The creator cannot be removed.',actions:[{t:'Keep member',cls:'btn--soft',a:'close-modal'},{t:'Remove member',cls:'btn--danger',a:'biz-remove-confirm'}]});
+      openModal({title:'Remove this member permanently?',lede:'This deletes their membership in this Business Space and removes their access. Their Tweaklr account and memberships in other Spaces will remain untouched. The creator cannot be removed.',actions:[{t:'Keep member',cls:'btn--soft',a:'close-modal'},{t:'Remove from Space',cls:'btn--danger',a:'biz-remove-confirm'}]});
       $('#modal').querySelector('[data-action="biz-remove-confirm"]').addEventListener('click',async()=>{const result=await Server.submit('space.member.remove',{spaceId:sp.activeId,userId:a});closeModal();if(!result.ok){toast(result.error,'x');return;}renderSpace();toast('Member removed','check');});break;
     }
     case 'biz-delete': {
