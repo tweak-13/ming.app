@@ -9222,7 +9222,7 @@ const Server = (() => {
           business: ['business_post','doc','announcement','task'],
           friendly: ['friend_post','moment','poll','event','memory'],
           casual: ['now','answer','event','meeting','poll'],
-          romantic: ['memory','love_letter','plan','milestone','nickname','health','list']
+          romantic: ['memory','love_note','love_letter','plan','milestone','nickname','health','list']
         };
         if (!(allowedKinds[targetSpace?.nature] || []).includes(p.kind)) {
           return deny('That content type is not available in this Space.');
@@ -9231,7 +9231,7 @@ const Server = (() => {
           'business:doc':'documents','business:announcement':'announcements','business:task':'tasks',
           'friendly:friend_post':'moments','friendly:moment':'moments','friendly:poll':'polls','friendly:event':'events','friendly:memory':'memories',
           'casual:now':'now','casual:answer':'now','casual:poll':'polls','casual:event':'meet','casual:meeting':'meet',
-          'romantic:memory':'memories','romantic:plan':'plans','romantic:milestone':'milestones','romantic:love_letter':'loveletter','romantic:nickname':'lists','romantic:list':'lists'
+          'romantic:memory':'memories','romantic:love_note':'loveletter','romantic:plan':'plans','romantic:milestone':'milestones','romantic:love_letter':'loveletter','romantic:nickname':'lists','romantic:list':'lists'
         })[targetSpace?.nature + ':' + p.kind];
         if (featureKey && targetSpace?.features?.[featureKey] === false) {
           return deny('This feature has been disabled by the Space owner.');
