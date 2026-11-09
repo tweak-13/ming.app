@@ -13516,7 +13516,7 @@ document.addEventListener('DOMContentLoaded', () => {
      - must begin/end with letter or number
   */
   function isValidUsername(username) {
-    return /^[A-Za-z0-9](?:[A-Za-z0-9_-]{1,28}[A-Za-z0-9])?$/.test(
+    return /^[A-Za-z0-9][A-Za-z0-9_-]{1,28}[A-Za-z0-9]$/.test(
       username
     );
   }
@@ -13894,13 +13894,17 @@ window.location.href = 'app.html';
   } = await supabaseClient.auth.getSession();
 
   if (error || !session?.user) {
-    console.log('Tweaklr: no authenticated session. Returning to login.');
-
     window.location.href = 'index.html';
-
     return;
   }
 
-  console.log('Tweaklr: authenticated session detected.');
+  // getSession() reads the locally stored session; getUser() verifies the
+  // bearer token with Supabase before the app trusts the session identity.
+  const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+  if (userError || !user?.id || user.id !== session.user.id) {
+    await supabaseClient.auth.signOut({ scope: 'local' }).catch(() => {});
+    window.location.href = 'index.html';
+    return;
+  }
 
 })();
