@@ -13907,6 +13907,15 @@ try {
 
 })();
 
+/* Expose the Spaces launch API to the separately loaded launch-upgrades layer.
+   These objects are created inside the app-page scope above; classic scripts
+   loaded afterward cannot see block-scoped declarations unless exported. */
+Object.assign(window, {
+  Server, NATURES, HEADERS, VIEWS, FEATURE_OPTIONS, ORDER_STATES,
+  FLOW_COPY, TRANSITION_LABEL, supabaseClient, openSheet, closeSheet,
+  toast, icon, spaceById, renderSpace, sp
+});
+
 }
 
 /* ------------------------------------------------------------
