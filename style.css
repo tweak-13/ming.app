@@ -338,6 +338,82 @@ img { display: block; max-width: 100%; }
   padding-bottom: 0;
 }
 
+/* Scale header contents to match the reduced header height. */
+#screen-home > .topbar .topbar-row,
+#screen-discover > .topbar .topbar-row,
+#screen-tweak > .topbar .topbar-row,
+#screen-moonflower > .topbar .topbar-row,
+#screen-profile > .topbar .topbar-row {
+  gap: 9px;
+}
+
+#screen-home > .topbar .brand {
+  font-size: 19px;
+}
+
+#screen-discover > .topbar .topbar-title,
+#screen-tweak > .topbar .topbar-title,
+#screen-moonflower > .topbar .topbar-title,
+#screen-profile > .topbar .topbar-title {
+  font-size: 17px;
+}
+
+#screen-discover > .topbar .topbar-sub {
+  font-size: 11.5px;
+}
+
+#screen-home > .topbar .icon-btn,
+#screen-discover > .topbar .icon-btn,
+#screen-tweak > .topbar .icon-btn,
+#screen-moonflower > .topbar .icon-btn,
+#screen-profile > .topbar .icon-btn {
+  width: 36px;
+  height: 36px;
+}
+
+#screen-home > .topbar .icon-btn svg,
+#screen-discover > .topbar .icon-btn svg,
+#screen-tweak > .topbar .icon-btn svg,
+#screen-moonflower > .topbar .icon-btn svg,
+#screen-profile > .topbar .icon-btn svg,
+#screen-home > .topbar .theme-toggle .tt-icon,
+#screen-discover > .topbar .theme-toggle .tt-icon,
+#screen-tweak > .topbar .theme-toggle .tt-icon,
+#screen-moonflower > .topbar .theme-toggle .tt-icon,
+#screen-profile > .topbar .theme-toggle .tt-icon {
+  width: 18px;
+  height: 18px;
+}
+
+#screen-home > .topbar .icon-btn .dot,
+#screen-discover > .topbar .icon-btn .dot,
+#screen-tweak > .topbar .icon-btn .dot,
+#screen-moonflower > .topbar .icon-btn .dot,
+#screen-profile > .topbar .icon-btn .dot {
+  top: 6px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+}
+
+#screen-home > .topbar .av-ring {
+  padding: 2px;
+}
+
+#screen-home > .topbar .av-ring .av {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+#screen-home > .topbar .theme-toggle .tt-halo,
+#screen-discover > .topbar .theme-toggle .tt-halo,
+#screen-tweak > .topbar .theme-toggle .tt-halo,
+#screen-moonflower > .topbar .theme-toggle .tt-halo,
+#screen-profile > .topbar .theme-toggle .tt-halo {
+  inset: -4px;
+}
+
 .topbar-row {
   display: flex;
   align-items: center;
