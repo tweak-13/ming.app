@@ -31,6 +31,83 @@ document.addEventListener('DOMContentLoaded', () => {
   const recoveryPassword = document.getElementById('recovery-password');
   const recoveryConfirm = document.getElementById('recovery-confirm');
 
+  /*
+   * Keep login independent from the large application bundle.
+   * Capture the submit before other handlers; this prevents a failed or
+   * duplicate app-level listener from falling back to a native form reload.
+   */
+  if (loginForm && !loginForm.dataset.standaloneAuthReady) {
+    loginForm.dataset.standaloneAuthReady = '1';
+    loginForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      if (loginForm.dataset.standaloneSubmitting === 'true') return;
+
+      const email = (loginEmail?.value || '').trim();
+      const passwordInput = document.getElementById('login-password');
+      const password = passwordInput?.value || '';
+      if (!email || !loginEmail?.checkValidity() || !password) {
+        setMessage(loginMessage, 'Enter your email address and password.');
+        return;
+      }
+
+      loginForm.dataset.standaloneSubmitting = 'true';
+      const submit = loginForm.querySelector('button[type="submit"]');
+      if (submit) submit.disabled = true;
+      setMessage(loginMessage, 'Signing you in…');
+
+      try {
+        if (!window.supabase?.createClient) {
+          throw new Error('Supabase authentication library did not load');
+        }
+
+        const authClient = window.supabase.createClient(
+          'https://avnuejgqaxygxeiyqeny.supabase.co',
+          'sb_publishable_wF8lZnLfC-x9ySqXUqRcHQ_CI_QWrHW',
+          {
+            auth: {
+              autoRefreshToken: true,
+              persistSession: true,
+              detectSessionInUrl: true,
+              storage: window.localStorage
+            }
+          }
+        );
+
+        const { data, error } = await authClient.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error) throw error;
+        if (!data?.session?.access_token || !data?.user?.id) {
+          throw new Error('Authentication returned no active session');
+        }
+
+        setMessage(loginMessage, 'Signed in successfully. Opening Tweaklr…');
+        window.location.assign(new URL('app.html', window.location.href).href);
+      } catch (error) {
+        console.error('Tweaklr standalone sign-in failed:', error?.message || error);
+        const messageText = error?.message || '';
+        if (/invalid login credentials/i.test(messageText)) {
+          setMessage(loginMessage, 'Email or password is incorrect.');
+        } else if (/email not confirmed/i.test(messageText)) {
+          setMessage(loginMessage, 'Please confirm your email address before signing in.');
+        } else if (/rate limit|too many requests/i.test(messageText)) {
+          setMessage(loginMessage, 'Too many attempts. Please wait a moment and try again.');
+        } else if (/failed to fetch|network|load/i.test(messageText)) {
+          setMessage(loginMessage, 'Could not reach the sign-in service. Check your connection and try again.');
+        } else {
+          setMessage(loginMessage, 'Sign-in failed. Please check your details and try again.');
+        }
+      } finally {
+        loginForm.dataset.standaloneSubmitting = 'false';
+        if (submit) submit.disabled = false;
+      }
+    }, true);
+  }
+
   const setMessage = (node, value) => {
     if (node) node.textContent = value;
   };
