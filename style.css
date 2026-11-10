@@ -335,7 +335,7 @@ img { display: block; max-width: 100%; }
 #screen-moonflower > .topbar,
 #screen-profile > .topbar {
   padding-top: var(--safe-t);
-  padding-bottom: 0;
+  padding-bottom: 4px;
 }
 
 /* Scale header contents to match the reduced header height. */
