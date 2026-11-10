@@ -714,7 +714,15 @@ const SUPABASE_PUBLISHABLE_KEY =
 
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage
+    }
+  }
 );
 
 const IS_APP_PAGE = document.getElementById('app') !== null;
@@ -14243,38 +14251,49 @@ document.addEventListener('DOMContentLoaded', () => {
            SUPABASE LOGIN
         ------------------------------------------------------ */
         
-const { error } =
+const { data, error } =
   await supabaseClient.auth.signInWithPassword({
     email,
     password
   });
 
-if (error) {
-  /*
-     Generic authentication error helps avoid unnecessarily
-     revealing whether a particular account exists.
-  */
-  console.error('Tweaklr login failed:', error.message);
+if (error || !data?.session?.access_token || !data?.user?.id) {
+  console.error('Tweaklr login failed:', error?.message || 'No session returned');
 
   setMessage(
     message,
-    'Email or password is incorrect.'
+    'We could not complete sign-in. Please check your details and try again.'
   );
 
   return;
 }
 
-setMessage(
-  message,
-  'Signed in successfully.'
-);
+/*
+   Confirm the newly issued session has been persisted before navigating.
+   This prevents the app guard from racing the auth storage write.
+*/
+const { data: storedAuth, error: storedAuthError } =
+  await supabaseClient.auth.getSession();
 
+if (
+  storedAuthError ||
+  !storedAuth?.session?.access_token ||
+  storedAuth.session.user?.id !== data.user.id
+) {
+  console.error('Tweaklr login session was not available after sign-in.');
 
-/* ------------------------------------------------------
-   OPEN TWEAKLR AFTER SUCCESSFUL LOGIN
------------------------------------------------------- */
+  setMessage(
+    message,
+    'Your sign-in could not be saved on this device. Please enable site storage and try again.'
+  );
 
-window.location.href = 'app.html';
+  return;
+}
+
+setMessage(message, 'Signed in successfully.');
+
+/* Use an absolute same-origin URL so GitHub Pages subpaths are preserved. */
+window.location.assign(new URL('app.html', window.location.href).href);
 
 
 } catch (error) {
@@ -14301,31 +14320,30 @@ window.location.href = 'app.html';
 ------------------------------------------------------------ */
 
 (async function initMingAuthSession() {
+  const isAppPage = window.location.pathname.endsWith('app.html');
+  if (!isAppPage) return;
 
-  const isAppPage =
-    window.location.pathname.endsWith('app.html');
+  /*
+     The browser client restores the persisted session during getSession().
+     Retry once before redirecting: on slower mobile connections the initial
+     storage/client initialization can briefly return before the session is
+     ready. Do not sign users out merely because a verification request fails.
+  */
+  let authResult = await supabaseClient.auth.getSession();
+  if (!authResult.data?.session?.user && !authResult.error) {
+    await new Promise(resolve => setTimeout(resolve, 350));
+    authResult = await supabaseClient.auth.getSession();
+  }
 
-  if (!isAppPage) {
+  const session = authResult.data?.session;
+  if (authResult.error || !session?.user?.id) {
+    window.location.replace(new URL('index.html', window.location.href).href);
     return;
   }
 
-  const {
-    data: { session },
-    error
-  } = await supabaseClient.auth.getSession();
-
-  if (error || !session?.user) {
-    window.location.href = 'index.html';
-    return;
-  }
-
-  // getSession() reads the locally stored session; getUser() verifies the
-  // bearer token with Supabase before the app trusts the session identity.
-  const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-  if (userError || !user?.id || user.id !== session.user.id) {
-    await supabaseClient.auth.signOut({ scope: 'local' }).catch(() => {});
-    window.location.href = 'index.html';
-    return;
-  }
-
+  /*
+     Session presence is sufficient for the static-page gate. Actual data
+     authorization remains enforced by Supabase RLS; a temporary getUser()
+     network failure must not destroy a valid persisted login.
+  */
 })();
