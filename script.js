@@ -3010,8 +3010,6 @@ async function handleDailyUpdateCommentAction(event) {
     let objectUrl = '';
     let playbackEnded = false;
     let earlyEndDetected = false;
-    let objectUrl = '';
-    let audio = null;
     let finishPlayback;
     let failPlayback;
     const playbackFinished = new Promise((resolve, reject) => {
