@@ -3079,27 +3079,6 @@ async function handleDailyUpdateCommentAction(event) {
       await audio.play();
       await playing;
 
-      // Persist consumption as soon as real playback begins. This makes the
-      // one-time rule survive reloads, app closes, and interrupted playback.
-      const { data: claimedResult, error: claimError } = await supabaseClient.rpc(
-        'claim_daily_update_comment_voice_once',
-        { p_comment_id: commentId }
-      );
-      if (claimError) throw claimError;
-      if (claimedResult !== true) {
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
-        URL.revokeObjectURL(objectUrl);
-        objectUrl = '';
-        comment.voiceViewed = true;
-        comment.voicePath = '';
-        holder.classList.add('is-consumed');
-        holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
-        return;
-      }
-      claimCommitted = true;
-
       // Confirm the player actually advanced before waiting for full completion.
       const progressDeadline = Date.now() + 2500;
       while (audio.currentTime < 0.15 && !audio.paused && !playbackEnded && Date.now() < progressDeadline) {
@@ -3109,9 +3088,24 @@ async function handleDailyUpdateCommentAction(event) {
         throw new Error('Audio playback did not progress');
       }
 
-      // Wait for the clip to finish before removing the active player.
-      // Consumption was already persisted at the first confirmed playback event.
+      // Only consume the one-time listen after the complete clip has played.
       await playbackFinished;
+      let claimError = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const { data: claimedResult, error } = await supabaseClient.rpc(
+          'claim_daily_update_comment_voice_once',
+          { p_comment_id: commentId }
+        );
+        claimError = error;
+        if (!error) {
+          // true means this listen was just saved; false means it was already saved.
+          claimCommitted = true;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+      if (!claimCommitted) throw claimError || new Error('Could not save the completed listen');
+
       comment.voiceViewed = true;
       comment.voicePath = '';
       audio.pause();
@@ -3119,8 +3113,13 @@ async function handleDailyUpdateCommentAction(event) {
       audio.load();
       URL.revokeObjectURL(objectUrl);
       objectUrl = '';
-      holder.classList.add('is-consumed');
-      holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
+
+      // Remove the completed voice-note comment from this listener's comment
+      // list. The backend record makes that removal persist after every reload.
+      update.comments = update.comments.filter(item => String(item.id) !== String(commentId));
+      update.commentsCount = update.comments.length;
+      rerenderFeeds();
+      paintDailyUpdateComments(updateId);
     } catch (error) {
       audio?.pause();
       if (audio) {
@@ -3132,13 +3131,23 @@ async function handleDailyUpdateCommentAction(event) {
       if (claimCommitted) {
         comment.voiceViewed = true;
         comment.voicePath = '';
+        update.comments = update.comments.filter(item => String(item.id) !== String(commentId));
+        update.commentsCount = update.comments.length;
+        rerenderFeeds();
+        paintDailyUpdateComments(updateId);
+      } else if (playbackEnded) {
+        // Audio finished but the backend could not confirm the save. Do not
+        // offer another playback; leave a clear retry-safe state in this view.
+        comment.voiceViewed = true;
+        comment.voicePath = '';
         holder.classList.add('is-consumed');
-        holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
+        holder.replaceChildren(document.createTextNode('Playback finished. Could not save the listen yet. Please check your connection and reopen comments to sync.'));
+        toast('Playback finished, but the one-time listen could not be saved. Check your connection.', 'alert');
       } else {
         comment.voiceViewed = false;
         holder.classList.remove('is-consumed');
-        holder.innerHTML = '<span>' + icon('headphones') + '</span><div><strong>One-time voice note</strong><small>Playback did not begin, so your listen is still available.</small></div><button type="button" class="biz-comment-once-play" data-comment-action="listen-once" data-comment-id="' + esc(comment.id) + '">Try again</button>';
-        toast('The voice note could not start, so your one-time listen has not been used. Please try again.', 'alert');
+        holder.innerHTML = '<span>' + icon('headphones') + '</span><div><strong>One-time voice note</strong><small>Playback did not finish, so your listen is still available.</small></div><button type="button" class="biz-comment-once-play" data-comment-action="listen-once" data-comment-id="' + esc(comment.id) + '">Try again</button>';
+        toast('The voice note could not finish playing, so your one-time listen has not been used. Please try again.', 'alert');
       }
     }
     return;
