@@ -1289,12 +1289,10 @@ async function loadMingNotifications() {
     const freshIds = new Set(next.map(n => n.id));
     const retainedRead = persistedReadNotifications.filter(n => !freshIds.has(n.id));
     notifications = [...next, ...retainedRead]
+      // A notification acknowledged by the user is removed from the inbox.
+      // The read receipt remains in Supabase so it cannot return after reload.
+      .filter(n => !notificationReadIds.has(n.id))
       .filter(n => !expiredNotificationIds.has(n.id))
-      .filter(n => {
-        const readAt = notificationReadAt.get(n.id);
-        return !readAt || Date.now() - readAt < TWEAKLR_NOTIFICATION_RETENTION_MS;
-      })
-      .map(n => ({ ...n, read: notificationReadIds.has(n.id) }))
       .sort((a, b) => b.at - a.at);
     rememberAndPopupNewMingNotifications(notifications);
     updateNotifDot();
@@ -8784,10 +8782,10 @@ if ($('#mark-all-read')) {
       if (button) button.disabled = false;
       return;
     }
-    notifications.forEach(n => {
-      n.read = true;
-      notificationReadIds.add(n.id);
-    });
+    // Persist read receipts first, then clear the entire notification inbox.
+    // The loader filters these IDs on every future load, including after refresh.
+    notifications = [];
+    persistedReadNotifications = [];
     renderNotifications();
     updateNotifDot();
     toast('All caught up', 'check');
