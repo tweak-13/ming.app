@@ -928,6 +928,7 @@ const KINDS = {
 };
 
 let dailyUpdates = [];
+let possibilityProfiles = new Map();
 
 let discoverMoments = [];
 let discoverOpportunities = [];
@@ -2139,7 +2140,7 @@ async function loadHome() {
   $('#home-feed').innerHTML = sectionHead('Daily Updates', 'Gone in 24 hours') + skeletonCards(2);
   $('#home-opps').innerHTML = sectionHead('Possibilities near you', 'From Daily Updates') + skeletonRail();
   renderHomeLocation();
-  await loadMingDailyUpdates();
+  await Promise.all([loadMingDailyUpdates(), loadMingPossibilityProfiles()]);
   renderHome();
 }
 
@@ -2201,14 +2202,78 @@ function renderHomeFeed() {
       emptyState('Nothing shared yet today', 'Daily Updates disappear after 24 hours. Be the first to say what you are up to.', { t: 'Share an update', a: 'create:update' }));
 }
 
-function renderHomeOpps() {
-  const possibilityKinds = new Set(['service', 'hiring', 'sale', 'talk', 'visitor', 'activity']);
-  const list = liveUpdates().filter(u => possibilityKinds.has(u.kind)).slice(0, 6);
+function normalisePossibilityTerms(values) {
+  return new Set((Array.isArray(values) ? values : [])
+    .map(value => String(value || '').replace(/^#+/, '').trim().toLowerCase())
+    .filter(Boolean));
+}
 
-  $('#home-opps').innerHTML = sectionHead('Possibilities near you', 'From Daily Updates') +
+async function loadMingPossibilityProfiles() {
+  try {
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError || !session?.user) return false;
+
+    const { data, error } = await supabaseClient.rpc('get_discoverable_profiles', { p_radius_km: null });
+    if (error) {
+      console.warn('Tweaklr: Possibilities interest profiles could not be loaded.', error.message);
+      possibilityProfiles = new Map();
+      return false;
+    }
+
+    possibilityProfiles = new Map();
+    (data || []).forEach(profile => {
+      const name = profile.display_name || 'Tweaklr user';
+      const tags = Array.isArray(profile.tags) ? profile.tags : [];
+      const interests = Array.isArray(profile.interests) ? profile.interests : [];
+      const existing = mingConnectionProfiles.get(profile.id) || {};
+      const mapped = {
+        ...existing,
+        id: profile.id,
+        name,
+        short: name.split(' ')[0] || name,
+        tag: profile.headline || tags.slice(0, 3).join(' · ') || 'Tweaklr member',
+        tags,
+        interests,
+        bio: profile.bio || '',
+        avatarUrl: profile.avatar_url || '',
+        username: profile.username ? '@' + profile.username.replace(/^@/, '') : '',
+        activity: profile.activity || '',
+        km: profile.distance_km == null ? null : Number(profile.distance_km)
+      };
+      possibilityProfiles.set(profile.id, mapped);
+      mingConnectionProfiles.set(profile.id, mapped);
+    });
+    return true;
+  } catch (error) {
+    console.warn('Tweaklr: Possibilities interest profile loading failed.', error);
+    possibilityProfiles = new Map();
+    return false;
+  }
+}
+
+function renderHomeOpps() {
+  const myTerms = normalisePossibilityTerms([
+    ...(Array.isArray(currentUser.tags) ? currentUser.tags : []),
+    ...(Array.isArray(currentUser.interests) ? currentUser.interests : [])
+  ]);
+
+  const list = myTerms.size
+    ? liveUpdates().filter(update => {
+        if (!update.authorId || update.authorId === currentUser.id) return false;
+        const profile = possibilityProfiles.get(update.authorId);
+        if (!profile) return false;
+        const theirTerms = normalisePossibilityTerms([
+          ...(Array.isArray(profile.tags) ? profile.tags : []),
+          ...(Array.isArray(profile.interests) ? profile.interests : [])
+        ]);
+        return [...theirTerms].some(term => myTerms.has(term));
+      }).slice(0, 6)
+    : [];
+
+  $('#home-opps').innerHTML = sectionHead('Possibilities for you', 'Daily Updates matching your tags and interests') +
     (list.length
       ? `<div class="rail">${list.map(u => {
-          const p = u.authorId === currentUser.id ? currentUser : byId(u.authorId);
+          const p = possibilityProfiles.get(u.authorId) || byId(u.authorId);
           const kind = KINDS[u.kind] || KINDS.general;
           return `<button class="ocard" data-action="person:${u.authorId}">
             <div class="k">${esc(kind.label)}</div>
@@ -2217,7 +2282,12 @@ function renderHomeOpps() {
             <div class="f">${avatar(p, 28, { status: false })}<span>${esc(p.short || p.name)} · ${esc(hasLocation() && p.km != null ? distLabel(p.km) : 'Distance unavailable')}</span></div>
           </button>`;
         }).join('')}</div>`
-      : emptyState('No possibilities yet', 'When people nearby share a service, opportunity, activity, sale or request, it will appear here.'));
+      : emptyState(
+          myTerms.size ? 'No matching Daily Updates yet' : 'Add your interests and tags',
+          myTerms.size
+            ? 'Daily Updates from people who share your interests or tags will appear here.'
+            : 'Add tags and interests to your profile so Tweaklr can find Daily Updates from like-minded people.'
+        ));
 }
 
 /* ------------------------------------------------------------
@@ -3358,7 +3428,7 @@ async function createUpdate(kind, title, body, activityMeta = null, mediaFiles =
 }
 
 function rerenderFeeds() {
-  if (state.loaded.home) { renderHomeFeed(); }
+  if (state.loaded.home) { renderHomeFeed(); renderHomeOpps(); }
   if (state.loaded.discover) { loadMingDiscoverContent().then(() => renderDiscover()); }
 }
 
