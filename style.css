@@ -329,6 +329,15 @@ img { display: block; max-width: 100%; }
   padding-bottom: 0;
 }
 
+/* Apply the same compact header spacing to the other primary navigation screens. */
+#screen-discover > .topbar,
+#screen-tweak > .topbar,
+#screen-moonflower > .topbar,
+#screen-profile > .topbar {
+  padding-top: var(--safe-t);
+  padding-bottom: 0;
+}
+
 .topbar-row {
   display: flex;
   align-items: center;
