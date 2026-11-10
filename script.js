@@ -11578,97 +11578,116 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
     }
   }, { signal: commentEvents.signal });
 
-  // View-once playback: always release the button on lookup, Storage or RPC
-  // failures. A transient RPC error must not be mistaken for an already-used note.
+  // View-once comments are consumed only after the listener finishes playback.
   commentSheet?.addEventListener('click', async event => {
     const button = event.target.closest('[data-comment-once]');
     if (!button || button.disabled) return;
 
     const commentId = button.dataset.commentOnce;
     const holder = button.closest('.biz-comment-voice-once');
-    const resetButton = label => {
-      if (!button.isConnected) return;
-      button.disabled = false;
-      button.textContent = label;
-    };
+    const comment = comments.find(item => String(item.id) === String(commentId));
+    if (!comment || !holder || !comment.voice_path) return;
 
     button.disabled = true;
     button.textContent = 'Preparing…';
 
-    try {
-      const comment = comments.find(item => String(item.id) === String(commentId));
-      if (!comment?.voice_path) {
-        resetButton('Try again');
-        toast('This voice note could not be found. Close and reopen the comments, then try again.', 'alert');
-        return;
-      }
+    const restoreButton = label => {
+      if (!holder.isConnected) return;
+      const mark = document.createElement('span');
+      mark.innerHTML = icon('headphones');
+      const details = document.createElement('div');
+      details.innerHTML = '<strong>One-time voice note</strong><small>Available for one listen</small>';
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'biz-comment-once-play';
+      retry.dataset.commentOnce = String(commentId);
+      retry.textContent = label;
+      holder.replaceChildren(mark, details, retry);
+    };
 
-      // Create the short-lived URL before consuming the one-time entitlement.
+    const removeConsumedComment = () => {
+      comment.voice_viewed = true;
+      comment.voice_path = null;
+      comment.voiceUrl = '';
+      holder.closest('.biz-comment-thread')?.remove();
+      const remaining = commentSheet?.querySelectorAll('.biz-comment-thread').length || 0;
+      const count = commentSheet?.querySelector('.biz-comments-count');
+      if (count) count.textContent = String(remaining);
+      if (!remaining) {
+        const list = commentSheet?.querySelector('.biz-comment-list');
+        if (list) list.innerHTML = '<div class="biz-comment-empty"><span>' + icon('message-circle') + '</span><strong>It’s quiet in here.</strong><p>Be the first to add something meaningful to this post.</p></div>';
+      }
+    };
+
+    try {
+      // Preparing the player does not claim or consume the one-time listen.
       const { data: signed, error: signedError } = await supabaseClient.storage
         .from('ming-business-comment-voice')
-        .createSignedUrl(comment.voice_path, 90);
+        .createSignedUrl(comment.voice_path, 1800);
 
       if (signedError || !signed?.signedUrl) {
-        resetButton('Try again');
-        console.warn('Tweaklr: view-once voice URL could not be prepared.', signedError?.message);
+        restoreButton('Try again');
+        console.warn('Tweaklr: view-once voice URL preparation failed.', signedError?.message);
         toast('Voice note could not be prepared. Please try again.', 'alert');
         return;
       }
 
-      const { data: claimed, error: claimError } = await supabaseClient.rpc(
-        rpcClaim,
-        { p_comment_id: commentId }
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.preload = 'auto';
+      audio.src = signed.signedUrl;
+      holder.replaceChildren(
+        Object.assign(document.createElement('span'), { innerHTML: icon('headphones') }),
+        audio
       );
 
-      if (claimError) {
-        resetButton('Try again');
-        console.warn('Tweaklr: view-once voice claim failed.', claimError.message);
-        toast('The one-time listen could not be verified. Please try again.', 'alert');
-        return;
-      }
-
-      if (claimed !== true) {
-        comment.voice_viewed = true;
-        comment.voiceUrl = '';
-        holder?.classList.add('is-consumed');
-        holder?.replaceChildren(document.createTextNode('This voice note has already been played.'));
-        return;
-      }
-
-      // Keep the per-user consumed state in the open comments view as well as
-      // in Supabase, so a re-render cannot make this listener's note playable again.
-      comment.voice_viewed = true;
-      comment.voiceUrl = '';
-
-      if (!holder) {
-        toast('The voice note player is no longer available. Reopen the comments.', 'alert');
-        return;
-      }
-
-      holder.innerHTML = '<span>' + icon('headphones') + '</span><audio controls autoplay preload="auto" src="' + esc(signed.signedUrl) + '"></audio>';
-      const audio = holder.querySelector('audio');
-      audio.addEventListener('ended', () => {
-        // The database claim permanently hides this view-once comment for this
-        // listener. Remove the whole comment thread from the current view too.
+      audio.addEventListener('ended', async () => {
+        // Persist the completed listen only after the browser confirms the clip ended.
         audio.pause();
         audio.removeAttribute('src');
         audio.load();
-        const thread = holder.closest('.biz-comment-thread');
-        thread?.remove();
-        const count = $('#sheet .biz-comments-count');
-        if (count && !$('#sheet .biz-comment-thread')) {
-          const empty = $('#sheet .biz-comment-list');
-          if (empty) empty.innerHTML = '<div class="biz-comment-empty"><span>' + icon('message-circle') + '</span><strong>It’s quiet in here.</strong><p>Be the first to add something meaningful to this post.</p></div>';
+
+        let persisted = false;
+        let persistError = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data: claimed, error } = await supabaseClient.rpc(
+            rpcClaim,
+            { p_comment_id: commentId }
+          );
+          persistError = error;
+          if (!error) {
+            // false means another request already saved this listener's consumption.
+            persisted = claimed === true || claimed === false;
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+        }
+
+        if (persisted) {
+          removeConsumedComment();
+        } else {
+          holder.classList.add('is-consumed');
+          holder.replaceChildren(document.createTextNode('Playback finished, but the listen could not be saved. Reopen comments after checking your connection.'));
+          console.warn('Tweaklr: completed voice listen could not be persisted.', persistError?.message || persistError);
+          toast('Playback finished, but Tweaklr could not save the listen. Check your connection.', 'alert');
         }
       }, { once: true });
+
       audio.addEventListener('error', () => {
-        holder.classList.add('is-consumed');
-        holder.innerHTML = icon('alert-circle') + '<span>Playback failed after the one-time listen was claimed.</span>';
-        toast('The one-time listen was claimed, but the audio could not be played.', 'alert');
+        restoreButton('Try again');
+        toast('The voice note could not be played. Your one-time listen has not been used.', 'alert');
       }, { once: true });
+
+      try {
+        await audio.play();
+      } catch (playError) {
+        console.warn('Tweaklr: Space voice note playback did not start.', playError?.message || playError);
+        restoreButton('Tap to play');
+        toast('Playback did not start. Your one-time listen has not been used.', 'alert');
+      }
     } catch (error) {
-      console.warn('Tweaklr: unexpected view-once voice playback error.', error?.message || error);
-      resetButton('Try again');
+      console.warn('Tweaklr: view-once voice playback failed.', error?.message || error);
+      restoreButton('Try again');
       toast('Voice note could not be prepared. Please try again.', 'alert');
     }
   }, { signal: commentEvents.signal });
