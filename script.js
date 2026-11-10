@@ -1598,8 +1598,8 @@ const fab = $('#fab');
 function setTab(tab, opts = {}) {
   if (state.stack.length) closeAllStacks();
   state.tab = tab;
-  $('.screen[data-tab]').forEach(s => s.classList.toggle('is-active', s.dataset.tab === tab));
-  $('#nav button').forEach(b => {
+  $$('.screen[data-tab]').forEach(s => s.classList.toggle('is-active', s.dataset.tab === tab));
+  $$('#nav button').forEach(b => {
     const on = b.dataset.nav === tab;
     b.classList.toggle('is-on', on);
     if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
@@ -2654,7 +2654,7 @@ async function toggleLike(id) {
       if (!error) u.likes += 1;
     }
 
-    $('[data-action="like:' + id + '"]').forEach(btn => {
+    $$('[data-action="like:' + id + '"]').forEach(btn => {
       btn.classList.toggle('is-on', u.liked);
       btn.setAttribute('aria-pressed', String(u.liked));
       const count = btn.querySelector('span');
