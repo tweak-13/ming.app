@@ -2270,7 +2270,7 @@ function renderHomeOpps() {
       }).slice(0, 6)
     : [];
 
-  $('#home-opps').innerHTML = sectionHead('Possibilities for you', 'Daily Updates matching your tags and interests') +
+  $('#home-opps').innerHTML = sectionHead('Possibilities near you', 'From Daily Updates') +
     (list.length
       ? `<div class="rail">${list.map(u => {
           const p = possibilityProfiles.get(u.authorId) || byId(u.authorId);
