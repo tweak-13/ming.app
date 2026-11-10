@@ -1598,8 +1598,8 @@ const fab = $('#fab');
 function setTab(tab, opts = {}) {
   if (state.stack.length) closeAllStacks();
   state.tab = tab;
-  $$('.screen[data-tab]').forEach(s => s.classList.toggle('is-active', s.dataset.tab === tab));
-  $$('#nav button').forEach(b => {
+  $('.screen[data-tab]').forEach(s => s.classList.toggle('is-active', s.dataset.tab === tab));
+  $('#nav button').forEach(b => {
     const on = b.dataset.nav === tab;
     b.classList.toggle('is-on', on);
     if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
@@ -1608,6 +1608,18 @@ function setTab(tab, opts = {}) {
   const scroller = $(`#screen-${tab} .scroll`);
   if (scroller && !opts.keepScroll) scroller.scrollTop = 0;
   ensureLoaded(tab);
+}
+
+/* Main navigation wiring — keep tab switching independent of async data boot. */
+if (nav && !nav.dataset.tweaklrNavigationReady) {
+  nav.dataset.tweaklrNavigationReady = '1';
+  nav.addEventListener('click', event => {
+    const button = event.target.closest('button[data-nav]');
+    if (!button || !nav.contains(button)) return;
+    event.preventDefault();
+    const tab = button.dataset.nav;
+    if (tab) setTab(tab);
+  });
 }
 
 async function refreshMingCurrentUserProfile() {
