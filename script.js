@@ -7138,23 +7138,38 @@ function tweaklrLoadingMarkup(message = 'Nearby is everything…') {
   '</div>';
 }
 
+function getSearchSuggestions() {
+  const terms = new Map();
+  searchPeople.forEach(profile => {
+    [...(profile.tags || []), ...(profile.interests || [])].forEach(value => {
+      const term = String(value || '').replace(/^#+/, '').trim();
+      if (term.length >= 2 && term.length <= 32) {
+        const key = term.toLowerCase();
+        if (!terms.has(key)) terms.set(key, term);
+      }
+    });
+  });
+  return Array.from(terms.values()).sort((a, b) => a.localeCompare(b)).slice(0, 8);
+}
+
 function renderSearch(mode, q = '') {
   const host = $('#search-body');
   if (mode === 'idle') {
+    const suggestions = getSearchSuggestions();
     host.innerHTML = `
       <div class="section" style="margin-top:14px">
         <div class="search-guidance"><strong>People are found by @username.</strong> Use a word or #tag for everything else.</div>
-        ${sectionHead('Try searching for')}
-        <div class="chips" style="flex-wrap:wrap">
-          ${['photographer', 'football', 'coffee', 'developer', 'visiting', 'market'].map(t => `<button class="chip" data-action="search-term:${t}">${t}</button>`).join('')}
-        </div>
+        ${suggestions.length ? sectionHead('Explore real interests') + `
+          <div class="chips" style="flex-wrap:wrap">
+            ${suggestions.map(term => `<button class="chip" data-action="search-term:${esc(term)}">#${esc(term)}</button>`).join('')}
+          </div>` : '<p class="center-note">Search by @username, or explore as people add interests and tags.</p>'}
       </div>
-      <div class="section">${sectionHead('People near you')}
+      <div class="section">${sectionHead('Discoverable people')}
         ${searchPeople.slice(0, 4).map(p => `
           <button class="prow" data-action="person:${p.id}">${avatar(p, 44)}
-            <div class="meta"><div class="n">${esc(p.name)}</div><div class="s">${esc(p.tag)}</div></div>
-            <div class="right"><div class="d">${esc(distLabel(p.km))}</div></div>
-          </button>`).join('')}
+            <div class="meta"><div class="n">${esc(p.name)}</div><div class="s">${esc(p.username || '@username')} · ${esc(p.tag)}</div></div>
+            <div class="right"><div class="d">${esc(p.km == null ? 'On Tweaklr' : distLabel(p.km))}</div></div>
+          </button>`).join('') || '<p class="center-note">No discoverable people to show yet.</p>'}
       </div>`;
     return;
   }
@@ -7199,9 +7214,9 @@ function renderSearch(mode, q = '') {
   const rl = searchPlaces.filter(p =>
     (p.name + ' ' + p.kind + ' ' + p.note).toLowerCase().includes(t)
   );
-  const spaceSearchSource = searchDiscoverableSpaces.length
-    ? searchDiscoverableSpaces
-    : Server.db.spaces;
+  // Search only spaces returned by the backend's discoverability RPC.
+  // Never fall back to the local Space mirror, which may contain demo/seed data.
+  const spaceSearchSource = searchDiscoverableSpaces;
   const rs = spaceSearchSource.filter(s => {
     if (s.nature === 'silly' || !s.discoverable || (s.expiresAt && s.expiresAt <= now())) return false;
     return [s.name, s.description, s.nature, NATURES[s.nature]?.label]
