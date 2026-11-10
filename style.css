@@ -323,6 +323,12 @@ img { display: block; max-width: 100%; }
 }
 .topbar.is-scrolled { border-bottom-color: var(--border); }
 
+/* Compact only the Home header; keep all 44px action buttons unchanged. */
+#screen-home > .topbar {
+  padding-top: var(--safe-t);
+  padding-bottom: 0;
+}
+
 .topbar-row {
   display: flex;
   align-items: center;
