@@ -3018,15 +3018,12 @@ async function handleDailyUpdateCommentAction(event) {
     });
     playbackFinished.catch(() => {}); // The awaited path below handles playback errors.
     try {
-      const { data: signed, error: signedError } = await supabaseClient.storage
+      // Use an authenticated Storage download, not a bearer signed URL.
+      // Storage RLS checks the listener's backend consumption record on every download.
+      const { data: audioBlob, error: downloadError } = await supabaseClient.storage
         .from('ming-daily-update-comment-voice')
-        .createSignedUrl(comment.voicePath, 90);
-      if (signedError || !signed?.signedUrl) throw signedError || new Error('Audio URL unavailable');
-
-      // Download the complete clip before opening the player.
-      const response = await fetch(signed.signedUrl);
-      if (!response.ok) throw new Error('Could not download the voice note');
-      const audioBlob = await response.blob();
+        .download(comment.voicePath);
+      if (downloadError || !audioBlob) throw downloadError || new Error('Could not download the voice note');
       if (!audioBlob.size) throw new Error('The voice note is empty');
       objectUrl = URL.createObjectURL(audioBlob);
 
