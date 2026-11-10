@@ -3009,7 +3009,6 @@ async function handleDailyUpdateCommentAction(event) {
     let audio = null;
     let objectUrl = '';
     let playbackEnded = false;
-    let earlyEndDetected = false;
     let claimCommitted = false;
     let finishPlayback;
     let failPlayback;
@@ -3040,6 +3039,11 @@ async function handleDailyUpdateCommentAction(event) {
         finishPlayback();
       });
       audio.addEventListener('error', () => failPlayback(new Error('The voice note could not be decoded')), { once: true });
+      audio.addEventListener('pause', () => {
+        if (!playbackEnded && !audio.ended) {
+          failPlayback(new Error('Playback was interrupted before the voice note finished'));
+        }
+      });
 
       holder.replaceChildren(
         Object.assign(document.createElement('span'), { innerHTML: icon('headphones') }),
@@ -3061,15 +3065,6 @@ async function handleDailyUpdateCommentAction(event) {
       });
       await audio.play();
       await playing;
-
-      // Confirm the player actually advanced before waiting for full completion.
-      const progressDeadline = Date.now() + 2500;
-      while (audio.currentTime < 0.15 && !audio.paused && !playbackEnded && Date.now() < progressDeadline) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      if (!earlyEndDetected && !playbackEnded && (audio.paused || audio.currentTime < 0.15)) {
-        throw new Error('Audio playback did not progress');
-      }
 
       // Persist consumption only after the browser confirms the entire clip ended.
       await playbackFinished;
@@ -11609,13 +11604,19 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
       comment.voice_viewed = true;
       comment.voice_path = null;
       comment.voiceUrl = '';
-      holder.closest('.biz-comment-thread')?.remove();
-      const remaining = commentSheet?.querySelectorAll('.biz-comment-thread').length || 0;
-      const count = commentSheet?.querySelector('.biz-comments-count');
-      if (count) count.textContent = String(remaining);
-      if (!remaining) {
-        const list = commentSheet?.querySelector('.biz-comment-list');
-        if (list) list.innerHTML = '<div class="biz-comment-empty"><span>' + icon('message-circle') + '</span><strong>It’s quiet in here.</strong><p>Be the first to add something meaningful to this post.</p></div>';
+      const thread = holder.closest('.biz-comment-thread');
+      const hasReplies = !!thread?.querySelector('.biz-comment-replies .biz-comment-thread');
+      if (String(comment.body || '').trim() || hasReplies) {
+        holder.remove();
+      } else {
+        thread?.remove();
+        const remaining = commentSheet?.querySelectorAll('.biz-comment-thread').length || 0;
+        const count = commentSheet?.querySelector('.biz-comments-count');
+        if (count) count.textContent = String(remaining);
+        if (!remaining) {
+          const list = commentSheet?.querySelector('.biz-comment-list');
+          if (list) list.innerHTML = '<div class="biz-comment-empty"><span>' + icon('message-circle') + '</span><strong>It’s quiet in here.</strong><p>Be the first to add something meaningful to this post.</p></div>';
+        }
       }
     };
 
