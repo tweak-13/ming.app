@@ -3010,6 +3010,7 @@ async function handleDailyUpdateCommentAction(event) {
     let objectUrl = '';
     let playbackEnded = false;
     let earlyEndDetected = false;
+    let claimCommitted = false;
     let finishPlayback;
     let failPlayback;
     const playbackFinished = new Promise((resolve, reject) => {
@@ -3078,18 +3079,8 @@ async function handleDailyUpdateCommentAction(event) {
       await audio.play();
       await playing;
 
-      // Confirm the player actually advanced before waiting for full completion.
-      const progressDeadline = Date.now() + 2500;
-      while (audio.currentTime < 0.15 && !audio.paused && !playbackEnded && Date.now() < progressDeadline) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      if (!earlyEndDetected && !playbackEnded && (audio.paused || audio.currentTime < 0.15)) {
-        throw new Error('Audio playback did not progress');
-      }
-
-      // A one-time listen is claimed only after the full recorded clip has ended.
-      // Pausing or an early browser ended event leaves the note available to finish.
-      await playbackFinished;
+      // Persist consumption as soon as real playback begins. This makes the
+      // one-time rule survive reloads, app closes, and interrupted playback.
       const { data: claimedResult, error: claimError } = await supabaseClient.rpc(
         'claim_daily_update_comment_voice_once',
         { p_comment_id: commentId }
@@ -3107,7 +3098,20 @@ async function handleDailyUpdateCommentAction(event) {
         holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
         return;
       }
+      claimCommitted = true;
 
+      // Confirm the player actually advanced before waiting for full completion.
+      const progressDeadline = Date.now() + 2500;
+      while (audio.currentTime < 0.15 && !audio.paused && !playbackEnded && Date.now() < progressDeadline) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      if (!earlyEndDetected && !playbackEnded && (audio.paused || audio.currentTime < 0.15)) {
+        throw new Error('Audio playback did not progress');
+      }
+
+      // Wait for the clip to finish before removing the active player.
+      // Consumption was already persisted at the first confirmed playback event.
+      await playbackFinished;
       comment.voiceViewed = true;
       comment.voicePath = '';
       audio.pause();
@@ -3125,10 +3129,17 @@ async function handleDailyUpdateCommentAction(event) {
       }
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       console.warn('Tweaklr: Home comment view-once playback failed.', error?.message || error);
-      comment.voiceViewed = false;
-      holder.classList.remove('is-consumed');
-      holder.innerHTML = '<span>' + icon('headphones') + '</span><div><strong>One-time voice note</strong><small>Playback did not complete. Your listen is still available.</small></div><button type="button" class="biz-comment-once-play" data-comment-action="listen-once" data-comment-id="' + esc(comment.id) + '">Try again</button>';
-      toast('The voice note did not finish playing, so your one-time listen has not been used. Please try again.', 'alert');
+      if (claimCommitted) {
+        comment.voiceViewed = true;
+        comment.voicePath = '';
+        holder.classList.add('is-consumed');
+        holder.replaceChildren(document.createTextNode('This voice note has already been played.'));
+      } else {
+        comment.voiceViewed = false;
+        holder.classList.remove('is-consumed');
+        holder.innerHTML = '<span>' + icon('headphones') + '</span><div><strong>One-time voice note</strong><small>Playback did not begin, so your listen is still available.</small></div><button type="button" class="biz-comment-once-play" data-comment-action="listen-once" data-comment-id="' + esc(comment.id) + '">Try again</button>';
+        toast('The voice note could not start, so your one-time listen has not been used. Please try again.', 'alert');
+      }
     }
     return;
   }
