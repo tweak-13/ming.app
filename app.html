@@ -986,45 +986,7 @@
 
 
 
-<style>
-#tweaklr-runtime-diagnostic{position:fixed;left:10px;right:10px;bottom:12px;z-index:2147483647;display:none;padding:12px 14px;border-radius:12px;background:#211b18;color:#fff3e7;font:12px/1.45 system-ui,sans-serif;box-shadow:0 8px 30px #0008;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none}
-#tweaklr-runtime-diagnostic strong{display:block;margin-bottom:4px;color:#f4c99f}
-</style>
-<script>
-(function(){
-  var panel;
-  function report(message){
-    try{
-      if(!panel){
-        panel=document.createElement('div');
-        panel.id='tweaklr-runtime-diagnostic';
-        panel.innerHTML='<strong>Tweaklr startup diagnostic</strong><span></span>';
-        (document.body||document.documentElement).appendChild(panel);
-      }
-      panel.querySelector('span').textContent=String(message).slice(0,900);
-      panel.style.display='block';
-    }catch(_){}
-  }
-  window.addEventListener('error',function(event){
-    var detail=event.message||event.error&&event.error.message||'Script resource failed to load';
-    if(event.filename)detail+='\n'+event.filename.split('/').pop()+(event.lineno?':'+event.lineno:'');
-    report('JavaScript error: '+detail);
-  },true);
-  window.addEventListener('unhandledrejection',function(event){
-    var reason=event.reason;
-    report('Unhandled app error: '+(reason&&reason.message||reason||'Unknown rejection'));
-  });
-  document.addEventListener('click',function(event){
-    var target=event.target&&event.target.closest?event.target.closest('#nav button, #fab'):null;
-    if(!target)return;
-    var label=target.id==='fab'?'+ button':('navigation: '+(target.dataset.nav||target.textContent.trim()||'unknown'));
-    setTimeout(function(){
-      if(!panel||panel.style.display==='none')report('Tap detected: '+label+'. No JavaScript error has been reported yet. If the screen did not change, send me a screenshot of this message.');
-      else if(panel.querySelector('span').textContent.indexOf('JavaScript error:')!==0&&panel.querySelector('span').textContent.indexOf('Unhandled app error:')!==0)report('Tap detected: '+label+'. No JavaScript error has been reported yet.');
-    },700);
-  },true);
-})();
-</script>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;document.write('<script src=&quot;https://unpkg.com/@supabase/supabase-js@2&quot;><' + '/script>')"></script>
 <script src="script.js?v=20261110-startup-syntax-fix-2"></script>
 <script src="friendly-space-integration.js?v=20261109-main-sync-1"></script>
