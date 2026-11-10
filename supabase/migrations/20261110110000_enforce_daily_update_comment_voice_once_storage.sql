@@ -37,3 +37,7 @@ as $function$
       )
   );
 $function$;
+
+-- The comments loader is an authenticated app RPC, not an anonymous endpoint.
+revoke all on function public.get_daily_update_comments(uuid) from public, anon;
+grant execute on function public.get_daily_update_comments(uuid) to authenticated;
