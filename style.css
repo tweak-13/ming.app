@@ -326,7 +326,7 @@ img { display: block; max-width: 100%; }
 /* Compact only the Home header; keep all 44px action buttons unchanged. */
 #screen-home > .topbar {
   padding-top: var(--safe-t);
-  padding-bottom: 0;
+  padding-bottom: 4px;
 }
 
 /* Apply the same compact header spacing to the other primary navigation screens. */
