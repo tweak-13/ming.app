@@ -1147,12 +1147,12 @@ async function loadMingNotifications() {
 
     currentUser.id = session.user.id;
     await loadNotificationReadState();
-    await loadMingConnections();
-    await loadMingMessages();
+    const connectionsLoaded = await loadMingConnections();
+    const messagesLoaded = await loadMingMessages();
 
     const next = [];
 
-    connectionRequests.forEach(r => {
+    if (connectionsLoaded) connectionRequests.forEach(r => {
       const p = byId(r.personId);
       const name = p?.short || p?.name || 'Someone';
       const id = 'connreq_' + r.id;
@@ -1163,7 +1163,7 @@ async function loadMingNotifications() {
       });
     });
 
-    conversations.forEach(c => {
+    if (messagesLoaded) conversations.forEach(c => {
       const unread = c.messages.filter(m => !m.me && !m.read);
       if (!unread.length) return;
       const latest = unread[unread.length - 1];
@@ -1177,26 +1177,9 @@ async function loadMingNotifications() {
       });
     });
 
-    const { data: updates, error: updateError } = await supabaseClient
-      .rpc('get_daily_updates', { p_limit: 50 });
-
-    if (!updateError) {
-      (updates || []).forEach(row => {
-        if (row.author_id === session.user.id) return;
-        const p = byId(row.author_id);
-        const name = p?.short || row.author_display_name || 'Someone';
-        const id = 'update_' + row.id;
-        next.push({
-          id, type: 'update', updateId: row.id,
-          text: '<b>' + esc(name) + '</b> posted a Daily Update.',
-          at: new Date(row.created_at).getTime(),
-          read: notificationReadIds.has(id)
-        });
-      });
-    } else {
-      console.warn('Tweaklr: Daily Update notifications could not be loaded.', updateError.message);
-    }
-
+    // Publishing a Daily Update is feed activity, not a personal notification.
+    // Notifications are generated from direct interactions below.
+    
     /* Post activity notifications: likes and comments on the current user's posts. */
     try {
       const { data: myPosts, error: myPostsError } = await supabaseClient
