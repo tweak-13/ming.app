@@ -930,7 +930,6 @@ const KINDS = {
 let dailyUpdates = [];
 let possibilityProfiles = new Map();
 
-let discoverMoments = [];
 let discoverOpportunities = [];
 let discoverActivities = [];
 let discoverVisitors = [];
@@ -3438,7 +3437,6 @@ function rerenderFeeds() {
 const DISCOVER_FILTERS = [
   { k: 'all', t: 'Everything' },
   { k: 'people', t: 'People' },
-  { k: 'moments', t: 'Moments' },
   { k: 'opps', t: 'Opportunities' },
   { k: 'activities', t: 'Activities' },
   { k: 'places', t: 'Places' },
@@ -3501,7 +3499,7 @@ async function publishMingApproxLocation() {
 }
 
 async function loadMingDiscoverContent() {
-  discoverMoments = []; discoverOpportunities = []; discoverActivities = []; discoverVisitors = []; discoverPlaces = [];
+  discoverOpportunities = []; discoverActivities = []; discoverVisitors = []; discoverPlaces = [];
   discoverActivityJoined.clear();
   try {
     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
@@ -3521,7 +3519,6 @@ async function loadMingDiscoverContent() {
           status: 'on', visitor: row.kind === 'visitor', km: mingDiscoverPeople.find(p => p.id === row.author_id)?.km ?? null });
         const base = { id: row.id, authorId: row.author_id, title: row.title, body: row.body, createdAt: new Date(row.created_at).getTime(),
           likes: Number(row.likes || 0), liked: !!row.liked, commentsCount: Number(row.comments_count || 0) };
-        if (row.kind === 'talk' || row.kind === 'general') discoverMoments.push(base);
         if (['service', 'hiring', 'sale'].includes(row.kind)) discoverOpportunities.push(base);
         if (row.kind === 'activity') discoverActivities.push({ ...base, place: row.title, going: 0, joined: false });
         if (row.kind === 'visitor') discoverVisitors.push(base);
@@ -3565,12 +3562,6 @@ function renderDiscover() {
   if (show('people')) {
     html += '<div class="section">' + sectionHead('People', null, { t: 'Nearby', a: 'go-nearby' }) + '<div class="rail">' +
       (mingDiscoverPeople.map(p => '<button class="pcard" data-action="person:' + p.id + '">' + ringAvatar(p, 56, isMingUserOnline(p.id)) + '<div class="name">' + esc(p.short) + '</div><div class="tag">' + esc(p.tag) + '</div><div class="dist">' + esc(p.km == null ? 'Discoverable' : distLabel(p.km)) + '</div></button>').join('') || '<div style="padding:8px 0;color:var(--muted);font-size:13px">No other Tweaklr members are discoverable yet.</div>') + '</div></div>';
-  }
-  if (show('moments')) {
-    html += '<div class="section">' + sectionHead('Moments', 'Recent local moments') + '<div class="rail">' + (discoverMoments.map(m => {
-      const p = byId(m.authorId); if (!p) return '';
-      return '<button class="mcard" data-action="person:' + m.authorId + '"><div class="art" style="background:' + avatarStyle(p.hue) + '"><span class="who">' + avatar(p, 28, { status: false }) + esc(p.short) + '</span></div><div class="body"><p>' + esc(m.body || m.title) + '</p><div class="m">' + esc(timeAgo(m.createdAt)) + ' · ' + esc(p.km == null ? 'Distance unavailable' : distLabel(p.km)) + '</div></div></button>';
-    }).join('') || emptyState('No moments yet', 'Real local moments will appear here as people share them.')) + '</div></div>';
   }
   if (show('opps')) {
     html += '<div class="section">' + sectionHead('Opportunities', 'People looking, people offering') + '<div class="rail">' + (discoverOpportunities.map(o => {
