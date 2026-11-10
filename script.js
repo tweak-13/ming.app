@@ -3033,26 +3033,9 @@ async function handleDailyUpdateCommentAction(event) {
       audio.preload = 'auto';
       audio.src = objectUrl;
       audio.addEventListener('ended', () => {
-        // Android browsers can occasionally emit ended prematurely. Never consume
-        // a note until playback reaches its recorded duration.
-        const recordedDuration = Number(comment.voiceDuration || 0);
-        const mediaDuration = Number.isFinite(audio.duration) ? audio.duration : 0;
-        const expectedDuration = Math.max(recordedDuration, mediaDuration);
-        const playedDuration = Number(audio.currentTime || 0);
-        const tolerance = Math.max(1.25, expectedDuration * 0.08);
-        if (expectedDuration > 0 && playedDuration + tolerance < expectedDuration) {
-          earlyEndDetected = true;
-          playbackEnded = false;
-          try { audio.currentTime = 0; } catch (_) {}
-          let status = holder.querySelector('.biz-comment-once-status');
-          if (!status) {
-            status = document.createElement('small');
-            status.className = 'biz-comment-once-status';
-            holder.appendChild(status);
-          }
-          status.textContent = 'Playback stopped early. Tap play to continue; your listen is not used.';
-          return;
-        }
+        // The browser's ended event is the completion signal. Do not compare
+        // it with MediaRecorder metadata: duration metadata can differ across
+        // Android browsers and incorrectly keep a fully heard note available.
         playbackEnded = true;
         finishPlayback();
       });
@@ -3088,7 +3071,7 @@ async function handleDailyUpdateCommentAction(event) {
         throw new Error('Audio playback did not progress');
       }
 
-      // Only consume the one-time listen after the complete clip has played.
+      // Persist consumption only after the browser confirms the entire clip ended.
       await playbackFinished;
       let claimError = null;
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -3097,8 +3080,12 @@ async function handleDailyUpdateCommentAction(event) {
           { p_comment_id: commentId }
         );
         claimError = error;
-        if (!error) {
-          // true means this listen was just saved; false means it was already saved.
+        if (!error && claimedResult === true) {
+          claimCommitted = true;
+          break;
+        }
+        if (!error && claimedResult === false) {
+          // A prior completed listen already exists for this listener.
           claimCommitted = true;
           break;
         }
