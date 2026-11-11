@@ -5909,7 +5909,13 @@ function renderVoiceMessage(m) {
       '</div>';
     }
     if(m.viewedAt) return '<div class="chat-view-once-state">Opened</div>';
-    return '<div class="chat-voice-note"><button type="button" class="chat-voice-play chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button><span class="chat-voice-duration">'+formatChatVoiceTime(seconds*1000)+'</span></div>';
+    return '<div class="chat-voice-note chat-voice-player" data-voice-player>'+
+      '<button type="button" class="chat-voice-play chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button>'+
+      '<div class="chat-voice-track">'+
+        '<input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />'+
+        '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>'+formatChatVoiceTime(seconds*1000)+'</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>'+
+      '</div>'+
+    '</div>';
   }
   if (!m.voicePath) {
     return `<div class="chat-voice-note"><span>🎙️</span><span>Voice note</span><span class="chat-voice-duration">${seconds}s</span></div>`;
