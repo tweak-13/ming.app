@@ -739,6 +739,21 @@
     <div id="chat-reply-preview" class="chat-reply-preview" hidden></div>
     <div id="chat-attachment-preview" class="chat-attachment-preview" hidden></div>
 
+    <div id="chat-recording-panel" class="chat-recording-panel" hidden aria-live="polite">
+      <div class="chat-recording-status">
+        <span class="chat-recording-indicator" id="chat-recording-indicator"></span>
+        <strong id="chat-recording-label">Recording voice note</strong>
+        <span id="chat-recording-time">0:00</span>
+      </div>
+      <audio id="chat-voice-preview" controls preload="metadata" hidden></audio>
+      <div class="chat-recording-actions">
+        <button type="button" id="chat-recording-delete" class="chat-recording-delete" aria-label="Delete voice note" title="Delete voice note">Delete</button>
+        <button type="button" id="chat-recording-pause" class="chat-recording-secondary">Pause</button>
+        <button type="button" id="chat-recording-finish" class="chat-recording-secondary">Finish</button>
+        <button type="button" id="chat-recording-send" class="chat-recording-send" disabled>Send</button>
+      </div>
+    </div>
+
     <form class="composer" id="chat-form">
 
       <button class="chat-attach-btn" type="button" id="chat-attach" aria-label="Attach a photo or file" title="Attach a photo or file">
