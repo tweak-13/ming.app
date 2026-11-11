@@ -5771,7 +5771,7 @@ function renderChatAttachment(m) {
 }
 function formatChatFileSize(bytes){const n=Number(bytes||0);if(!n)return '';if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(0)+' KB';return (n/1048576).toFixed(1)+' MB';}
 async function hydrateChatAttachments() {
-  const nodes = $('[data-chat-attachment]');
+  const nodes = $$('[data-chat-attachment]');
   await Promise.all(nodes.map(async node => {
     const path = node.dataset.chatAttachment;
     if (!path || node.dataset.chatHydration === 'loading' || node.dataset.chatHydration === 'ready') return;
