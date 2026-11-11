@@ -5898,8 +5898,15 @@ function renderVoiceMessage(m) {
   const rawSeconds = Number(m.voiceDuration);
   const seconds = Number.isFinite(rawSeconds) && rawSeconds > 0 ? rawSeconds : 0;
   if(m.viewOnce){
+    if(m.viewOncePlayback){
+      const finished=!!m.viewOnceFinished;
+      return '<div class="chat-voice-note chat-voice-player" data-voice-player data-view-once-player>'+
+        '<button type="button" class="chat-voice-play" data-voice-path="view-once" aria-label="'+(finished?'Voice note finished':'Play voice note')+'" '+(finished?'disabled':'')+'><span class="'+(finished?'chat-voice-play-icon':'chat-voice-play-icon')+'" aria-hidden="true">'+(finished?'✓':'▶')+'</span></button>'+
+        '<div class="chat-voice-track"><input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" '+(finished?'disabled':'')+' />'+
+        '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>'+formatChatVoiceTime(seconds*1000)+'</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed" '+(finished?'disabled':'')+'>1×</button></div></div></div>';
+    }
     if(m.viewedAt) return '<div class="chat-view-once-state">Opened</div>';
-    return '<div class="chat-voice-note"><button type="button" class="chat-voice-play chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button><span class="chat-voice-duration">'+seconds+'s</span></div>';
+    return '<div class="chat-voice-note"><button type="button" class="chat-voice-play chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button><span class="chat-voice-duration">'+formatChatVoiceTime(seconds*1000)+'</span></div>';
   }
   if (!m.voicePath) {
     return `<div class="chat-voice-note"><span>🎙️</span><span>Voice note</span><span class="chat-voice-duration">${seconds}s</span></div>`;
@@ -5966,6 +5973,13 @@ function renderThread() {
     thread.dataset.returnLatestBound = 'true';
   }
   updateChatReturnLatest(thread);
+  c.messages.forEach(message=>{
+    if(message.viewOncePlayback && message.viewOnceAudio){
+      const player=Array.from(thread.querySelectorAll('[data-view-once-player]')).find(node=>node.closest('.chat-bubble')?.dataset.messageId===String(message.id));
+      const button=player?.querySelector('[data-voice-path]');
+      if(button) button._audio=message.viewOnceAudio;
+    }
+  });
   void hydrateChatAttachments();
 
 }
@@ -9260,7 +9274,6 @@ document.addEventListener('click', async e => {
     }
 
     onceBtn.disabled=true;
-    onceBtn.textContent='Opening…';
     try{
       const {data:{session}}=await supabaseClient.auth.getSession();
       if(!session?.access_token)throw new Error('Please sign in again.');
@@ -9289,28 +9302,65 @@ document.addEventListener('click', async e => {
       renderThread();
 
       if(isVoice){
-        const audio=document.createElement('audio');
-        audio.controls=true;
-        audio.autoplay=true;
+        message.viewOncePlayback=true;
+        message.viewOnceFinished=false;
+        const audio=new Audio(objectUrl);
         audio.preload='auto';
-        audio.src=objectUrl;
-        audio.style.width='100%';
-        audio.style.maxWidth='260px';
-        const bubble=Array.from(document.querySelectorAll('#chat-thread .chat-bubble'))
-          .find(node=>node.dataset.messageId===String(messageId));
-        const stateNode=bubble?.querySelector('.chat-view-once-state');
-        if(stateNode)stateNode.appendChild(audio);
-        const release=()=>{
-          URL.revokeObjectURL(objectUrl);
-          audio.remove();
+        audio.playbackRate=1;
+        message.viewOnceAudio=audio;
+        renderThread();
+
+        const getPlayer=()=>Array.from(document.querySelectorAll('#chat-thread [data-view-once-player]'))
+          .find(node=>node.closest('.chat-bubble')?.dataset.messageId===String(messageId));
+        const syncControls=()=>{
+          const player=getPlayer();
+          const button=player?.querySelector('[data-voice-path]');
+          const seek=player?.querySelector('[data-voice-seek]');
+          const time=player?.querySelector('[data-voice-time]');
+          if(button)button._audio=audio;
+          const duration=Number.isFinite(audio.duration)&&audio.duration>0?audio.duration:0;
+          const fmt=value=>formatChatVoiceTime(Math.max(0,Number(value)||0)*1000);
+          if(seek&&duration){seek.max=String(Math.max(1,Math.floor(duration*1000)));if(!seek.matches(':active'))seek.value=String(Math.floor(audio.currentTime*1000));seek.style.setProperty('--voice-progress',(audio.currentTime/duration*100)+'%');}
+          if(time&&duration)time.textContent=fmt(audio.currentTime)+' / '+fmt(duration);
+          if(button&&!audio.paused&&!message.viewOnceFinished){button.innerHTML='<span class="chat-voice-pause-icon" aria-hidden="true">Ⅱ</span>';button.setAttribute('aria-label','Pause voice note');}
+          else if(button&&!message.viewOnceFinished){button.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';button.setAttribute('aria-label','Play voice note');}
         };
-        audio.addEventListener('ended',release,{once:true});
+        audio.addEventListener('loadedmetadata',syncControls);
+        audio.addEventListener('durationchange',syncControls);
+        audio.addEventListener('timeupdate',syncControls);
+        audio.addEventListener('play',syncControls);
+        audio.addEventListener('pause',syncControls);
+        audio.addEventListener('ended',()=>{
+          message.viewOnceFinished=true;
+          const player=getPlayer();
+          const button=player?.querySelector('[data-voice-path]');
+          const seek=player?.querySelector('[data-voice-seek]');
+          const speed=player?.querySelector('[data-voice-speed]');
+          if(button){button.disabled=true;button.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">✓</span>';button.setAttribute('aria-label','Voice note finished');}
+          if(seek)seek.disabled=true;
+          if(speed)speed.disabled=true;
+          // Keep the completed player visible for ten seconds, then replace it
+          // permanently with Opened. The server claim already prevents replay.
+          message.viewOnceExpiryTimer=setTimeout(()=>{
+            message.viewOncePlayback=false;
+            message.viewOnceAudio=null;
+            audio.pause();
+            audio.removeAttribute('src');
+            audio.load();
+            URL.revokeObjectURL(objectUrl);
+            renderThread();
+          },10000);
+        },{once:true});
         audio.addEventListener('error',()=>{
           toast('This voice note is opened, but the audio could not be played.','alert');
         },{once:true});
-        audio.play().catch(()=>{
-          toast('Tap play on the audio control to hear this one-time note.','alert');
-        });
+        const player=getPlayer();
+        const playButton=player?.querySelector('[data-voice-path]');
+        if(playButton)playButton._audio=audio;
+        try{await audio.play();}catch(_){
+          syncControls();
+          toast('Tap play on the voice note to start listening.','alert');
+        }
       }else{
         popup.location.href=objectUrl;
         // The server will not issue this media again. Revoke the local object
