@@ -5826,6 +5826,23 @@ html.theme-transitioning *::after {
 .chat-view-once-button:disabled{opacity:.65;cursor:wait}
 .chat-view-once-state{padding:10px 13px;border:1px solid rgba(177,132,104,.22);border-radius:14px;color:var(--muted,#a99a8d);font-size:12px;font-style:italic}
 
+/* Keep the message composer inside narrow screens with the 1× control present. */
+#chat-form{gap:7px;padding-inline:12px;min-width:0}
+#chat-form .chat-attach-btn{flex:0 0 34px;width:34px;min-width:34px;height:38px}
+#chat-form .chat-view-once-toggle{flex:0 0 30px;width:30px;height:30px}
+#chat-form .chat-voice-btn{flex:0 0 36px;width:36px;height:36px}
+#chat-form #chat-input{flex:1 1 0;width:0;min-width:0;padding-inline:11px}
+#chat-form #chat-send{flex:0 0 40px;width:40px;height:40px}
+@media(max-width:360px){
+  #chat-form{gap:5px;padding-inline:8px}
+  #chat-form .chat-attach-btn{flex-basis:32px;width:32px;min-width:32px}
+  #chat-form .chat-view-once-toggle{flex-basis:28px;width:28px;height:28px}
+  #chat-form .chat-voice-btn{flex-basis:34px;width:34px;height:34px}
+  #chat-form #chat-send{flex-basis:38px;width:38px;height:38px}
+  #chat-form #chat-input{padding-inline:8px;font-size:14px}
+}
+
+
 
 /* ============================================================
    TWEAKLR SIGNATURE AUTH EXPERIENCE
