@@ -325,8 +325,8 @@ img { display: block; max-width: 100%; }
 
 /* Compact only the Home header; keep all 44px action buttons unchanged. */
 #screen-home > .topbar {
-  padding-top: var(--safe-t);
-  padding-bottom: 4px;
+  padding-top: calc(var(--safe-t) + 19px);
+  padding-bottom: 23px;
 }
 
 /* Apply the same compact header spacing to the other primary navigation screens. */
@@ -339,7 +339,10 @@ img { display: block; max-width: 100%; }
 }
 
 /* Scale header contents to match the reduced header height. */
-#screen-home > .topbar .topbar-row,
+#screen-home > .topbar .topbar-row {
+  gap: 11px;
+}
+
 #screen-discover > .topbar .topbar-row,
 #screen-tweak > .topbar .topbar-row,
 #screen-moonflower > .topbar .topbar-row,
@@ -348,7 +351,7 @@ img { display: block; max-width: 100%; }
 }
 
 #screen-home > .topbar .brand {
-  font-size: 19px;
+  font-size: 23px;
 }
 
 #screen-discover > .topbar .topbar-title,
@@ -362,7 +365,11 @@ img { display: block; max-width: 100%; }
   font-size: 11.5px;
 }
 
-#screen-home > .topbar .icon-btn,
+#screen-home > .topbar .icon-btn {
+  width: 44px;
+  height: 44px;
+}
+
 #screen-discover > .topbar .icon-btn,
 #screen-tweak > .topbar .icon-btn,
 #screen-moonflower > .topbar .icon-btn,
@@ -372,11 +379,15 @@ img { display: block; max-width: 100%; }
 }
 
 #screen-home > .topbar .icon-btn svg,
+#screen-home > .topbar .theme-toggle .tt-icon {
+  width: 21px;
+  height: 21px;
+}
+
 #screen-discover > .topbar .icon-btn svg,
 #screen-tweak > .topbar .icon-btn svg,
 #screen-moonflower > .topbar .icon-btn svg,
 #screen-profile > .topbar .icon-btn svg,
-#screen-home > .topbar .theme-toggle .tt-icon,
 #screen-discover > .topbar .theme-toggle .tt-icon,
 #screen-tweak > .topbar .theme-toggle .tt-icon,
 #screen-moonflower > .topbar .theme-toggle .tt-icon,
@@ -401,9 +412,9 @@ img { display: block; max-width: 100%; }
 }
 
 #screen-home > .topbar .av-ring .av {
-  width: 32px;
-  height: 32px;
-  font-size: 12px;
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
 }
 
 #screen-home > .topbar .theme-toggle .tt-halo,
