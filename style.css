@@ -6606,7 +6606,4 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
   text-align:center;
 }
 
-/* View-once voice note transport controls */
-.chat-voice-transport{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto}
-#chat-thread [data-view-once-player] .chat-voice-skip{width:auto!important;height:24px!important;min-width:29px;flex:0 0 auto!important;padding:0 5px;border:1px solid rgba(139,53,67,.2)!important;border-radius:12px!important;background:rgba(139,53,67,.07)!important;color:inherit;font-size:10px;font-weight:700;line-height:1;cursor:pointer}
-#chat-thread [data-view-once-player] .chat-voice-skip:active{transform:scale(.96)}
+
