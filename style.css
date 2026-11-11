@@ -6383,17 +6383,17 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 }
 
 
-/* Shorter chat bubbles with 30% more horizontal room. */
+/* Near-full-width chat bubbles, as requested. */
 #chat-thread .chat-message-row{min-width:0;align-items:flex-start}
 #chat-thread .chat-bubble{
   display:block!important;
-  flex:0 1 auto!important;
-  width:fit-content!important;
-  min-width:56px!important;
-  max-width:min(55%,340px)!important;
+  flex:0 1 92%!important;
+  width:92%!important;
+  min-width:0!important;
+  max-width:92%!important;
   min-height:0!important;
   height:auto!important;
-  padding:4px 9px 4px!important;
+  padding:4px 10px 4px!important;
   box-sizing:border-box!important;
   font-size:14px!important;
   line-height:1.25!important;
@@ -6414,16 +6414,17 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
   font-size:9px;
   line-height:1.1;
 }
-#chat-thread .chat-bubble:has(.chat-voice-note){
-  width:fit-content!important;
+#chat-thread .chat-bubble:has(.chat-voice-note),
+#chat-thread .chat-bubble:has(.chat-attachment){
+  width:92%!important;
   min-width:0!important;
-  max-width:min(55%,340px)!important;
+  max-width:92%!important;
 }
 #chat-thread .chat-voice-note{
-  width:172px!important;
+  width:100%!important;
   max-width:100%;
   min-width:0;
-  gap:6px;
+  gap:7px;
 }
 #chat-thread .chat-voice-note button{
   width:30px;
@@ -6439,14 +6440,11 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
   padding:0 6px!important;
   font-size:10px;
 }
-#chat-thread .chat-bubble:has(.chat-attachment){
-  width:fit-content;
-  min-width:0;
-  max-width:min(55%,340px)!important;
-}
 @media(max-width:420px){
   #chat-thread .chat-bubble,
   #chat-thread .chat-bubble:has(.chat-voice-note),
-  #chat-thread .chat-bubble:has(.chat-attachment){max-width:55%!important}
-  #chat-thread .chat-voice-note{width:172px!important}
+  #chat-thread .chat-bubble:has(.chat-attachment){
+    width:92%!important;
+    max-width:92%!important;
+  }
 }
