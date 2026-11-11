@@ -6383,22 +6383,23 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 }
 
 
-/* WhatsApp-like content-sized chat bubbles: short messages stay compact,
-   while longer messages grow naturally and wrap at the screen-safe limit. */
+/* Compact, content-sized chat bubbles with room for emoji-rich messages. */
 #chat-thread .chat-message-row{min-width:0}
 #chat-thread .chat-bubble{
   display:block;
   flex:0 1 auto;
-  width:max-content;
-  min-width:48px;
-  max-width:min(78%,520px);
+  width:fit-content;
+  min-width:56px;
+  max-width:min(82%,520px);
   height:auto;
   min-height:0;
-  padding:8px 11px 7px;
+  padding:9px 12px 8px;
   box-sizing:border-box;
 }
 #chat-thread .chat-bubble__text{
   display:inline;
+  width:auto;
+  max-width:100%;
   white-space:pre-wrap;
   overflow-wrap:anywhere;
   word-break:normal;
@@ -6409,11 +6410,26 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
   white-space:nowrap;
   vertical-align:baseline;
 }
-#chat-thread .chat-bubble:has(.chat-voice-note),
+#chat-thread .chat-bubble:has(.chat-voice-note){
+  width:fit-content;
+  min-width:0;
+  max-width:min(82%,310px);
+}
+#chat-thread .chat-voice-note{
+  width:clamp(190px,58vw,260px);
+  max-width:100%;
+  min-width:0;
+  gap:7px;
+}
+#chat-thread .chat-voice-track{min-width:0;flex:1 1 auto}
+#chat-thread .chat-voice-seek{width:100%;min-width:0}
+#chat-thread .chat-voice-speed{flex:0 0 auto}
 #chat-thread .chat-bubble:has(.chat-attachment){
   width:fit-content;
   min-width:0;
 }
 @media(max-width:420px){
-  #chat-thread .chat-bubble{max-width:82%}
+  #chat-thread .chat-bubble{max-width:84%}
+  #chat-thread .chat-bubble:has(.chat-voice-note){max-width:84%}
+  #chat-thread .chat-voice-note{width:clamp(180px,62vw,245px)}
 }
