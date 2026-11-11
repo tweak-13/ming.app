@@ -5773,7 +5773,7 @@ function renderVoiceMessage(m) {
     <button type="button" class="chat-voice-play" data-voice-path="${esc(m.voicePath)}" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button>
     <div class="chat-voice-track">
       <input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />
-      <div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>0:${String(seconds).padStart(2,'0')}</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>
+      <div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>${formatChatVoiceTime(seconds*1000)}</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>
     </div>
   </div>`;
 }
@@ -6555,7 +6555,7 @@ async function uploadVoiceNote(blob, duration) {
   return true;
 }
 
-document.addEventListener('input',e=>{const seek=e.target.closest('[data-voice-seek]');if(!seek)return;const player=seek.closest('[data-voice-player]');const audio=player?.querySelector('[data-voice-path]')?._audio;if(audio&&Number.isFinite(audio.duration))audio.currentTime=(Number(seek.value)/Number(seek.max))*audio.duration;});
+document.addEventListener('input',e=>{const seek=e.target.closest('[data-voice-seek]');if(!seek)return;const progress=(Number(seek.value)/Number(seek.max))*100;seek.style.setProperty('--voice-progress',progress+'%');const player=seek.closest('[data-voice-player]');const audio=player?.querySelector('[data-voice-path]')?._audio;if(audio&&Number.isFinite(audio.duration))audio.currentTime=(Number(seek.value)/Number(seek.max))*audio.duration;});
 
 /* ------------------------------------------------------------
    MOONFLOWER
@@ -9078,7 +9078,7 @@ document.addEventListener('click', async e => {
         const player=voiceBtn.closest('[data-voice-player]');const seek=player?.querySelector('[data-voice-seek]');const time=player?.querySelector('[data-voice-time]');
         const fmt=v=>{v=Math.max(0,Math.floor(v||0));return Math.floor(v/60)+':'+String(v%60).padStart(2,'0');};
         audio.addEventListener('loadedmetadata',()=>{if(seek)seek.max=Math.max(1,Math.floor(audio.duration*1000));if(time)time.textContent=fmt(audio.duration);});
-        audio.addEventListener('timeupdate',()=>{if(seek&&!seek.matches(':active'))seek.value=Math.floor(audio.currentTime*1000);if(time)time.textContent=fmt(audio.currentTime)+' / '+fmt(audio.duration);});
+        audio.addEventListener('timeupdate',()=>{if(seek&&!seek.matches(':active'))seek.value=Math.floor(audio.currentTime*1000);if(seek&&Number.isFinite(audio.duration)&&audio.duration>0)seek.style.setProperty('--voice-progress',((audio.currentTime/audio.duration)*100)+'%');if(time)time.textContent=fmt(audio.currentTime)+' / '+fmt(audio.duration);});
         audio.addEventListener('play',()=>{voiceBtn.innerHTML='<span class="chat-voice-pause-icon" aria-hidden="true">Ⅱ</span>';voiceBtn.setAttribute('aria-label','Pause voice note');});
         audio.addEventListener('pause',()=>{voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';voiceBtn.setAttribute('aria-label','Play voice note');});
         audio.addEventListener('ended',()=>{voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';voiceBtn.setAttribute('aria-label','Replay voice note');if(seek)seek.value=0;if(time)time.textContent=fmt(audio.duration);});
