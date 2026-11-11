@@ -6705,7 +6705,7 @@ async function uploadVoiceNote(blob, duration) {
   return true;
 }
 
-document.addEventListener('input',e=>{const seek=e.target.closest('[data-voice-seek]');if(!seek)return;const progress=(Number(seek.value)/Number(seek.max))*100;seek.style.setProperty('--voice-progress',progress+'%');const player=seek.closest('[data-voice-player]');const audio=player?.querySelector('[data-voice-path]')?._audio;if(audio&&Number.isFinite(audio.duration))audio.currentTime=(Number(seek.value)/Number(seek.max))*audio.duration;});
+document.addEventListener('input',e=>{const seek=e.target.closest('[data-voice-seek]');if(!seek)return;const progress=(Number(seek.value)/Number(seek.max))*100;seek.style.setProperty('--voice-progress',progress+'%');const player=seek.closest('[data-voice-player]');const button=player?.querySelector('[data-voice-path]');const audio=button?._audio;if(audio&&Number.isFinite(audio.duration)&&audio.duration>0){audio.currentTime=player.hasAttribute('data-view-once-player')?Math.min(audio.duration,Math.max(0,Number(seek.value)/1000)):(Number(seek.value)/Number(seek.max))*audio.duration;}});
 
 /* ------------------------------------------------------------
    MOONFLOWER
@@ -9321,38 +9321,50 @@ document.addEventListener('click', async e => {
           const time=player?.querySelector('[data-voice-time]');
           if(button)button._audio=audio;
           const duration=Number.isFinite(audio.duration)&&audio.duration>0?audio.duration:0;
+          const current=Number.isFinite(audio.currentTime)?Math.max(0,audio.currentTime):0;
           const fmt=value=>formatChatVoiceTime(Math.max(0,Number(value)||0)*1000);
-          if(seek&&duration){seek.max=String(Math.max(1,Math.floor(duration*1000)));if(!seek.matches(':active'))seek.value=String(Math.floor(audio.currentTime*1000));seek.style.setProperty('--voice-progress',(audio.currentTime/duration*100)+'%');}
-          if(time&&duration)time.textContent=fmt(audio.currentTime)+' / '+fmt(duration);
-          if(button&&!audio.paused&&!message.viewOnceFinished){button.innerHTML='<span class="chat-voice-pause-icon" aria-hidden="true">Ⅱ</span>';button.setAttribute('aria-label','Pause voice note');}
-          else if(button&&!message.viewOnceFinished){button.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';button.setAttribute('aria-label','Play voice note');}
+          if(seek&&duration){
+            seek.max=String(Math.max(1,Math.floor(duration*1000)));
+            if(!seek.matches(':active'))seek.value=String(Math.min(duration,current)*1000);
+            seek.style.setProperty('--voice-progress',(Math.min(100,current/duration*100))+'%');
+          }
+          if(time&&duration)time.textContent=fmt(current)+' / '+fmt(duration);
+          if(button&&!message.viewOnceFinished){
+            button.innerHTML=audio.paused?'<span class="chat-voice-play-icon" aria-hidden="true">▶</span>':'<span class="chat-voice-pause-icon" aria-hidden="true">Ⅱ</span>';
+            button.setAttribute('aria-label',audio.paused?'Play voice note':'Pause voice note');
+          }
         };
         audio.addEventListener('loadedmetadata',syncControls);
         audio.addEventListener('durationchange',syncControls);
         audio.addEventListener('timeupdate',syncControls);
+        audio.addEventListener('playing',syncControls);
         audio.addEventListener('play',syncControls);
         audio.addEventListener('pause',syncControls);
+        // Some mobile browsers play audio without delivering timeupdate
+        // consistently. Poll the media clock so the elapsed display stays live.
+        message.viewOnceUiTimer=setInterval(syncControls,100);
         audio.addEventListener('ended',()=>{
-          message.viewOnceFinished=true;
-          const player=getPlayer();
-          const button=player?.querySelector('[data-voice-path]');
-          const seek=player?.querySelector('[data-voice-seek]');
-          const speed=player?.querySelector('[data-voice-speed]');
-          if(button){button.disabled=true;button.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">✓</span>';button.setAttribute('aria-label','Voice note finished');}
-          if(seek)seek.disabled=true;
-          if(speed)speed.disabled=true;
-          // Keep the completed player visible for ten seconds, then replace it
-          // permanently with Opened. The server claim already prevents replay.
-          message.viewOnceExpiryTimer=setTimeout(()=>{
-            message.viewOncePlayback=false;
-            message.viewOnceAudio=null;
-            audio.pause();
-            audio.removeAttribute('src');
-            audio.load();
-            URL.revokeObjectURL(objectUrl);
-            renderThread();
-          },10000);
-        },{once:true});
+          message.viewOnceEnded=true;
+          // Start the fixed ten-second rewind/replay window only once. Seeking
+          // backwards and replaying remains available until this deadline.
+          if(!message.viewOnceExpiryAt){
+            message.viewOnceExpiryAt=Date.now()+10000;
+            message.viewOnceExpiryTimer=setTimeout(()=>{
+              message.viewOnceFinished=true;
+              message.viewOncePlayback=false;
+              message.viewOnceAudio=null;
+              if(message.viewOnceUiTimer)clearInterval(message.viewOnceUiTimer);
+              message.viewOnceUiTimer=null;
+              audio.pause();
+              audio.removeAttribute('src');
+              audio.load();
+              URL.revokeObjectURL(objectUrl);
+              message.viewOnceExpiryAt=null;
+              renderThread();
+            },10000);
+          }
+          syncControls();
+        });
         audio.addEventListener('error',()=>{
           toast('This voice note is opened, but the audio could not be played.','alert');
         },{once:true});
