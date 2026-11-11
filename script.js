@@ -2665,7 +2665,7 @@ async function sendDailyUpdateToConnection(updateId, personId) {
   }
 
   const message = [data.text, data.url].filter(Boolean).join('\n\n');
-  if (message) await sendMessage(message, { replyToId: null });
+  if (message && !(await sendMessage(message, { replyToId: null }))) return;
   if (!files.length) return;
 
   let completed = 0;
@@ -4001,7 +4001,7 @@ async function sendConnection(id) {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session?.user) {
       toast('Please sign in again', 'alert');
-      return;
+      return false;
     }
 
     const note = $('#conn-note')?.value.trim() || null;
@@ -6720,15 +6720,15 @@ async function addChatReaction(messageId, emoji) {
 
 async function sendMessage(text, options = {}) {
   const p = byId(state.activeChat);
-  if (!p || !text) return;
+  if (!p || !text) return false;
   if (isUuidPerson(state.activeChat)) {
     if (!(await refreshTweaklrBlocks())) {
       toast('Messaging privacy could not be checked. Please try again.', 'alert');
-      return;
+      return false;
     }
     if (tweaklrBlockedUserIds.has(state.activeChat)) {
       toast('Unblock this person before sending a message.', 'alert');
-      return;
+      return false;
     }
   }
 
@@ -6774,7 +6774,7 @@ async function sendMessage(text, options = {}) {
 
     if (error || !row) {
       toast('Could not send message. ' + (error?.message || ''), 'alert');
-      return;
+      return false;
     }
 
     const c = convoFor(state.activeChat);
@@ -6787,7 +6787,7 @@ async function sendMessage(text, options = {}) {
     clearChatReply();
     renderThread();
     const t=$('#chat-thread'); if(t) t.scrollTop=t.scrollHeight;
-    return;
+    return true;
   }
 
   const c=convoFor(state.activeChat);
@@ -6795,6 +6795,7 @@ async function sendMessage(text, options = {}) {
   clearChatReply();
   renderThread();
   const t=$('#chat-thread'); if(t) t.scrollTop=t.scrollHeight;
+  return true;
 }
 
 function formatChatVoiceTime(ms) {
@@ -9890,7 +9891,8 @@ async function boot() {
   setTab('home');
   updateNotifDot();
 
-  const sharedUpdateId = new URLSearchParams(window.location.search).get('update');
+  const sharedParams = new URLSearchParams(window.location.search);
+  const sharedUpdateId = sharedParams.get('update');
   if (sharedUpdateId) {
     setTimeout(() => {
       const sharedPost = document.getElementById('upd-' + sharedUpdateId);
@@ -9904,6 +9906,28 @@ async function boot() {
         }, 2200);
       }
     }, 180);
+  }
+
+  const sharedSpaceId = sharedParams.get('space');
+  const sharedBusinessPostId = sharedParams.get('post');
+  if (sharedSpaceId && sharedBusinessPostId) {
+    setTimeout(() => {
+      openSpace(sharedSpaceId);
+      setTimeout(() => {
+        const sharedPost = document.getElementById('biz-upd-' + sharedBusinessPostId);
+        if (sharedPost) {
+          sharedPost.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          sharedPost.style.outline = '2px solid var(--coffee)';
+          sharedPost.style.outlineOffset = '4px';
+          setTimeout(() => {
+            sharedPost.style.outline = '';
+            sharedPost.style.outlineOffset = '';
+          }, 2400);
+        } else {
+          toast('This post is no longer available or you do not have access to its Space.', 'alert');
+        }
+      }, 320);
+    }, 220);
   }
   /*
      The location request may already be running or complete by this point.
@@ -12779,7 +12803,7 @@ async function sendBusinessPostToUser(postId,personId) {
   closeSheet();
   await openChat(personId);
   if(state.activeChat!==personId){toast('Could not open that conversation. Please try again.','alert');return;}
-  await sendMessage([data.text,data.url].filter(Boolean).join('\n\n'),{replyToId:null});
+  if(!(await sendMessage([data.text,data.url].filter(Boolean).join('\n\n'),{replyToId:null})))return;
   if(!files.length)return;
   let completed=0;
   for(const file of files)if(await sendStoredChatAttachment(file,{replyToId:null}))completed++;
