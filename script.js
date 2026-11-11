@@ -5894,39 +5894,177 @@ async function hydrateChatAttachments() {
   }));
 }
 
+/* Dedicated view-once voice player. Kept separate from normal voice-note playback. */
+function bindViewOnceVoicePlayer(audio, player, message) {
+  if (!audio || !player) return;
+  if (typeof audio._tweaklrViewOnceCleanup === 'function') audio._tweaklrViewOnceCleanup();
+
+  const button = player.querySelector('[data-voice-path]');
+  const seek = player.querySelector('[data-voice-seek]');
+  const time = player.querySelector('[data-voice-time]');
+  if (!button || !seek || !time) return;
+
+  button._audio = audio;
+  player._audio = audio;
+  const format = value => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n.toFixed(2) : '0.00';
+  };
+  const duration = () => Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+  let resumeAfterSeek = false;
+  let seekSettled = true;
+  let seekPendingHandler = null;
+
+  const update = () => {
+    const total = duration();
+    const current = Number.isFinite(audio.currentTime) ? Math.max(0, audio.currentTime) : 0;
+    const fraction = total ? Math.max(0, Math.min(1, current / total)) : 0;
+    if (!seek.matches(':active')) seek.value = String(Math.round(fraction * 1000));
+    player.style.setProperty('--tw-vo-progress', (fraction * 100) + '%');
+    time.textContent = format(current) + ' / ' + format(total);
+  };
+  const playAfterSeek = () => {
+    if (!resumeAfterSeek || !seekSettled || audio.seeking || message.viewOnceFinished) return;
+    resumeAfterSeek = false;
+    audio.play().catch(error => {
+      console.warn('Tweaklr view-once voice resume failed:', error);
+      toast('Tap play to continue listening to this voice note.', 'alert');
+    });
+  };
+  const onInput = () => {
+    const total = duration();
+    if (!total) return;
+    const target = (Math.max(0, Math.min(1000, Number(seek.value) || 0)) / 1000) * total;
+    if (audio.paused) resumeAfterSeek = true;
+
+    if (seekPendingHandler) {
+      audio.removeEventListener('seeked', seekPendingHandler);
+      seekPendingHandler = null;
+    }
+    seekSettled = Math.abs((Number(audio.currentTime) || 0) - target) < 0.015 && !audio.seeking;
+    if (!seekSettled) {
+      seekPendingHandler = () => {
+        seekPendingHandler = null;
+        seekSettled = true;
+        if (!seek.matches(':active')) playAfterSeek();
+      };
+      audio.addEventListener('seeked', seekPendingHandler, { once: true });
+    }
+    try { audio.currentTime = target; } catch (_) {}
+    player.style.setProperty('--tw-vo-progress', ((target / total) * 100) + '%');
+    time.textContent = format(target) + ' / ' + format(total);
+  };
+  const onChange = () => {
+    if (resumeAfterSeek && seekSettled && !audio.seeking) playAfterSeek();
+  };
+  const onLoaded = update;
+  const onTime = update;
+  const onPlay = () => {
+    button.innerHTML = '<span class="tw-vo-pause" aria-hidden="true">Ⅱ</span>';
+    button.setAttribute('aria-label', 'Pause voice note');
+    player.classList.add('is-playing');
+  };
+  const onPause = () => {
+    if (audio.ended) return;
+    button.innerHTML = '<span class="tw-vo-play-icon" aria-hidden="true">▶</span>';
+    button.setAttribute('aria-label', 'Play voice note');
+    player.classList.remove('is-playing');
+  };
+  const onEnded = () => {
+    button.innerHTML = '<span class="tw-vo-replay" aria-hidden="true">↻</span>';
+    button.setAttribute('aria-label', 'Replay voice note');
+    player.classList.remove('is-playing');
+    seek.value = '0';
+    player.style.setProperty('--tw-vo-progress', '0%');
+    update();
+    if (!message.viewOnceExpiryAt) {
+      message.viewOnceEnded = true;
+      message.viewOnceExpiryAt = Date.now() + 30000;
+      message.viewOnceExpiryTimer = setTimeout(() => {
+        message.viewOnceFinished = true;
+        message.viewOncePlayback = false;
+        message.viewOnceAudio = null;
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+        if (message._viewOnceObjectUrl) {
+          URL.revokeObjectURL(message._viewOnceObjectUrl);
+          message._viewOnceObjectUrl = '';
+        }
+        message.viewOnceExpiryAt = null;
+        renderThread();
+      }, 30000);
+    }
+  };
+  const onError = () => {
+    button.innerHTML = '<span class="tw-vo-play-icon" aria-hidden="true">▶</span>';
+    button.setAttribute('aria-label', 'Play voice note');
+    player.classList.remove('is-playing');
+    toast('This one-time voice note could not be played.', 'alert');
+  };
+
+  seek.addEventListener('input', onInput);
+  seek.addEventListener('change', onChange);
+  audio.addEventListener('loadedmetadata', onLoaded);
+  audio.addEventListener('durationchange', onLoaded);
+  audio.addEventListener('timeupdate', onTime);
+  audio.addEventListener('play', onPlay);
+  audio.addEventListener('pause', onPause);
+  audio.addEventListener('ended', onEnded);
+  audio.addEventListener('error', onError);
+
+  audio._tweaklrViewOnceCleanup = () => {
+    seek.removeEventListener('input', onInput);
+    seek.removeEventListener('change', onChange);
+    audio.removeEventListener('loadedmetadata', onLoaded);
+    audio.removeEventListener('durationchange', onLoaded);
+    audio.removeEventListener('timeupdate', onTime);
+    audio.removeEventListener('play', onPlay);
+    audio.removeEventListener('pause', onPause);
+    audio.removeEventListener('ended', onEnded);
+    audio.removeEventListener('error', onError);
+    if (seekPendingHandler) audio.removeEventListener('seeked', seekPendingHandler);
+  };
+  update();
+  if (!audio.paused) onPlay();
+}
+
 function renderVoiceMessage(m) {
   const rawSeconds = Number(m.voiceDuration);
   const seconds = Number.isFinite(rawSeconds) && rawSeconds > 0 ? rawSeconds : 0;
-  if(m.viewOnce){
-    if(m.viewOncePlayback){
-      const finished=!!m.viewOnceFinished;
-      return '<div class="chat-voice-note chat-voice-player" data-voice-player data-view-once-player>'+
-        '<button type="button" class="chat-voice-play" data-voice-path="view-once" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button>'+
-        '<div class="chat-voice-track">'+
-          '<input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />'+
-          '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>0.00 / '+(seconds?seconds.toFixed(2):'0.00')+'</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>'+
-        '</div>'+
-      '</div>';
-    }
-    if(m.viewedAt) return '<div class="chat-view-once-state">Opened</div>';
-    return '<div class="chat-voice-note chat-voice-player" data-voice-player>'+
-      '<button type="button" class="chat-voice-play chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button>'+
-      '<div class="chat-voice-track">'+
-        '<input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />'+
-        '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>'+formatChatVoiceTime(seconds*1000)+'</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>'+
-      '</div>'+
+  if (m.viewOnce) {
+    const active = !!m.viewOncePlayback;
+    if (m.viewedAt && !active) return '<div class="chat-view-once-state">Opened</div>';
+    const bars = Array.from({length:36}, (_, i) => {
+      const wave = 18 + ((i * 17 + (i % 5) * 11 + 9) % 74);
+      return '<i style="--tw-vo-bar-height:' + wave + '%"></i>';
+    }).join('');
+    const button = active
+      ? '<button type="button" class="tw-vo-play-button" data-voice-path="view-once" aria-label="Play voice note"><span class="tw-vo-play-icon" aria-hidden="true">▶</span></button>'
+      : '<button type="button" class="tw-vo-play-button" data-view-once="voice" data-message-id="' + esc(m.id) + '" aria-label="Open view-once voice note"><span class="tw-vo-play-icon" aria-hidden="true">▶</span></button>';
+    const seek = active
+      ? '<input type="range" class="tw-vo-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />'
+      : '';
+    const speed = active
+      ? '<button type="button" class="tw-vo-speed" data-voice-speed aria-label="Playback speed" data-rate="1">1×</button>'
+      : '<span class="tw-vo-speed-placeholder">VOICE NOTE</span>';
+    const timeLabel = active ? '0.00 / ' + seconds.toFixed(2) : seconds.toFixed(2) + ' sec';
+    return '<div class="tw-vo-voice ' + (active ? 'is-active' : 'is-unopened') + '" data-voice-player data-view-once-player>' +
+      '<div class="tw-vo-head"><span class="tw-vo-label"><span class="tw-vo-lock" aria-hidden="true">1×</span> VIEW ONCE</span><span class="tw-vo-time" data-voice-time>' + timeLabel + '</span></div>' +
+      '<div class="tw-vo-main">' + button +
+        '<div class="tw-vo-wave-wrap"><div class="tw-vo-wave" aria-hidden="true">' + bars + '</div>' + seek + '</div>' +
+        speed +
+      '</div>' +
+      '<div class="tw-vo-foot"><span class="tw-vo-foot-mark" aria-hidden="true">◉</span>' + (active ? 'Replay is available during the 30-second listening window' : 'This voice note can be opened and listened to once') + '</div>' +
     '</div>';
   }
   if (!m.voicePath) {
-    return `<div class="chat-voice-note"><span>🎙️</span><span>Voice note</span><span class="chat-voice-duration">${seconds}s</span></div>`;
+    return '<div class="chat-voice-note"><span>🎙️</span><span>Voice note</span><span class="chat-voice-duration">' + seconds + 's</span></div>';
   }
-  return `<div class="chat-voice-note chat-voice-player" data-voice-player>
-    <button type="button" class="chat-voice-play" data-voice-path="${esc(m.voicePath)}" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button>
-    <div class="chat-voice-track">
-      <input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />
-      <div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>${formatChatVoiceTime(seconds*1000)}</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>
-    </div>
-  </div>`;
+  return '<div class="chat-voice-note chat-voice-player" data-voice-player>' +
+    '<button type="button" class="chat-voice-play" data-voice-path="' + esc(m.voicePath) + '" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button>' +
+    '<div class="chat-voice-track"><input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />' +
+    '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>' + formatChatVoiceTime(seconds * 1000) + '</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div></div></div>';
 }
 function updateChatReturnLatest(thread) {
   if (!thread) return;
@@ -5985,8 +6123,7 @@ function renderThread() {
   c.messages.forEach(message=>{
     if(message.viewOncePlayback && message.viewOnceAudio){
       const player=Array.from(thread.querySelectorAll('[data-view-once-player]')).find(node=>node.closest('.chat-bubble')?.dataset.messageId===String(message.id));
-      const button=player?.querySelector('[data-voice-path]');
-      if(button) button._audio=message.viewOnceAudio;
+      if(player) bindViewOnceVoicePlayer(message.viewOnceAudio,player,message);
     }
   });
   void hydrateChatAttachments();
@@ -9429,45 +9566,15 @@ document.addEventListener('click', async e => {
         audio.preload='auto';
         audio.playbackRate=1;
         message.viewOnceAudio=audio;
+        message._viewOnceObjectUrl=objectUrl;
       }
       renderThread();
 
       if(isVoice){
-
-        const getPlayer=()=>Array.from(document.querySelectorAll('#chat-thread [data-view-once-player]'))
-          .find(node=>node.closest('.chat-bubble')?.dataset.messageId===String(messageId));
-        const oncePlayer=getPlayer();
-        const oncePlayButton=oncePlayer?.querySelector('[data-voice-path]');
-        const onceSeek=oncePlayer?.querySelector('[data-voice-seek]');
-        const onceTime=oncePlayer?.querySelector('[data-voice-time]');
-        const fmt=v=>Number.isFinite(Number(v))&&Number(v)>=0?(()=>{const n=Math.floor(Number(v));return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');})():'--:--';
-        const validDuration=()=>Number.isFinite(audio.duration)&&audio.duration>0?audio.duration:0;
-        if(oncePlayButton)oncePlayButton._audio=audio;
-        if(oncePlayer)oncePlayer._audio=audio;
-
-        // Use the normal player's shared controls; only expiry is view-once-specific.
-        bindChatVoicePlayer(audio,oncePlayButton,()=>{
-          if(!message.viewOnceExpiryAt){
-            message.viewOnceEnded=true;
-            message.viewOnceExpiryAt=Date.now()+30000;
-            message.viewOnceExpiryTimer=setTimeout(()=>{
-              message.viewOnceFinished=true;
-              message.viewOncePlayback=false;
-              message.viewOnceAudio=null;
-              audio.pause();
-              audio.removeAttribute('src');
-              audio.load();
-              URL.revokeObjectURL(objectUrl);
-              message.viewOnceExpiryAt=null;
-              renderThread();
-            },30000);
-          }
-        },{decimal:true,resumeOnSeek:true});
-        const player=getPlayer();
-        const playButton=player?.querySelector('[data-voice-path]');
-        if(playButton)playButton._audio=audio;
-        try{await audio.play();}catch(_){
-          syncControls();
+        try{
+          await audio.play();
+        }catch(error){
+          console.warn('Tweaklr view-once voice autoplay was blocked:',error);
           toast('Tap play on the voice note to start listening.','alert');
         }
       }else{
@@ -9525,7 +9632,12 @@ document.addEventListener('click', async e => {
       }
       if(audio.paused){
         voiceBtn.disabled=true;
-        try{await audio.play();}finally{voiceBtn.disabled=false;}
+        try{
+          if(voiceBtn.dataset.voicePath==='view-once' && audio.ended) {
+            try{audio.currentTime=0;}catch(_){}
+          }
+          await audio.play();
+        }finally{voiceBtn.disabled=false;}
       }else audio.pause();
     }catch(error){
       console.error('Tweaklr voice playback failed:',error);
