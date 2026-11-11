@@ -9276,22 +9276,44 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
     // active view-once audio instance attached even after thread rerenders.
     seek.min='0';
     seek.max='1000';
-    const seekAudio=()=>{
+    let pendingSeekResume=null;
+    const seekAudio=(resume=false)=>{
       const duration=validDuration();
       if(!duration)return;
       const value=Math.max(0,Math.min(1000,Number(seek.value)||0));
       const target=(value/1000)*duration;
+      // Wait for the browser to finish moving the playhead before resuming.
+      // Calling play() immediately at the ended state can restart playback
+      // from the end/zero instead of the selected timestamp.
+      if(pendingSeekResume){
+        audio.removeEventListener('seeked',pendingSeekResume);
+        pendingSeekResume=null;
+      }
+      if(resume&&options.resumeOnSeek&&audio.paused){
+        pendingSeekResume=()=>{
+          const callback=pendingSeekResume;
+          pendingSeekResume=null;
+          if(callback)audio.removeEventListener('seeked',callback);
+          if(audio.paused){
+            try{const playback=audio.play();if(playback&&typeof playback.catch==='function')playback.catch(()=>{});}catch(_){}
+          }
+        };
+        audio.addEventListener('seeked',pendingSeekResume,{once:true});
+      }
       try{audio.currentTime=target;}catch(_){}
-      // View-once seeking must resume playback when the note has ended or
-      // is paused; changing currentTime alone only moves the playhead silently.
-      if(options.resumeOnSeek && audio.paused){
-        try{const playback=audio.play();if(playback&&typeof playback.catch==='function')playback.catch(()=>{});}catch(_){}
+      if(pendingSeekResume&&!audio.seeking){
+        const callback=pendingSeekResume;
+        pendingSeekResume=null;
+        audio.removeEventListener('seeked',callback);
+        if(audio.paused){
+          try{const playback=audio.play();if(playback&&typeof playback.catch==='function')playback.catch(()=>{});}catch(_){}
+        }
       }
       seek.style.setProperty('--voice-progress',(value/10)+'%');
       if(time)time.textContent=fmt(target)+' / '+fmt(duration);
     };
-    seek.addEventListener('input',seekAudio);
-    seek.addEventListener('change',seekAudio);
+    seek.addEventListener('input',()=>seekAudio(false));
+    seek.addEventListener('change',()=>seekAudio(true));
     // Use pointer coordinates rather than native range dragging. This is
     // reliable on mobile browsers where the range thumb may not seek audio.
     const seekFromPointer=event=>{
@@ -9316,7 +9338,7 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
       if(seek.dataset.userSeeking!=='true')return;
       if(event&&Number.isFinite(event.clientX))seekFromPointer(event);
       delete seek.dataset.userSeeking;
-      seekAudio();
+      seekAudio(true);
       try{if(event&&seek.hasPointerCapture(event.pointerId))seek.releasePointerCapture(event.pointerId);}catch(_){}
     };
     seek.addEventListener('pointerup',finishSeeking);
