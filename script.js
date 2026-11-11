@@ -9299,16 +9299,17 @@ document.addEventListener('click', async e => {
       if(!mediaBlob.size)throw new Error('The one-time media is empty or unavailable.');
       const objectUrl=URL.createObjectURL(mediaBlob);
       message.viewedAt=response.headers.get('X-View-Once-At')||new Date().toISOString();
-      renderThread();
-
+      message.viewOncePlayback=isVoice;
+      message.viewOnceFinished=false;
       if(isVoice){
-        message.viewOncePlayback=true;
-        message.viewOnceFinished=false;
         const audio=new Audio(objectUrl);
         audio.preload='auto';
         audio.playbackRate=1;
         message.viewOnceAudio=audio;
-        renderThread();
+      }
+      renderThread();
+
+      if(isVoice){
 
         const getPlayer=()=>Array.from(document.querySelectorAll('#chat-thread [data-view-once-player]'))
           .find(node=>node.closest('.chat-bubble')?.dataset.messageId===String(messageId));
