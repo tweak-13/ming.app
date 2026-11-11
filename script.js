@@ -5901,9 +5901,12 @@ function renderVoiceMessage(m) {
     if(m.viewOncePlayback){
       const finished=!!m.viewOnceFinished;
       return '<div class="chat-voice-note chat-voice-player" data-voice-player data-view-once-player>'+
-        '<button type="button" class="chat-voice-play" data-voice-path="view-once" aria-label="'+(finished?'Voice note finished':'Play voice note')+'" '+(finished?'disabled':'')+'><span class="'+(finished?'chat-voice-play-icon':'chat-voice-play-icon')+'" aria-hidden="true">'+(finished?'✓':'▶')+'</span></button>'+
-        '<div class="chat-voice-track"><input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" '+(finished?'disabled':'')+' />'+
-        '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>'+formatChatVoiceTime(seconds*1000)+'</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed" '+(finished?'disabled':'')+'>1×</button></div></div></div>';
+        '<button type="button" class="chat-voice-play" data-voice-path="view-once" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button>'+
+        '<div class="chat-voice-track">'+
+          '<input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />'+
+          '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>'+formatChatVoiceTime(seconds*1000)+'</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>'+
+        '</div>'+
+      '</div>';
     }
     if(m.viewedAt) return '<div class="chat-view-once-state">Opened</div>';
     return '<div class="chat-voice-note"><button type="button" class="chat-voice-play chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button><span class="chat-voice-duration">'+formatChatVoiceTime(seconds*1000)+'</span></div>';
@@ -9355,58 +9358,59 @@ document.addEventListener('click', async e => {
 
         const getPlayer=()=>Array.from(document.querySelectorAll('#chat-thread [data-view-once-player]'))
           .find(node=>node.closest('.chat-bubble')?.dataset.messageId===String(messageId));
-        const syncControls=()=>{
-          const player=getPlayer();
-          const button=player?.querySelector('[data-voice-path]');
-          const seek=player?.querySelector('[data-voice-seek]');
-          const time=player?.querySelector('[data-voice-time]');
-          if(button)button._audio=audio;
-          const duration=Number.isFinite(audio.duration)&&audio.duration>0?audio.duration:0;
-          const current=Number.isFinite(audio.currentTime)?Math.max(0,audio.currentTime):0;
-          const fmt=value=>formatChatVoiceTime(Math.max(0,Number(value)||0)*1000);
-          if(seek&&duration){
-            seek.max=String(Math.max(1,Math.floor(duration*1000)));
-            if(seek.dataset.userSeeking!=='true')seek.value=String(Math.min(duration,current)*1000);
-            seek.style.setProperty('--voice-progress',(Math.min(100,current/duration*100))+'%');
-          }
-          if(time&&duration)time.textContent=fmt(current)+' / '+fmt(duration);
-          if(button&&!message.viewOnceFinished){
-            button.innerHTML=audio.paused?'<span class="chat-voice-play-icon" aria-hidden="true">▶</span>':'<span class="chat-voice-pause-icon" aria-hidden="true">Ⅱ</span>';
-            button.setAttribute('aria-label',audio.paused?'Play voice note':'Pause voice note');
-          }
-        };
-        audio.addEventListener('loadedmetadata',syncControls);
-        audio.addEventListener('durationchange',syncControls);
-        audio.addEventListener('timeupdate',syncControls);
-        audio.addEventListener('seeking',syncControls);
-        audio.addEventListener('seeked',syncControls);
-        audio.addEventListener('playing',syncControls);
-        audio.addEventListener('play',syncControls);
-        audio.addEventListener('pause',syncControls);
-        // Some mobile browsers play audio without delivering timeupdate
-        // consistently. Poll the media clock so the elapsed display stays live.
-        message.viewOnceUiTimer=setInterval(syncControls,100);
+        const oncePlayer=getPlayer();
+        const oncePlayButton=oncePlayer?.querySelector('[data-voice-path]');
+        const onceSeek=oncePlayer?.querySelector('[data-voice-seek]');
+        const onceTime=oncePlayer?.querySelector('[data-voice-time]');
+        const fmt=v=>Number.isFinite(Number(v))&&Number(v)>=0?(()=>{const n=Math.floor(Number(v));return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');})():'--:--';
+        const validDuration=()=>Number.isFinite(audio.duration)&&audio.duration>0?audio.duration:0;
+        if(oncePlayButton)oncePlayButton._audio=audio;
+
+        // Mirror the normal voice-note player's media controls for this
+        // view-once instance only. The normal voice-note handler is untouched.
+        audio.addEventListener('loadedmetadata',()=>{
+          const duration=validDuration();
+          if(onceSeek&&duration){onceSeek.max=Math.max(1,Math.floor(duration*1000));onceSeek.value='0';}
+          if(onceTime)onceTime.textContent=duration?fmt(0)+' / '+fmt(duration):'0:00 / --:--';
+        });
+        audio.addEventListener('durationchange',()=>{
+          const duration=validDuration();
+          if(onceSeek&&duration)onceSeek.max=Math.max(1,Math.floor(duration*1000));
+          if(onceTime&&duration)onceTime.textContent=fmt(audio.currentTime)+' / '+fmt(duration);
+        });
+        audio.addEventListener('timeupdate',()=>{
+          const duration=validDuration();
+          if(onceSeek&&duration&&onceSeek.dataset.userSeeking!=='true')onceSeek.value=Math.floor(audio.currentTime*1000);
+          if(onceSeek&&duration)onceSeek.style.setProperty('--voice-progress',((audio.currentTime/duration)*100)+'%');
+          if(onceTime)onceTime.textContent=fmt(audio.currentTime)+' / '+fmt(duration);
+        });
+        audio.addEventListener('play',()=>{
+          if(oncePlayButton){oncePlayButton.innerHTML='<span class="chat-voice-pause-icon" aria-hidden="true">Ⅱ</span>';oncePlayButton.setAttribute('aria-label','Pause voice note');}
+        });
+        audio.addEventListener('pause',()=>{
+          if(oncePlayButton&&!message.viewOnceFinished){oncePlayButton.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';oncePlayButton.setAttribute('aria-label','Play voice note');}
+        });
         audio.addEventListener('ended',()=>{
-          message.viewOnceEnded=true;
-          // Start the fixed ten-second rewind/replay window only once. Seeking
-          // backwards and replaying remains available until this deadline.
+          if(oncePlayButton){oncePlayButton.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';oncePlayButton.setAttribute('aria-label','Replay voice note');}
+          if(onceSeek){onceSeek.value='0';onceSeek.style.setProperty('--voice-progress','0%');}
+          if(onceTime)onceTime.textContent=fmt(audio.duration)+' / '+fmt(audio.duration);
+          // One fixed 20-second grace period after the first full playback.
+          // Replaying does not restart or extend this countdown.
           if(!message.viewOnceExpiryAt){
-            message.viewOnceExpiryAt=Date.now()+10000;
+            message.viewOnceEnded=true;
+            message.viewOnceExpiryAt=Date.now()+20000;
             message.viewOnceExpiryTimer=setTimeout(()=>{
               message.viewOnceFinished=true;
               message.viewOncePlayback=false;
               message.viewOnceAudio=null;
-              if(message.viewOnceUiTimer)clearInterval(message.viewOnceUiTimer);
-              message.viewOnceUiTimer=null;
               audio.pause();
               audio.removeAttribute('src');
               audio.load();
               URL.revokeObjectURL(objectUrl);
               message.viewOnceExpiryAt=null;
               renderThread();
-            },10000);
+            },20000);
           }
-          syncControls();
         });
         audio.addEventListener('error',()=>{
           toast('This voice note is opened, but the audio could not be played.','alert');
