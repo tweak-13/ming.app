@@ -3806,6 +3806,24 @@ async function openPublicProfile(id, username = '') {
   openPerson(person.id);
 }
 
+async function loadPublicConnectionCount(personId) {
+  try {
+    const { data, error } = await supabaseClient.rpc('get_public_connection_count', {
+      p_user_id: personId
+    });
+    if (error) throw error;
+    if (state.activePerson !== personId) return;
+    const stat = $('#person-body [data-public-connection-count]');
+    if (stat) stat.textContent = Math.max(0, Number(data) || 0).toLocaleString();
+  } catch (error) {
+    console.warn('Tweaklr: public connection count could not be loaded.', error.message || error);
+    if (state.activePerson === personId) {
+      const stat = $('#person-body [data-public-connection-count]');
+      if (stat) stat.textContent = '—';
+    }
+  }
+}
+
 function openPerson(id) {
   const p = byId(id);
   if (!p) return;
@@ -3834,7 +3852,7 @@ function openPerson(id) {
     <div class="public-profile-stats" aria-label="Public profile statistics">
       <div class="public-profile-stat"><strong>${publicLikes.toLocaleString()}</strong><span>Likes received</span></div>
       <div class="public-profile-stat"><strong>${theirUpdates.length.toLocaleString()}</strong><span>Live updates</span></div>
-      <div class="public-profile-stat"><strong>${esc(relationshipLabel)}</strong><span>Your connection</span></div>
+      <div class="public-profile-stat"><strong data-public-connection-count>${isUuidPerson(id) ? "…" : "0"}</strong><span>Connections</span></div>
     </div>
     <div class="pmeta"><p class="bio">${esc(p.bio || 'This member has not added a bio yet.')}</p></div>
     <div class="now">
@@ -3860,6 +3878,7 @@ function openPerson(id) {
       <p>You are seeing an approximate distance. ${esc(p.short)} cannot see your exact location either.</p>
     </div>`;
   pushStack('person');
+  if (isUuidPerson(id)) loadPublicConnectionCount(id);
 }
 
 /* ------------------------------------------------------------
