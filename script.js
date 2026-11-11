@@ -6705,7 +6705,48 @@ async function uploadVoiceNote(blob, duration) {
   return true;
 }
 
-document.addEventListener('input',e=>{const seek=e.target.closest('[data-voice-seek]');if(!seek)return;const progress=(Number(seek.value)/Number(seek.max))*100;seek.style.setProperty('--voice-progress',progress+'%');const player=seek.closest('[data-voice-player]');const button=player?.querySelector('[data-voice-path]');const audio=button?._audio;if(audio&&Number.isFinite(audio.duration)&&audio.duration>0){audio.currentTime=player.hasAttribute('data-view-once-player')?Math.min(audio.duration,Math.max(0,Number(seek.value)/1000)):(Number(seek.value)/Number(seek.max))*audio.duration;}});
+document.addEventListener('pointerdown',e=>{const seek=e.target.closest?.('[data-voice-seek]');if(seek)seek.dataset.userSeeking='true';});
+document.addEventListener('pointerup',()=>{
+  const seek=document.querySelector('[data-voice-seek][data-user-seeking="true"]');
+  if(!seek)return;
+  delete seek.dataset.userSeeking;
+  seek.dispatchEvent(new Event('change',{bubbles:true}));
+});
+document.addEventListener('pointercancel',()=>{
+  const seek=document.querySelector('[data-voice-seek][data-user-seeking="true"]');
+  if(seek)delete seek.dataset.userSeeking;
+});
+document.addEventListener('input',e=>{
+  const seek=e.target.closest?.('[data-voice-seek]');
+  if(!seek)return;
+  const max=Number(seek.max)||1000;
+  const value=Math.max(0,Math.min(max,Number(seek.value)||0));
+  const progress=(value/max)*100;
+  seek.style.setProperty('--voice-progress',progress+'%');
+  const player=seek.closest('[data-voice-player]');
+  const button=player?.querySelector('[data-voice-path]');
+  const audio=button?._audio;
+  if(!audio||!Number.isFinite(audio.duration)||audio.duration<=0)return;
+  const target=player.hasAttribute('data-view-once-player')
+    ? Math.min(audio.duration,Math.max(0,value/1000))
+    : (value/max)*audio.duration;
+  try{audio.currentTime=target;}catch(_){}
+});
+document.addEventListener('change',e=>{
+  const seek=e.target.closest?.('[data-voice-seek]');
+  if(!seek)return;
+  delete seek.dataset.userSeeking;
+  const player=seek.closest('[data-voice-player]');
+  const button=player?.querySelector('[data-voice-path]');
+  const audio=button?._audio;
+  if(!audio||!Number.isFinite(audio.duration)||audio.duration<=0)return;
+  const max=Number(seek.max)||1000;
+  const value=Math.max(0,Math.min(max,Number(seek.value)||0));
+  const target=player.hasAttribute('data-view-once-player')
+    ? Math.min(audio.duration,Math.max(0,value/1000))
+    : (value/max)*audio.duration;
+  try{audio.currentTime=target;}catch(_){}
+});
 
 /* ------------------------------------------------------------
    MOONFLOWER
@@ -9325,7 +9366,7 @@ document.addEventListener('click', async e => {
           const fmt=value=>formatChatVoiceTime(Math.max(0,Number(value)||0)*1000);
           if(seek&&duration){
             seek.max=String(Math.max(1,Math.floor(duration*1000)));
-            if(!seek.matches(':active'))seek.value=String(Math.min(duration,current)*1000);
+            if(seek.dataset.userSeeking!=='true')seek.value=String(Math.min(duration,current)*1000);
             seek.style.setProperty('--voice-progress',(Math.min(100,current/duration*100))+'%');
           }
           if(time&&duration)time.textContent=fmt(current)+' / '+fmt(duration);
@@ -9337,6 +9378,8 @@ document.addEventListener('click', async e => {
         audio.addEventListener('loadedmetadata',syncControls);
         audio.addEventListener('durationchange',syncControls);
         audio.addEventListener('timeupdate',syncControls);
+        audio.addEventListener('seeking',syncControls);
+        audio.addEventListener('seeked',syncControls);
         audio.addEventListener('playing',syncControls);
         audio.addEventListener('play',syncControls);
         audio.addEventListener('pause',syncControls);
