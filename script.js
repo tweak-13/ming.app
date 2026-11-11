@@ -9282,6 +9282,11 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
       const value=Math.max(0,Math.min(1000,Number(seek.value)||0));
       const target=(value/1000)*duration;
       try{audio.currentTime=target;}catch(_){}
+      // View-once seeking must resume playback when the note has ended or
+      // is paused; changing currentTime alone only moves the playhead silently.
+      if(options.resumeOnSeek && audio.paused){
+        try{const playback=audio.play();if(playback&&typeof playback.catch==='function')playback.catch(()=>{});}catch(_){}
+      }
       seek.style.setProperty('--voice-progress',(value/10)+'%');
       if(time)time.textContent=fmt(target)+' / '+fmt(duration);
     };
@@ -9435,7 +9440,7 @@ document.addEventListener('click', async e => {
               renderThread();
             },30000);
           }
-        },{decimal:true});
+        },{decimal:true,resumeOnSeek:true});
         const player=getPlayer();
         const playButton=player?.querySelector('[data-voice-path]');
         if(playButton)playButton._audio=audio;
