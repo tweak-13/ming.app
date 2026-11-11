@@ -6569,3 +6569,39 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 @media(max-width:420px){
   #chat-thread .chat-bubble--voice-outgoing .chat-voice-note{width:clamp(176px,58vw,220px)!important}
 }
+
+
+/* Public profile photo viewer — full photo with touch and control zoom. */
+#modal .public-profile-photo-viewer{
+  width:100%;
+  height:min(62vh,520px);
+  min-height:220px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  border-radius:18px;
+  background:rgba(20,16,13,.96);
+  touch-action:pan-x pan-y;
+}
+#modal .public-profile-photo-viewer img{
+  display:block;
+  max-width:100%;
+  max-height:100%;
+  width:auto;
+  height:auto;
+  object-fit:contain;
+  transform:scale(1);
+  transform-origin:center;
+  cursor:zoom-in;
+  user-select:none;
+  -webkit-user-drag:none;
+  transition:transform .12s ease-out;
+  touch-action:none;
+}
+#modal .public-profile-photo-hint{
+  margin:9px 0 0;
+  color:var(--muted);
+  font-size:11px;
+  text-align:center;
+}
