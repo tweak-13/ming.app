@@ -6381,3 +6381,39 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 #sheet:has(.biz-comments-shell) .sheet-foot {
   flex: 0 0 auto;
 }
+
+
+/* WhatsApp-like content-sized chat bubbles: short messages stay compact,
+   while longer messages grow naturally and wrap at the screen-safe limit. */
+#chat-thread .chat-message-row{min-width:0}
+#chat-thread .chat-bubble{
+  display:block;
+  flex:0 1 auto;
+  width:max-content;
+  min-width:48px;
+  max-width:min(78%,520px);
+  height:auto;
+  min-height:0;
+  padding:8px 11px 7px;
+  box-sizing:border-box;
+}
+#chat-thread .chat-bubble__text{
+  display:inline;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+#chat-thread .chat-bubble__time{
+  display:inline-block;
+  margin-left:7px;
+  white-space:nowrap;
+  vertical-align:baseline;
+}
+#chat-thread .chat-bubble:has(.chat-voice-note),
+#chat-thread .chat-bubble:has(.chat-attachment){
+  width:fit-content;
+  min-width:0;
+}
+@media(max-width:420px){
+  #chat-thread .chat-bubble{max-width:82%}
+}
