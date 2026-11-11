@@ -948,12 +948,6 @@ let connectionRequests = [
 ];
 let connectionOutgoingRequests = [];
 
-/* Read-only bridge for the separately loaded unified Status feature. */
-window.TweaklrStatusContext = () => ({
-  supabaseClient, currentUser, connections, mingConnectionProfiles,
-  toast, openChat, sendMessage, sp
-});
-
 async function loadMingConnections() {
   try {
     const { data: { session }, error: sessionError } =
@@ -2132,7 +2126,7 @@ function renderHome() {
   renderHomeSpaces();
   renderHomeFeed();
   renderHomeOpps();
-  if (window.TweaklrStatus) void window.TweaklrStatus.mountHome();
+
   updateNotifDot();
 }
 
@@ -10727,7 +10721,7 @@ function renderSpace() {
     <button class="${sp.tab === k ? 'on' : ''}" data-sp="tab:${k}" aria-current="${sp.tab === k}">
       ${icon(ic)}<span>${label}</span></button>`).join('');
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
-  if (window.TweaklrStatus && ['business','friendly'].includes(s.nature)) void window.TweaklrStatus.mountSpace(s);
+
   if (s.nature === 'business' && sp.tab === 'home') {
     renderBusinessHome(s);
     void hydrateBusinessHomeMedia(s.id);
@@ -10740,7 +10734,7 @@ function renderSpace() {
 function refreshSpace() {
   const s = spaceById(sp.activeId);
   $('#sp-body').innerHTML = VIEWS[s.nature][sp.tab](s);
-  if (window.TweaklrStatus && ['business','friendly'].includes(s.nature)) void window.TweaklrStatus.mountSpace(s);
+
   if (s.nature === 'business' && sp.tab === 'home') {
     renderBusinessHome(s);
     void hydrateBusinessPostCommentCounts(s.id);
