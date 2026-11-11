@@ -1200,7 +1200,7 @@ async function loadMingNotifications() {
             .limit(100),
           supabaseClient
             .from('daily_update_comments')
-            .select('id, update_id, author_id, body, created_at')
+            .select('id, update_id, author_id, body, created_at, is_anonymous')
             .in('update_id', postIds)
             .neq('author_id', session.user.id)
             .order('created_at', { ascending: false })
@@ -1218,7 +1218,7 @@ async function loadMingNotifications() {
         const commentRows = commentsResult.error ? [] : (commentsResult.data || []);
         const actorIds = [...new Set([
           ...likeRows.map(row => row.user_id),
-          ...commentRows.map(row => row.author_id)
+          ...commentRows.filter(row => !row.is_anonymous).map(row => row.author_id)
         ].filter(id => id && id !== session.user.id))];
 
         const actorMap = new Map();
@@ -1259,12 +1259,15 @@ async function loadMingNotifications() {
           const post = postById.get(row.update_id);
           if (!post) return;
           const id = 'post_comment_' + row.id;
+          const anonymous = row.is_anonymous === true;
           next.push({
             id,
             type: 'comment',
-            personId: row.author_id,
+            ...(anonymous ? {} : { personId: row.author_id }),
             updateId: row.update_id,
-            text: '<b>' + esc(actorName(row.author_id)) + '</b> commented on your post' + (post.title ? ' “' + esc(post.title) + '”' : '') + '.',
+            text: anonymous
+              ? 'You have an anonymous comment.'
+              : '<b>' + esc(actorName(row.author_id)) + '</b> commented on your post' + (post.title ? ' “' + esc(post.title) + '”' : '') + '.',
             at: new Date(row.created_at).getTime(),
             read: notificationReadIds.has(id)
           });
@@ -1272,6 +1275,55 @@ async function loadMingNotifications() {
       }
     } catch (postNotificationError) {
       console.warn('Tweaklr: post activity notifications failed.', postNotificationError);
+    }
+
+    /* Anonymous Spaces: notifications must never contain author identity,
+       username, avatar, post body, or any identifying post metadata. */
+    try {
+      if (typeof loadSpacesFromDatabase === 'function' && typeof mySpaces === 'function') {
+        await loadSpacesFromDatabase();
+        const anonymousSpaces = mySpaces().filter(space => space.nature === 'anonymous');
+        const feeds = await Promise.all(anonymousSpaces.map(async space => {
+          const { data, error } = await supabaseClient.rpc('get_ming_anonymous_space_feed', {
+            p_space_id: space.id
+          });
+          if (error) {
+            console.warn('Tweaklr: anonymous Space notifications could not be loaded.', error.message);
+            return null;
+          }
+          return { spaceId: space.id, posts: Array.isArray(data?.posts) ? data.posts : [] };
+        }));
+
+        feeds.filter(Boolean).forEach(feed => {
+          feed.posts.forEach(post => {
+            if (!post.is_mine) {
+              const id = 'anonymous_post_' + post.id;
+              next.push({
+                id,
+                type: 'update',
+                spaceId: feed.spaceId,
+                text: 'You have an anonymous post.',
+                at: new Date(post.created_at).getTime(),
+                read: notificationReadIds.has(id)
+              });
+            }
+            (Array.isArray(post.comments) ? post.comments : []).forEach(comment => {
+              if (comment.is_mine) return;
+              const id = 'anonymous_comment_' + comment.id;
+              next.push({
+                id,
+                type: 'comment',
+                spaceId: feed.spaceId,
+                text: 'You have an anonymous comment.',
+                at: new Date(comment.created_at).getTime(),
+                read: notificationReadIds.has(id)
+              });
+            });
+          });
+        });
+      }
+    } catch (anonymousNotificationError) {
+      console.warn('Tweaklr: anonymous activity notifications failed.', anonymousNotificationError);
     }
 
     const { error: syncError } = await supabaseClient.rpc('sync_tweaklr_notifications', {
