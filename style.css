@@ -6448,3 +6448,124 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
     max-width:92%!important;
   }
 }
+
+/* Outgoing voice notes: compact audio capsule; reactions only claim the
+   extra space their own pill needs. Text and attachment bubbles are untouched. */
+#chat-thread .chat-bubble--voice-outgoing{
+  display:inline-flex!important;
+  flex:0 1 auto!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  justify-content:flex-start!important;
+  width:max-content!important;
+  min-width:0!important;
+  max-width:calc(100% - 24px)!important;
+  padding:9px 11px 7px!important;
+  gap:5px!important;
+  border-radius:18px 18px 5px 18px!important;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-voice-note{
+  display:flex!important;
+  align-items:center!important;
+  width:clamp(190px,56vw,232px)!important;
+  max-width:100%!important;
+  min-width:0!important;
+  gap:10px!important;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-voice-play{
+  width:38px!important;
+  height:38px!important;
+  flex:0 0 38px!important;
+  border:0!important;
+  border-radius:50%!important;
+  display:grid!important;
+  place-items:center!important;
+  color:#fff4e7!important;
+  background:linear-gradient(145deg,#9b6748,#633b2a)!important;
+  box-shadow:0 3px 10px rgba(28,13,7,.22),inset 0 1px 0 rgba(255,255,255,.22)!important;
+  font-size:15px!important;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-voice-play:active{transform:scale(.94)}
+#chat-thread .chat-bubble--voice-outgoing .chat-voice-track{
+  display:flex!important;
+  flex:1 1 auto!important;
+  min-width:0!important;
+  flex-direction:column!important;
+  gap:5px!important;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-voice-seek{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  width:100%!important;
+  height:5px!important;
+  min-width:0!important;
+  border-radius:99px!important;
+  background:linear-gradient(to right,#f4d5b5 0%,#f4d5b5 var(--voice-progress,0%),rgba(45,24,15,.28) var(--voice-progress,0%),rgba(45,24,15,.28) 100%)!important;
+  accent-color:#f4d5b5!important;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-voice-seek::-webkit-slider-thumb{
+  appearance:none;
+  -webkit-appearance:none;
+  width:11px;height:11px;border-radius:50%;
+  background:#fff0df;border:1px solid rgba(78,43,27,.42);
+  box-shadow:0 1px 4px rgba(0,0,0,.22);
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-voice-seek::-moz-range-thumb{
+  width:10px;height:10px;border-radius:50%;
+  background:#fff0df;border:1px solid rgba(78,43,27,.42);
+  box-shadow:0 1px 4px rgba(0,0,0,.22);
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-voice-meta{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:8px!important;
+  min-height:18px;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-voice-duration{
+  color:rgba(255,242,226,.88)!important;
+  font-size:11px!important;
+  font-weight:600;
+  letter-spacing:.01em;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-voice-speed{
+  width:auto!important;
+  min-width:34px!important;
+  height:22px!important;
+  padding:0 7px!important;
+  border:1px solid rgba(255,238,219,.32)!important;
+  border-radius:999px!important;
+  background:rgba(50,27,17,.18)!important;
+  color:#fff1df!important;
+  font-size:10px!important;
+  font-weight:700;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-bubble__time{
+  align-self:flex-end;
+  margin:0!important;
+  color:rgba(255,239,220,.68)!important;
+  font-size:9px!important;
+  line-height:1!important;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-reactions{
+  display:flex!important;
+  align-self:flex-end!important;
+  width:max-content!important;
+  max-width:100%!important;
+  margin:1px 0 0!important;
+  padding:3px 6px!important;
+  border:1px solid rgba(255,239,220,.22);
+  border-radius:999px;
+  background:rgba(48,25,16,.22);
+  gap:4px!important;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-reaction{
+  padding:0 2px!important;
+  border:0!important;
+  background:transparent!important;
+  font-size:14px!important;
+}
+#chat-thread .chat-bubble--voice-outgoing .chat-reaction .tweaklr-emoji{font-size:15px}
+@media(max-width:420px){
+  #chat-thread .chat-bubble--voice-outgoing .chat-voice-note{width:clamp(176px,58vw,220px)!important}
+}
