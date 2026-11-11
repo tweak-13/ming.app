@@ -5760,7 +5760,8 @@ function formatChatFileSize(bytes){const n=Number(bytes||0);if(!n)return '';if(n
 async function hydrateChatAttachments(){for(const node of $$('[data-chat-attachment]')){const path=node.dataset.chatAttachment;if(!path)continue;const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,3600);if(error||!data?.signedUrl){const l=node.querySelector('.chat-attachment-loading');if(l)l.textContent='Attachment unavailable';continue;}const img=node.querySelector('[data-chat-attachment-image]');if(img){img.onload=()=>{img.hidden=false;node.querySelector('.chat-attachment-loading')?.remove();node.removeAttribute('data-chat-attachment');node.removeAttribute('aria-label');};img.onerror=()=>{img.hidden=true;const l=node.querySelector('.chat-attachment-loading');if(l)l.textContent='Image could not be loaded';};img.src=data.signedUrl;}const video=node.querySelector('[data-chat-attachment-video]');if(video){video.onloadedmetadata=()=>{video.hidden=false;node.querySelector('.chat-attachment-loading')?.remove();node.removeAttribute('data-chat-attachment');node.removeAttribute('aria-label');};video.onerror=()=>{video.hidden=true;const l=node.querySelector('.chat-attachment-loading');if(l)l.textContent='Video could not be loaded';};video.src=data.signedUrl;}}}
 
 function renderVoiceMessage(m) {
-  const seconds = Math.max(0, Number(m.voiceDuration || 0));
+  const rawSeconds = Number(m.voiceDuration);
+  const seconds = Number.isFinite(rawSeconds) && rawSeconds > 0 ? rawSeconds : 0;
   if(m.viewOnce){
     if(!m.me && m.viewedAt) return '<div class="chat-view-once-state">Opened · No longer available</div>';
     if(m.me && m.viewedAt) return '<div class="chat-view-once-state">Opened by recipient</div>';
@@ -6360,7 +6361,9 @@ async function sendMessage(text, options = {}) {
 }
 
 function formatChatVoiceTime(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000));
+  const value = Number(ms);
+  if (!Number.isFinite(value) || value < 0) return '--:--';
+  const total = Math.floor(value / 1000);
   return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
 }
 
@@ -9094,15 +9097,23 @@ document.addEventListener('click', async e => {
         const seek=player?.querySelector('[data-voice-seek]');
         const time=player?.querySelector('[data-voice-time]');
         const speed=player?.querySelector('[data-voice-speed]');
-        const fmt=v=>{v=Math.max(0,Math.floor(v||0));return Math.floor(v/60)+':'+String(v%60).padStart(2,'0');};
+        const fmt=v=>Number.isFinite(Number(v))&&Number(v)>=0?(()=>{const n=Math.floor(Number(v));return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');})():'--:--';
+        const validDuration=()=>Number.isFinite(audio.duration)&&audio.duration>0?audio.duration:0;
         audio.addEventListener('loadedmetadata',()=>{
-          if(seek){seek.max=Math.max(1,Math.floor(audio.duration*1000));seek.value='0';}
-          if(time)time.textContent=fmt(audio.duration);
+          const duration=validDuration();
+          if(seek&&duration){seek.max=Math.max(1,Math.floor(duration*1000));seek.value='0';}
+          if(time)time.textContent=duration?fmt(duration):'0:00 / --:--';
+        });
+        audio.addEventListener('durationchange',()=>{
+          const duration=validDuration();
+          if(seek&&duration)seek.max=Math.max(1,Math.floor(duration*1000));
+          if(time&&duration)time.textContent=fmt(audio.currentTime)+' / '+fmt(duration);
         });
         audio.addEventListener('timeupdate',()=>{
-          if(seek&&!seek.matches(':active'))seek.value=Math.floor(audio.currentTime*1000);
-          if(seek&&Number.isFinite(audio.duration)&&audio.duration>0)seek.style.setProperty('--voice-progress',((audio.currentTime/audio.duration)*100)+'%');
-          if(time)time.textContent=fmt(audio.currentTime)+' / '+fmt(audio.duration);
+          const duration=validDuration();
+          if(seek&&duration&&!seek.matches(':active'))seek.value=Math.floor(audio.currentTime*1000);
+          if(seek&&duration)seek.style.setProperty('--voice-progress',((audio.currentTime/duration)*100)+'%');
+          if(time)time.textContent=fmt(audio.currentTime)+' / '+fmt(duration);
         });
         audio.addEventListener('play',()=>{voiceBtn.innerHTML='<span class="chat-voice-pause-icon" aria-hidden="true">Ⅱ</span>';voiceBtn.setAttribute('aria-label','Pause voice note');});
         audio.addEventListener('pause',()=>{voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';voiceBtn.setAttribute('aria-label','Play voice note');});
