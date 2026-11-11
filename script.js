@@ -9296,9 +9296,7 @@ document.addEventListener('click', async e => {
         popup.location.href=objectUrl;
         // The server will not issue this media again. Revoke the local object
         // URL after the viewing tab has had time to load or the tab closes.
-        const revoke=()=>URL.revokeObjectURL(objectUrl);
-        popup.addEventListener('pagehide',revoke,{once:true});
-        setTimeout(revoke,300000);
+        setTimeout(()=>URL.revokeObjectURL(objectUrl),300000);
       }
     }catch(err){
       if(popup&&!popup.closed)popup.close();
