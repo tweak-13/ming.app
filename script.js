@@ -712,6 +712,10 @@ const SUPABASE_URL = 'https://avnuejgqaxygxeiyqeny.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY =
   'sb_publishable_wF8lZnLfC-x9ySqXUqRcHQ_CI_QWrHW';
 
+// Backwards-compatible key alias used by direct Edge Function fetch calls.
+// Supabase publishable keys are valid client-side API keys; never put a service-role key here.
+const SUPABASE_ANON_KEY = SUPABASE_PUBLISHABLE_KEY;
+
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY,
