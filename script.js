@@ -6714,45 +6714,6 @@ async function uploadVoiceNote(blob, duration) {
   return true;
 }
 
-document.addEventListener('pointerdown',e=>{const seek=e.target.closest?.('[data-voice-seek]');if(seek)seek.dataset.userSeeking='true';});
-document.addEventListener('pointerup',()=>{
-  const seek=document.querySelector('[data-voice-seek][data-user-seeking="true"]');
-  if(!seek)return;
-  delete seek.dataset.userSeeking;
-  seek.dispatchEvent(new Event('change',{bubbles:true}));
-});
-document.addEventListener('pointercancel',()=>{
-  const seek=document.querySelector('[data-voice-seek][data-user-seeking="true"]');
-  if(seek)delete seek.dataset.userSeeking;
-});
-document.addEventListener('input',e=>{
-  const seek=e.target.closest?.('[data-voice-seek]');
-  if(!seek)return;
-  const max=Number(seek.max)||1000;
-  const value=Math.max(0,Math.min(max,Number(seek.value)||0));
-  const progress=(value/max)*100;
-  seek.style.setProperty('--voice-progress',progress+'%');
-  const player=seek.closest('[data-voice-player]');
-  const button=player?.querySelector('[data-voice-path]');
-  const audio=button?._audio||player?._audio;
-  if(!audio||!Number.isFinite(audio.duration)||audio.duration<=0)return;
-  const target=(value/max)*audio.duration;
-  try{audio.currentTime=target;}catch(_){}
-});
-document.addEventListener('change',e=>{
-  const seek=e.target.closest?.('[data-voice-seek]');
-  if(!seek)return;
-  delete seek.dataset.userSeeking;
-  const player=seek.closest('[data-voice-player]');
-  const button=player?.querySelector('[data-voice-path]');
-  const audio=button?._audio||player?._audio;
-  if(!audio||!Number.isFinite(audio.duration)||audio.duration<=0)return;
-  const max=Number(seek.max)||1000;
-  const value=Math.max(0,Math.min(max,Number(seek.value)||0));
-  const target=(value/max)*audio.duration;
-  try{audio.currentTime=target;}catch(_){}
-});
-
 /* ------------------------------------------------------------
    MOONFLOWER
 ------------------------------------------------------------ */
@@ -9310,19 +9271,40 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
   const time=player?.querySelector('[data-voice-time]');
   const fmt=v=>{const n=Number(v);if(!Number.isFinite(n)||n<0)return options.decimal?'0.00':'--:--';return options.decimal?n.toFixed(2):(()=>{const whole=Math.floor(n);return Math.floor(whole/60)+':'+String(whole%60).padStart(2,'0');})();};
   const validDuration=()=>Number.isFinite(audio.duration)&&audio.duration>0?audio.duration:0;
+  if(seek){
+    // Bind seeking directly to this player's range input. This keeps the
+    // active view-once audio instance attached even after thread rerenders.
+    seek.min='0';
+    seek.max='1000';
+    const seekAudio=()=>{
+      const duration=validDuration();
+      if(!duration)return;
+      const value=Math.max(0,Math.min(1000,Number(seek.value)||0));
+      const target=(value/1000)*duration;
+      try{audio.currentTime=target;}catch(_){}
+      seek.style.setProperty('--voice-progress',(value/10)+'%');
+      if(time)time.textContent=fmt(target)+' / '+fmt(duration);
+    };
+    seek.addEventListener('input',seekAudio);
+    seek.addEventListener('change',seekAudio);
+    seek.addEventListener('pointerdown',()=>{seek.dataset.userSeeking='true';});
+    const finishSeeking=()=>{delete seek.dataset.userSeeking;seekAudio();};
+    seek.addEventListener('pointerup',finishSeeking);
+    seek.addEventListener('pointercancel',finishSeeking);
+  }
   audio.addEventListener('loadedmetadata',()=>{
     const duration=validDuration();
-    if(seek&&duration){seek.max=Math.max(1,Math.floor(duration*1000));seek.value='0';}
+    if(seek&&duration){seek.max='1000';seek.value='0';}
     if(time)time.textContent=duration?(options.decimal?'0.00 / '+fmt(duration):fmt(duration)):(options.decimal?'0.00 / 0.00':'0:00 / --:--');
   });
   audio.addEventListener('durationchange',()=>{
     const duration=validDuration();
-    if(seek&&duration)seek.max=Math.max(1,Math.floor(duration*1000));
+    if(seek&&duration)seek.max='1000';
     if(time&&duration)time.textContent=fmt(audio.currentTime)+' / '+fmt(duration);
   });
   audio.addEventListener('timeupdate',()=>{
     const duration=validDuration();
-    if(seek&&duration&&seek.dataset.userSeeking!=='true'&&!seek.matches(':active'))seek.value=Math.floor(audio.currentTime*1000);
+    if(seek&&duration&&seek.dataset.userSeeking!=='true'&&!seek.matches(':active'))seek.value=String(Math.round((audio.currentTime/duration)*1000));
     if(seek&&duration)seek.style.setProperty('--voice-progress',((audio.currentTime/duration)*100)+'%');
     if(time)time.textContent=fmt(audio.currentTime)+' / '+fmt(duration);
   });
