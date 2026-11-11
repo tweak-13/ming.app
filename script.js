@@ -5770,10 +5770,10 @@ function renderVoiceMessage(m) {
     return `<div class="chat-voice-note"><span>🎙️</span><span>Voice note</span><span class="chat-voice-duration">${seconds}s</span></div>`;
   }
   return `<div class="chat-voice-note chat-voice-player" data-voice-player>
-    <button type="button" class="chat-voice-play" data-voice-path="${esc(m.voicePath)}" aria-label="Play voice note">▶</button>
+    <button type="button" class="chat-voice-play" data-voice-path="${esc(m.voicePath)}" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button>
     <div class="chat-voice-track">
       <input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />
-      <div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>${seconds}s</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>
+      <div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>0:${String(seconds).padStart(2,'0')}</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>
     </div>
   </div>`;
 }
@@ -5800,7 +5800,7 @@ function renderThread() {
     return `
     <div class="chat-message-row ${m.me ? 'chat-message-row--outgoing' : 'chat-message-row--incoming'}"
          data-message-id="${esc(m.id)}">
-      <div class="chat-bubble" data-message-id="${esc(m.id)}">
+      <div class="chat-bubble ${m.type === 'voice' && m.me ? 'chat-bubble--voice-outgoing' : ''}" data-message-id="${esc(m.id)}">
         ${reply ? `<button type="button" class="chat-bubble__reply" data-action="chat-jump-reply:${esc(reply.id)}" aria-label="Jump to replied message"><strong>${reply.me ? 'You' : esc(byId(state.activeChat)?.short || 'Them')}</strong>${reply.type === 'voice' ? '🎙️ Voice note' : esc((reply.text || '').slice(0, 110))}</button>` : ''}
         ${m.type === 'voice' ? renderVoiceMessage(m) : (m.attachmentPath ? renderChatAttachment(m) : `<span class="chat-bubble__text">${esc(m.text)}</span>`)}
         <span class="chat-bubble__time">${clockTime(m.at)}${m.me ? ` · ${m.viewOnce ? (m.viewedAt ? 'Opened' : 'View once') : (m.read ? 'Read' : 'Sent')}` : ''}</span>
@@ -9079,9 +9079,9 @@ document.addEventListener('click', async e => {
         const fmt=v=>{v=Math.max(0,Math.floor(v||0));return Math.floor(v/60)+':'+String(v%60).padStart(2,'0');};
         audio.addEventListener('loadedmetadata',()=>{if(seek)seek.max=Math.max(1,Math.floor(audio.duration*1000));if(time)time.textContent=fmt(audio.duration);});
         audio.addEventListener('timeupdate',()=>{if(seek&&!seek.matches(':active'))seek.value=Math.floor(audio.currentTime*1000);if(time)time.textContent=fmt(audio.currentTime)+' / '+fmt(audio.duration);});
-        audio.addEventListener('play',()=>{voiceBtn.textContent='⏸';});
-        audio.addEventListener('pause',()=>{voiceBtn.textContent='▶';});
-        audio.addEventListener('ended',()=>{voiceBtn.textContent='▶';if(seek)seek.value=0;if(time)time.textContent=fmt(audio.duration);});
+        audio.addEventListener('play',()=>{voiceBtn.innerHTML='<span class="chat-voice-pause-icon" aria-hidden="true">Ⅱ</span>';voiceBtn.setAttribute('aria-label','Pause voice note');});
+        audio.addEventListener('pause',()=>{voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';voiceBtn.setAttribute('aria-label','Play voice note');});
+        audio.addEventListener('ended',()=>{voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';voiceBtn.setAttribute('aria-label','Replay voice note');if(seek)seek.value=0;if(time)time.textContent=fmt(audio.duration);});
         audio.addEventListener('error',()=>{voiceBtn.textContent='▶';toast('This voice note could not be played.','alert');});
       }
       if(audio.paused){voiceBtn.textContent='…';await audio.play();voiceBtn.textContent='⏸';}else{audio.pause();}
