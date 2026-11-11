@@ -5585,6 +5585,7 @@ async function subscribeMingMessages() {
         if (!m) return;
         m.text = row.body;
         m.read = !!row.read_at;
+        m.viewedAt = row.viewed_at || null;
         if (state.activeChat === row.sender_id) renderThread();
         if (state.loaded.messages) renderMessages();
       }
@@ -5819,12 +5820,14 @@ async function loadChatReactions(c) {
 }
 
 function renderChatAttachment(m) {
-  const path=m.attachmentPath||''; const name=m.attachmentName||'Attachment'; const mime=(m.attachmentMime||'').toLowerCase(); const ext=(name||'').toLowerCase().split('.').pop();
+  const path=m.attachmentPath||'';
+  const name=m.attachmentName||'Attachment';
+  const mime=(m.attachmentMime||'').toLowerCase();
+  const ext=(name||'').toLowerCase().split('.').pop();
   if(!path)return '';
   if(m.viewOnce){
-    if(!m.me && m.viewedAt) return '<div class="chat-view-once-state">Opened · No longer available</div>';
-    if(m.me && m.viewedAt) return '<div class="chat-view-once-state">Opened by recipient</div>';
-    if(!m.me) return '<button type="button" class="chat-view-once-button" data-view-once="attachment" data-message-id="'+esc(m.id)+'">◉ View once · Tap to open</button>';
+    if(m.viewedAt) return '<div class="chat-view-once-state">Opened</div>';
+    return '<button type="button" class="chat-view-once-button" data-view-once="attachment" data-message-id="'+esc(m.id)+'">◉ View once · Tap to open</button>';
   }
   const isVideo=mime.startsWith('video/')||['mp4','webm','mov','m4v'].includes(ext);
   const isImage=!isVideo&&(m.type==='image'||mime.startsWith('image/')||['jpg','jpeg','png','webp','gif','heic','heif'].includes(ext));
@@ -5891,9 +5894,8 @@ function renderVoiceMessage(m) {
   const rawSeconds = Number(m.voiceDuration);
   const seconds = Number.isFinite(rawSeconds) && rawSeconds > 0 ? rawSeconds : 0;
   if(m.viewOnce){
-    if(!m.me && m.viewedAt) return '<div class="chat-view-once-state">Opened · No longer available</div>';
-    if(m.me && m.viewedAt) return '<div class="chat-view-once-state">Opened by recipient</div>';
-    if(!m.me) return '<div class="chat-voice-note"><button type="button" class="chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'">◉ Play once</button><span>Voice note · '+seconds+'s</span></div>';
+    if(m.viewedAt) return '<div class="chat-view-once-state">Opened</div>';
+    return '<div class="chat-voice-note"><button type="button" class="chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'">◉ Play once</button><span>Voice note · '+seconds+'s</span></div>';
   }
   if (!m.voicePath) {
     return `<div class="chat-voice-note"><span>🎙️</span><span>Voice note</span><span class="chat-voice-duration">${seconds}s</span></div>`;
@@ -5906,7 +5908,6 @@ function renderVoiceMessage(m) {
     </div>
   </div>`;
 }
-
 function updateChatReturnLatest(thread) {
   if (!thread) return;
   const button = thread.querySelector('[data-action="chat-return-latest"]');
@@ -9240,27 +9241,72 @@ document.addEventListener('pointercancel', () => {
 document.addEventListener('click', async e => {
   const onceBtn=e.target.closest('[data-view-once]');
   if(onceBtn){
+    e.preventDefault();
     e.stopPropagation();
     const messageId=onceBtn.dataset.messageId;
     const conversation=convoFor(state.activeChat);
     const message=conversation.messages.find(item=>String(item.id)===String(messageId));
-    if(!message||message.me||!message.viewOnce||message.viewedAt)return;
-    onceBtn.disabled=true;onceBtn.textContent='Opening…';
+    if(!message||!message.viewOnce||message.viewedAt)return;
+
+    const isVoice=onceBtn.dataset.viewOnce==='voice';
+    const popup=isVoice?null:window.open('about:blank','_blank');
+    if(!isVoice&&!popup){
+      toast('Allow pop-ups to open this one-time file.','alert');
+      return;
+    }
+
+    onceBtn.disabled=true;
+    onceBtn.textContent='Opening…';
     try{
-      const {data,error}=await supabaseClient.functions.invoke('view-once-media',{body:{message_id:messageId}});
-      if(error||!data?.signed_url)throw error||new Error('Media is no longer available.');
-      message.viewedAt=data.viewed_at||new Date().toISOString();
+      const {data:{session}}=await supabaseClient.auth.getSession();
+      if(!session?.access_token)throw new Error('Please sign in again.');
+      const response=await fetch(SUPABASE_URL+'/functions/v1/view-once-media',{
+        method:'POST',
+        headers:{
+          'Authorization':'Bearer '+session.access_token,
+          'apikey':SUPABASE_ANON_KEY,
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({message_id:messageId})
+      });
+      if(!response.ok){
+        const payload=await response.json().catch(()=>({}));
+        if(response.headers.get('X-View-Once-Claimed')==='true'){
+          message.viewedAt=new Date().toISOString();
+          renderThread();
+        }
+        throw new Error(payload.error||'This media has already been opened or is unavailable.');
+      }
+
+      const mediaBlob=await response.blob();
+      if(!mediaBlob.size)throw new Error('The one-time media is empty or unavailable.');
+      const objectUrl=URL.createObjectURL(mediaBlob);
+      message.viewedAt=response.headers.get('X-View-Once-At')||new Date().toISOString();
       renderThread();
-      if(onceBtn.dataset.viewOnce==='voice'){
-        const audio=new Audio(data.signed_url);audio.preload='auto';
-        audio.addEventListener('ended',()=>{});
-        await audio.play();
+
+      if(isVoice){
+        const audio=new Audio(objectUrl);
+        audio.preload='auto';
+        const release=()=>URL.revokeObjectURL(objectUrl);
+        audio.addEventListener('ended',release,{once:true});
+        audio.addEventListener('error',release,{once:true});
+        try{await audio.play();}
+        catch(playError){release();throw playError;}
       }else{
-        const opened=window.open(data.signed_url,'_blank','noopener');
-        if(!opened)toast('Allow pop-ups to view this media once.','alert');
+        popup.location.href=objectUrl;
+        // The server will not issue this media again. Revoke the local object
+        // URL after the viewing tab has had time to load or the tab closes.
+        const revoke=()=>URL.revokeObjectURL(objectUrl);
+        popup.addEventListener('pagehide',revoke,{once:true});
+        setTimeout(revoke,300000);
       }
     }catch(err){
-      onceBtn.disabled=false;onceBtn.textContent=onceBtn.dataset.viewOnce==='voice'?'◉ Play once':'◉ View once · Tap to open';
+      if(popup&&!popup.closed)popup.close();
+      // Fail closed while we reconcile the server's atomic claim.
+      const {data:latest}=await supabaseClient.from('messages').select('viewed_at').eq('id',messageId).maybeSingle();
+      if(latest?.viewed_at)message.viewedAt=latest.viewed_at;
+      else message.viewedAt=null;
+      renderThread();
       toast(err?.message||'This media has already been opened or is unavailable.','alert');
     }
     return;
