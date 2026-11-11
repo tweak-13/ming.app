@@ -5648,10 +5648,10 @@ function scheduleMingAppRealtimeRefresh(tableName, eventType) {
     try {
       const has = name => changed.has(name);
       const postActivityChanged = has('daily_update_likes') || has('daily_update_comments');
-      const feedChanged = has('daily_updates') || has('daily_update_likes') || has('daily_update_comments');
+      const feedChanged = has('daily_updates') || has('daily_update_likes') || has('daily_update_comments') || has('daily_update_participants');
       const connectionChanged = has('connections');
       const profileChanged = has('profiles');
-      const spacesChanged = has('ming_space_content') || has('ming_space_members');
+      const spacesChanged = has('ming_space_content') || has('ming_space_members') || has('ming_space_files') || has('ming_space_products') || has('ming_space_product_bids');
 
       const jobs = [];
       if (postActivityChanged || connectionChanged) jobs.push(loadMingNotifications());
@@ -5716,9 +5716,13 @@ async function subscribeMingAppRealtime() {
   watch('daily_updates');
   watch('daily_update_likes');
   watch('daily_update_comments');
+  watch('daily_update_participants');
   watch('profiles', ['UPDATE']);
   watch('ming_space_content');
   watch('ming_space_members');
+  watch('ming_space_files');
+  watch('ming_space_products');
+  watch('ming_space_product_bids');
   watch('discover_places');
   watch('saved_discover_places');
 
