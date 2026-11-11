@@ -2451,12 +2451,13 @@ async function getDailyUpdateShareData(id) {
 
   const p = u.authorId === currentUser.id ? currentUser : byId(u.authorId);
   const title = u.title || 'Tweaklr Daily Update';
-  const text = [p?.name ? p.name + ': ' + title : title, u.body || ''].filter(Boolean).join(' — ');
+  const anonymous = u.is_anonymous === true || u.isAnonymous === true || u.anonymous === true;
+  const text = [!anonymous && p?.name ? p.name + ': ' + title : title, u.body || ''].filter(Boolean).join(' — ');
   const url = new URL(window.location.href);
   url.hash = '';
   url.searchParams.set('update', id);
 
-  return { u, p, title, text, url: url.toString() };
+  return { u, p: anonymous ? null : p, title, text, anonymous, url: url.toString() };
 }
 
 async function getDailyUpdateMediaFiles(data) {
@@ -2488,6 +2489,51 @@ async function getDailyUpdateMediaFiles(data) {
   return files;
 }
 
+
+/* ------------------------------------------------------------
+   TWEAKLR SHARE EXPERIENCE — shared UI + safe clipboard fallback
+   ------------------------------------------------------------ */
+function renderSharePostPreview({ title, excerpt, meta, mediaUrl, mediaType }) {
+  const visual = mediaUrl
+    ? (String(mediaType || '').startsWith('video/')
+      ? '<div class="tw-share-preview__video" aria-label="Video attached"><span>▶</span><small>VIDEO</small></div>'
+      : '<img class="tw-share-preview__image" src="' + esc(mediaUrl) + '" alt="Post attachment preview" loading="lazy" />')
+    : '<div class="tw-share-preview__placeholder"><span>✦</span></div>';
+  return '<article class="tw-share-preview">' +
+    '<div class="tw-share-preview__visual">' + visual + '</div>' +
+    '<div class="tw-share-preview__copy"><span class="tw-share-eyebrow">' + esc(meta || 'TWEAKLR POST') + '</span>' +
+    '<strong>' + esc(title || 'A post on Tweaklr') + '</strong>' +
+    (excerpt ? '<p>' + esc(excerpt) + '</p>' : '<p>Open this post on Tweaklr.</p>') +
+    '</div></article>';
+}
+
+async function copyTweaklrShareText(value) {
+  const text = String(value || '');
+  if (!text) return false;
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) {}
+  try {
+    const field = document.createElement('textarea');
+    field.value = text;
+    field.setAttribute('readonly', '');
+    field.style.position = 'fixed';
+    field.style.opacity = '0';
+    field.style.pointerEvents = 'none';
+    document.body.appendChild(field);
+    field.focus();
+    field.select();
+    const copied = document.execCommand('copy');
+    field.remove();
+    return !!copied;
+  } catch (_) {
+    return false;
+  }
+}
+
 async function shareDailyUpdate(id) {
   const data = await getDailyUpdateShareData(id);
   if (!data) return;
@@ -2497,28 +2543,30 @@ async function shareDailyUpdate(id) {
     .map(c => byId(c.personId))
     .filter(Boolean);
 
+  const firstMedia = Array.isArray(data.u.media) ? data.u.media.find(item => item?.url) : null;
+  const preview = renderSharePostPreview({
+    title: data.title,
+    excerpt: data.u.body || '',
+    meta: data.anonymous ? 'ANONYMOUS POST' : 'DAILY UPDATE',
+    mediaUrl: firstMedia?.url || '',
+    mediaType: firstMedia?.mime || ''
+  });
   openSheet({
-    title: 'Share update',
-    sub: 'Send the update text or its actual photo/video to a connection, another app, or save the media to your device.',
-    body: `
-      <div class="chat-action-grid" style="margin-bottom:12px">
-        <button data-action="share-external:${esc(id)}"><span style="font-size:24px">↗</span><br>Other apps</button>
-        <button data-action="download-update:${esc(id)}"><span style="font-size:24px">↓</span><br>Download</button>
-      </div>
-      <div class="section share-update-recipients" data-share-update-id="${esc(id)}" style="padding:0">
-        <div class="section-head"><div><h2>Find a Tweaklr user</h2><p>Search by username to share with any member</p></div></div>
-        <div class="field" style="padding:0 12px 10px">
-          <input id="share-update-user-search" type="search" maxlength="40" placeholder="Search @username…" autocomplete="off" aria-label="Search Tweaklr users by username" />
-        </div>
-        <div id="share-update-search-results" aria-live="polite"><p class="center-note">Enter a username to find someone.</p></div>
-        <div class="section-head" style="margin-top:12px"><div><h2>Your connections</h2><p>The update text or its media will be sent</p></div></div>
-        ${connected.length ? connected.map(p => `
-          <button class="opt" data-action="send-update:${esc(id)}:${esc(p.id)}">
-            ${avatar(p, 42)}
-            <span class="tx"><span class="t">${esc(p.short || p.name)}</span><span class="s">${esc(p.username || 'Connected')}</span></span>
-            <span class="go">${icon('send')}</span>
-          </button>`).join('') : '<p class="center-note">Your connections will appear here.</p>'}
-      </div>`
+    title: 'Share post',
+    sub: 'Pass this moment to someone on Tweaklr or beyond.',
+    body: '<div class="tw-share-panel">' + preview +
+      '<div class="tw-share-quick-actions">' +
+        '<button type="button" data-action="share-external:' + esc(id) + '"><span class="tw-share-action-icon">↗</span><span><b>Share via…</b><small>Other apps</small></span></button>' +
+        '<button type="button" data-action="copy-update:' + esc(id) + '"><span class="tw-share-action-icon">⧉</span><span><b>Copy link</b><small>Share anywhere</small></span></button>' +
+        (firstMedia ? '<button type="button" data-action="download-update:' + esc(id) + '"><span class="tw-share-action-icon">↓</span><span><b>Save media</b><small>To your device</small></span></button>' : '') +
+      '</div>' +
+      '<div class="section share-update-recipients" data-share-update-id="' + esc(id) + '">' +
+        '<div class="tw-share-section-head"><div><span class="tw-share-eyebrow">SEND ON TWEAKLR</span><h3>Choose a person</h3><p>Search any member by username.</p></div></div>' +
+        '<label class="tw-share-search"><span aria-hidden="true">⌕</span><input id="share-update-user-search" type="search" maxlength="40" placeholder="Search connections or @username" autocomplete="off" aria-label="Search Tweaklr users by username" /></label>' +
+        '<div id="share-update-search-results" aria-live="polite"><p class="center-note">Start typing to find a Tweaklr member.</p></div>' +
+        '<div class="tw-share-section-head tw-share-connections-head"><div><span class="tw-share-eyebrow">YOUR CIRCLE</span><h3>Connections</h3></div></div>' +
+        (connected.length ? connected.map(p => '<button class="opt" data-action="send-update:' + esc(id) + ':' + esc(p.id) + '">' + avatar(p,42) + '<span class="tx"><span class="t">' + esc(p.short || p.name) + '</span><span class="s">' + esc(p.username || 'Connected') + '</span></span><span class="go">' + icon('send') + '</span></button>').join('') : '<p class="center-note">Your connections will appear here.</p>') +
+      '</div></div>'
   });
 }
 
@@ -2563,88 +2611,41 @@ document.addEventListener('input', e => {
 async function shareDailyUpdateExternal(id) {
   const data = await getDailyUpdateShareData(id);
   if (!data) return;
-
+  const sharePayload = { title: data.title, text: data.text, url: data.url };
   try {
-    const files = await getDailyUpdateMediaFiles(data);
-
-    if (files.length && navigator.share) {
-      const shareData = {
-        title: data.title,
-        text: data.text
-      };
-
-      if (!navigator.canShare || navigator.canShare({ files })) {
-        shareData.files = files;
-        await navigator.share(shareData);
-        closeSheet();
-        return;
-      }
-    }
-
-    if (files.length) {
-      closeSheet();
-      let completed = 0;
-
-      for (const file of files) {
-        const objectUrl = URL.createObjectURL(file);
-        const link = document.createElement('a');
-        link.href = objectUrl;
-        link.download = file.name;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
-        completed += 1;
-        await sleep(180);
-      }
-
-      toast(completed === files.length ? 'Media ready to share' : 'Some media could not be shared.', completed ? 'check' : 'alert');
-      return;
-    }
-
-    if (navigator.share) {
-      await navigator.share({
-        title: data.title,
-        text: data.text,
-        url: data.url
-      });
+    if (typeof navigator.share === 'function') {
+      await navigator.share(sharePayload);
       closeSheet();
       return;
     }
-
-    await navigator.clipboard.writeText(data.url);
-    closeSheet();
-    toast('Update link copied', 'check');
+    const copied = await copyTweaklrShareText(data.url);
+    if (copied) {
+      closeSheet();
+      toast('Post link copied', 'check');
+    } else {
+      toast('Sharing is not available here. Try copying the link from your browser.', 'alert');
+    }
   } catch (error) {
     if (error?.name === 'AbortError') return;
-
-    try {
-      const files = await getDailyUpdateMediaFiles(data);
-      if (files.length) {
-        closeSheet();
-
-        for (const file of files) {
-          const objectUrl = URL.createObjectURL(file);
-          const link = document.createElement('a');
-          link.href = objectUrl;
-          link.download = file.name;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
-          await sleep(180);
-        }
-
-        toast('Media ready to share', 'check');
-        return;
-      }
-
-      await navigator.clipboard.writeText(data.url);
+    const copied = await copyTweaklrShareText(data.url);
+    if (copied) {
       closeSheet();
-      toast('Update link copied', 'check');
-    } catch (_) {
-      toast('Could not share this update.', 'alert');
+      toast('Post link copied', 'check');
+    } else {
+      toast('Could not share this post. Please try again.', 'alert');
     }
+  }
+}
+
+async function copyDailyUpdateLink(id) {
+  const data = await getDailyUpdateShareData(id);
+  if (!data) return;
+  const copied = await copyTweaklrShareText(data.url);
+  if (copied) {
+    closeSheet();
+    toast('Post link copied', 'check');
+  } else {
+    toast('Could not copy the link. Please try again.', 'alert');
   }
 }
 
@@ -2656,30 +2657,25 @@ async function sendDailyUpdateToConnection(updateId, personId) {
   }
 
   const files = await getDailyUpdateMediaFiles(data);
-
   closeSheet();
   await openChat(personId);
-
-  // Text-only Daily Updates should be shared as a normal chat message.
-  // Preserve the existing actual-file flow whenever media is available.
-  if (!files.length) {
-    const message = [data.text, data.url].filter(Boolean).join('\n\n');
-    if (message) await sendMessage(message, { replyToId: null });
-    else toast('This update has no text to share.', 'alert');
+  if (state.activeChat !== personId) {
+    toast('Could not open that conversation. Please try again.', 'alert');
     return;
   }
 
+  const message = [data.text, data.url].filter(Boolean).join('\n\n');
+  if (message) await sendMessage(message, { replyToId: null });
+  if (!files.length) return;
+
   let completed = 0;
   for (const file of files) {
-    if (await sendStoredChatAttachment(file, { replyToId: null })) {
-      completed += 1;
-    }
+    if (await sendStoredChatAttachment(file, { replyToId: null })) completed += 1;
   }
-
   if (completed) {
-    toast(completed === files.length ? 'Media sent' : `${completed} media file(s) sent`, 'check');
+    toast(completed === files.length ? 'Post and media sent' : 'Post sent; ' + completed + ' of ' + files.length + ' media files sent', 'check');
   } else {
-    toast('Could not send the media.', 'alert');
+    toast('Post link sent, but the media could not be sent.', 'alert');
   }
 }
 
@@ -8808,6 +8804,7 @@ document.addEventListener('click', async e => {
     case 'share-update': await shareDailyUpdate(arg); break;
     case 'open-update-media': openDailyUpdateMedia(arg, arg2); break;
     case 'share-external': await shareDailyUpdateExternal(arg); break;
+    case 'copy-update': await copyDailyUpdateLink(arg); break;
     case 'send-update': await sendDailyUpdateToConnection(arg, arg2); break;
     case 'download-update': await downloadDailyUpdate(arg); break;
     case 'delete-update': deleteUpdate(arg); break;
@@ -12697,30 +12694,73 @@ async function getBusinessPostMediaFiles(post) {
 async function openBusinessPostShareSheet(postId) {
   const data=await getBusinessPostShareData(postId);if(!data)return;
   const connected=connections.filter(c=>c.personId&&isConnected(c.personId)).map(c=>byId(c.personId)).filter(Boolean);
+  const media = Array.isArray(data.post.media) ? data.post.media : [];
+  const cachedMedia = businessPostMediaUrlCache.get(postId) || [];
+  const firstMedia = media.find(item => item?.url) || (cachedMedia[0] ? { url: cachedMedia[0], mime: media[0]?.mime || '' } : null);
+  const preview = renderSharePostPreview({
+    title: data.title,
+    excerpt: data.post.body || data.post.text || '',
+    meta: 'BUSINESS SPACE · ' + (data.space?.name || 'POST'),
+    mediaUrl: firstMedia?.url || '',
+    mediaType: firstMedia?.mime || ''
+  });
   openSheet({
-    title:'Share update',
-    sub:'Send the update text or its actual photo/video to a connection, another app, or save the media.',
-    body:'<div class="chat-action-grid" style="margin-bottom:12px"><button data-sp="biz-share-external:'+postId+'"><span style="font-size:24px">↗</span><br>Other apps</button><button data-sp="biz-download:'+postId+'"><span style="font-size:24px">↓</span><br>Download</button></div>' +
-      '<div class="section share-update-recipients" data-biz-share-post-id="'+esc(postId)+'" style="padding:0"><div class="section-head"><div><h2>Find a Tweaklr user</h2><p>Search by username to share with any member</p></div></div>' +
-      '<div class="field" style="padding:0 12px 10px"><input id="biz-share-user-search" type="search" maxlength="40" placeholder="Search @username…" autocomplete="off" aria-label="Search Tweaklr users by username" /></div>' +
-      '<div id="biz-share-search-results" aria-live="polite"><p class="center-note">Enter a username to find someone.</p></div>' +
-      '<div class="section-head" style="margin-top:12px"><div><h2>Your connections</h2><p>The update text or its media will be sent</p></div></div>' +
-      (connected.length?connected.map(person=>'<button class="opt" data-sp="biz-send-post:'+postId+':'+esc(person.id)+'">'+avatar(person,42)+'<span class="tx"><span class="t">'+esc(person.short||person.name)+'</span><span class="s">'+esc(person.username||'Connected')+'</span></span><span class="go">'+icon('send')+'</span></button>').join(''):'<p class="center-note">Your connections will appear here.</p>')+'</div>'
+    title:'Share post',
+    sub:'Pass this update to someone on Tweaklr or beyond.',
+    body:'<div class="tw-share-panel">' + preview +
+      '<div class="tw-share-quick-actions">' +
+        '<button type="button" data-sp="biz-share-external:'+esc(postId)+'"><span class="tw-share-action-icon">↗</span><span><b>Share via…</b><small>Other apps</small></span></button>' +
+        '<button type="button" data-sp="biz-copy-post:'+esc(postId)+'"><span class="tw-share-action-icon">⧉</span><span><b>Copy link</b><small>Share anywhere</small></span></button>' +
+        (media.length ? '<button type="button" data-sp="biz-download:'+esc(postId)+'"><span class="tw-share-action-icon">↓</span><span><b>Save media</b><small>To your device</small></span></button>' : '') +
+      '</div>' +
+      '<div class="section share-update-recipients" data-biz-share-post-id="'+esc(postId)+'">' +
+        '<div class="tw-share-section-head"><div><span class="tw-share-eyebrow">SEND ON TWEAKLR</span><h3>Choose a person</h3><p>Search any member by username.</p></div></div>' +
+        '<label class="tw-share-search"><span aria-hidden="true">⌕</span><input id="biz-share-user-search" type="search" maxlength="40" placeholder="Search connections or @username" autocomplete="off" aria-label="Search Tweaklr users by username" /></label>' +
+        '<div id="biz-share-search-results" aria-live="polite"><p class="center-note">Start typing to find a Tweaklr member.</p></div>' +
+        '<div class="tw-share-section-head tw-share-connections-head"><div><span class="tw-share-eyebrow">YOUR CIRCLE</span><h3>Connections</h3></div></div>' +
+        (connected.length?connected.map(person=>'<button class="opt" data-sp="biz-send-post:'+esc(postId)+':'+esc(person.id)+'">'+avatar(person,42)+'<span class="tx"><span class="t">'+esc(person.short||person.name)+'</span><span class="s">'+esc(person.username||'Connected')+'</span></span><span class="go">'+icon('send')+'</span></button>').join(''):'<p class="center-note">Your connections will appear here.</p>')+
+      '</div></div>'
   });
 }
 
 async function shareBusinessPostExternal(postId) {
-  const data=await getBusinessPostShareData(postId);if(!data)return;
-  try{
-    const files=await getBusinessPostMediaFiles(data.post);
-    if(files.length&&navigator.share){
-      const shareData={title:data.title,text:data.text};
-      if(!navigator.canShare||navigator.canShare({files})){shareData.files=files;await navigator.share(shareData);closeSheet();return;}
+  const data = await getBusinessPostShareData(postId);
+  if (!data) return;
+  try {
+    if (typeof navigator.share === 'function') {
+      await navigator.share({ title: data.title, text: data.text, url: data.url });
+      closeSheet();
+      return;
     }
-    if(navigator.share){await navigator.share({title:data.title,text:data.text,url:data.url});closeSheet();return;}
-    if(files.length){closeSheet();for(const file of files){const objectUrl=URL.createObjectURL(file),link=document.createElement('a');link.href=objectUrl;link.download=file.name;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(objectUrl),1500);await sleep(180);}toast('Media ready to share','check');return;}
-    await navigator.clipboard.writeText(data.text+'\\n\\n'+data.url);closeSheet();toast('Update link copied','check');
-  }catch(error){if(error?.name!=='AbortError')toast('Could not share this update.','alert');}
+    const copied = await copyTweaklrShareText(data.url);
+    if (copied) {
+      closeSheet();
+      toast('Post link copied', 'check');
+    } else {
+      toast('Sharing is not available here. Try copying the link from your browser.', 'alert');
+    }
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    const copied = await copyTweaklrShareText(data.url);
+    if (copied) {
+      closeSheet();
+      toast('Post link copied', 'check');
+    } else {
+      toast('Could not share this post. Please try again.', 'alert');
+    }
+  }
+}
+
+async function copyBusinessPostLink(postId) {
+  const data = await getBusinessPostShareData(postId);
+  if (!data) return;
+  const copied = await copyTweaklrShareText(data.url);
+  if (copied) {
+    closeSheet();
+    toast('Post link copied', 'check');
+  } else {
+    toast('Could not copy the link. Please try again.', 'alert');
+  }
 }
 
 async function downloadBusinessPostMedia(postId) {
@@ -12736,10 +12776,14 @@ async function sendBusinessPostToUser(postId,personId) {
   const data=await getBusinessPostShareData(postId);
   if(!data||!isUuidPerson(personId)||personId===currentUser.id){toast('Choose another Tweaklr user to share this update with.','alert');return;}
   const files=await getBusinessPostMediaFiles(data.post);
-  closeSheet();await openChat(personId);
-  if(!files.length){await sendMessage([data.text,data.url].filter(Boolean).join('\\n\\n'),{replyToId:null});return;}
-  let completed=0;for(const file of files)if(await sendStoredChatAttachment(file,{replyToId:null}))completed++;
-  toast(completed?(completed===files.length?'Media sent':completed+' media file(s) sent'):'Could not send the media.',completed?'check':'alert');
+  closeSheet();
+  await openChat(personId);
+  if(state.activeChat!==personId){toast('Could not open that conversation. Please try again.','alert');return;}
+  await sendMessage([data.text,data.url].filter(Boolean).join('\n\n'),{replyToId:null});
+  if(!files.length)return;
+  let completed=0;
+  for(const file of files)if(await sendStoredChatAttachment(file,{replyToId:null}))completed++;
+  toast(completed?(completed===files.length?'Post and media sent':'Post sent; '+completed+' of '+files.length+' media files sent'):'Post link sent, but the media could not be sent.',completed?'check':'alert');
 }
 
 let businessPostShareSearchTimer=null,businessPostShareSearchRequest=0;
@@ -14198,6 +14242,7 @@ document.addEventListener('click', async e => {
     case 'biz-comments': await openBusinessPostComments(a); break;
     case 'biz-share': await openBusinessPostShareSheet(a); break;
     case 'biz-share-external': await shareBusinessPostExternal(a); break;
+    case 'biz-copy-post': await copyBusinessPostLink(a); break;
     case 'biz-download': await downloadBusinessPostMedia(a); break;
     case 'biz-send-post': await sendBusinessPostToUser(a,b); break;
     case 'biz-media': await openBusinessPostMedia(a,Number(b)||0); break;
