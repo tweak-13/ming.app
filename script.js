@@ -1193,7 +1193,7 @@ async function loadMingNotifications() {
         const [likesResult, commentsResult] = await Promise.all([
           supabaseClient
             .from('daily_update_likes')
-            .select('id, update_id, user_id, created_at')
+            .select('update_id, user_id, created_at')
             .in('update_id', postIds)
             .neq('user_id', session.user.id)
             .order('created_at', { ascending: false })
@@ -1243,7 +1243,7 @@ async function loadMingNotifications() {
         likeRows.forEach(row => {
           const post = postById.get(row.update_id);
           if (!post) return;
-          const id = 'post_like_' + row.id;
+          const id = 'post_like_' + row.update_id + '_' + row.user_id + '_' + new Date(row.created_at).getTime();
           next.push({
             id,
             type: 'like',
