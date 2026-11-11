@@ -9301,8 +9301,9 @@ document.addEventListener('click', async e => {
       message.viewedAt=response.headers.get('X-View-Once-At')||new Date().toISOString();
       message.viewOncePlayback=isVoice;
       message.viewOnceFinished=false;
+      let audio=null;
       if(isVoice){
-        const audio=new Audio(objectUrl);
+        audio=new Audio(objectUrl);
         audio.preload='auto';
         audio.playbackRate=1;
         message.viewOnceAudio=audio;
