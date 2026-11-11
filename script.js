@@ -8081,6 +8081,62 @@ function viewAvatar() {
   });
 }
 
+function viewPublicAvatar(personId) {
+  const person = byId(personId);
+  if (!person?.avatarUrl) {
+    toast('This member has not added a profile photo.', 'alert');
+    return;
+  }
+  openModal({
+    title: esc(person.name || person.short || 'Profile photo'),
+    fields: `<div class="public-profile-photo-viewer"><img id="public-profile-photo-zoom" src="${esc(person.avatarUrl)}" alt="${esc((person.name || 'Member') + ' profile photo')}" data-zoom="1"></div><p class="public-profile-photo-hint">Tap the photo or use the controls to zoom. Pinch to zoom on supported touch screens.</p>`,
+    actions: [
+      { t: '−', cls: 'btn--soft', a: 'photo-zoom-out' },
+      { t: 'Reset', cls: 'btn--soft', a: 'photo-zoom-reset' },
+      { t: '+', cls: 'btn--soft', a: 'photo-zoom-in' },
+      { t: 'Close', cls: 'btn--primary', a: 'close-modal' }
+    ]
+  });
+  const photo = $('#public-profile-photo-zoom');
+  if (!photo) return;
+  let scale = 1, startDistance = 0, startScale = 1;
+  const applyZoom = value => {
+    scale = Math.max(1, Math.min(4, value));
+    photo.dataset.zoom = String(scale);
+    photo.style.transform = `scale(${scale})`;
+  };
+  photo.addEventListener('click', () => applyZoom(scale === 1 ? 2 : 1));
+  photo.addEventListener('wheel', event => {
+    event.preventDefault();
+    applyZoom(scale + (event.deltaY < 0 ? 0.2 : -0.2));
+  }, { passive: false });
+  photo.addEventListener('pointerdown', event => {
+    photo.setPointerCapture?.(event.pointerId);
+    photo._zoomPointers ||= new Map();
+    photo._zoomPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (photo._zoomPointers.size === 2) {
+      const pts = [...photo._zoomPointers.values()];
+      startDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      startScale = scale;
+    }
+  });
+  photo.addEventListener('pointermove', event => {
+    if (!photo._zoomPointers?.has(event.pointerId)) return;
+    photo._zoomPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (photo._zoomPointers.size === 2 && startDistance > 0) {
+      const pts = [...photo._zoomPointers.values()];
+      applyZoom(startScale * Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) / startDistance);
+    }
+  });
+  const releasePointer = event => {
+    photo._zoomPointers?.delete(event.pointerId);
+    if (!photo._zoomPointers?.size) startDistance = 0;
+  };
+  photo.addEventListener('pointerup', releasePointer);
+  photo.addEventListener('pointercancel', releasePointer);
+  photo.addEventListener('lostpointercapture', releasePointer);
+}
+
 function pickAvatar() {
   const input = document.createElement('input');
   input.type = 'file';
@@ -8354,7 +8410,9 @@ document.addEventListener('click', async e => {
   if (profileAvatar) {
     e.preventDefault();
     e.stopImmediatePropagation();
-    if (profileAvatar.hasAttribute('data-profile-self')) {
+    if (profileAvatar.closest('#screen-person') && state.activePerson) {
+      viewPublicAvatar(state.activePerson);
+    } else if (profileAvatar.hasAttribute('data-profile-self')) {
       setTab('profile');
     } else {
       await openPublicProfile(profileAvatar.dataset.profileId || '', profileAvatar.dataset.profileUsername || '');
@@ -8754,6 +8812,21 @@ document.addEventListener('click', async e => {
 
     case 'avatar-menu': openAvatarMenu(); break;
     case 'view-avatar': viewAvatar(); break;
+    case 'photo-zoom-in': {
+      const photo = $('#public-profile-photo-zoom');
+      if (photo) { const scale = Math.min(4, (Number(photo.dataset.zoom) || 1) + 0.5); photo.dataset.zoom = String(scale); photo.style.transform = `scale(${scale})`; }
+      break;
+    }
+    case 'photo-zoom-out': {
+      const photo = $('#public-profile-photo-zoom');
+      if (photo) { const scale = Math.max(1, (Number(photo.dataset.zoom) || 1) - 0.5); photo.dataset.zoom = String(scale); photo.style.transform = `scale(${scale})`; }
+      break;
+    }
+    case 'photo-zoom-reset': {
+      const photo = $('#public-profile-photo-zoom');
+      if (photo) { photo.dataset.zoom = '1'; photo.style.transform = 'scale(1)'; }
+      break;
+    }
     case 'pick-avatar': pickAvatar(); break;
     case 'avatar-crop-cancel':
       if (pendingAvatarObjectUrl) URL.revokeObjectURL(pendingAvatarObjectUrl);
