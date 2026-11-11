@@ -4073,78 +4073,89 @@ function confirmBlockTweaklrUser(personId) {
   });
 }
 
-async function loadMingMessages() {  try {
+let mingMessagesLoadedForUser = null;
+let mingMessagesLoadPromise = null;
+
+async function loadMingMessages(options = {}) {
+  try {
     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
     if (sessionError || !session?.user) return false;
+    const userId = session.user.id;
+    const force = options.force === true;
 
-    const { data: rows, error } = await supabaseClient
-      .from('messages')
-      .select('id, sender_id, recipient_id, body, created_at, read_at, message_type, voice_path, voice_duration, reply_to_id, attachment_path, attachment_name, attachment_mime, attachment_size, view_once, viewed_at')
-      .or(`sender_id.eq.${session.user.id},recipient_id.eq.${session.user.id}`)
-      .order('created_at', { ascending: true });
+    if (!force && mingMessagesLoadedForUser === userId) return true;
+    if (!force && mingMessagesLoadPromise) return mingMessagesLoadPromise;
 
-    if (error) {
-      console.warn('Tweaklr: messages backend is not ready yet.', error.message);
-      return false;
-    }
+    const loadPromise = (async () => {
+      // Fetch messages and per-user hidden IDs together; neither query depends
+      // on the other, so opening Messages does not pay their combined latency.
+      const [messagesResult, hiddenResult] = await Promise.all([
+        supabaseClient
+          .from('messages')
+          .select('id, sender_id, recipient_id, body, created_at, read_at, message_type, voice_path, voice_duration, reply_to_id, attachment_path, attachment_name, attachment_mime, attachment_size, view_once, viewed_at')
+          .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
+          .order('created_at', { ascending: true }),
+        supabaseClient
+          .from('message_hidden_for_users')
+          .select('message_id')
+          .eq('user_id', userId)
+      ]);
 
-    // "Delete for me" is persisted separately so a hidden message stays
-    // hidden after refresh without deleting it for the other participant.
-    let hiddenMessageIds = new Set();
-    const { data: hiddenRows, error: hiddenError } = await supabaseClient
-      .from('message_hidden_for_users')
-      .select('message_id')
-      .eq('user_id', session.user.id);
+      const { data: rows, error } = messagesResult;
+      if (error) {
+        console.warn('Tweaklr: messages backend is not ready yet.', error.message);
+        return false;
+      }
 
-    if (hiddenError) {
-      // The delete migration may not have been run yet. Keep normal
-      // messaging working rather than breaking the whole Messages screen.
-      console.warn('Tweaklr: message hide list is not ready yet.', hiddenError.message);
-    } else {
-      hiddenMessageIds = new Set((hiddenRows || []).map(row => row.message_id));
-    }
+      let hiddenMessageIds = new Set();
+      if (hiddenResult.error) {
+        // Keep messaging usable when the optional hide migration is absent.
+        console.warn('Tweaklr: message hide list is not ready yet.', hiddenResult.error.message);
+      } else {
+        hiddenMessageIds = new Set((hiddenResult.data || []).map(row => row.message_id));
+      }
 
-    const byConversation = new Map();
-
-    (rows || []).forEach(row => {
-      if (hiddenMessageIds.has(row.id)) return;
-
-      const otherId = row.sender_id === session.user.id ? row.recipient_id : row.sender_id;
-      const c = byConversation.get(otherId) || {
-        id: 'c_' + otherId,
-        personId: otherId,
-        unread: 0,
-        messages: []
-      };
-
-      c.messages.push({
-        id: row.id,
-        me: row.sender_id === session.user.id,
-        text: row.body,
-        at: new Date(row.created_at).getTime(),
-        read: !!row.read_at,
-        type: row.message_type || 'text',
-        voicePath: row.voice_path || '',
-        voiceDuration: row.voice_duration || 0,
-        replyToId: row.reply_to_id || null,
-        attachmentPath: row.attachment_path || '',
-        attachmentName: row.attachment_name || '',
-        attachmentMime: row.attachment_mime || '',
-        attachmentSize: Number(row.attachment_size || 0),
-        viewOnce: !!row.view_once,
-        viewedAt: row.viewed_at || null
+      const byConversation = new Map();
+      (rows || []).forEach(row => {
+        if (hiddenMessageIds.has(row.id)) return;
+        const otherId = row.sender_id === userId ? row.recipient_id : row.sender_id;
+        const c = byConversation.get(otherId) || {
+          id: 'c_' + otherId, personId: otherId, unread: 0, messages: []
+        };
+        c.messages.push({
+          id: row.id,
+          me: row.sender_id === userId,
+          text: row.body,
+          at: new Date(row.created_at).getTime(),
+          read: !!row.read_at,
+          type: row.message_type || 'text',
+          voicePath: row.voice_path || '',
+          voiceDuration: row.voice_duration || 0,
+          replyToId: row.reply_to_id || null,
+          attachmentPath: row.attachment_path || '',
+          attachmentName: row.attachment_name || '',
+          attachmentMime: row.attachment_mime || '',
+          attachmentSize: Number(row.attachment_size || 0),
+          viewOnce: !!row.view_once,
+          viewedAt: row.viewed_at || null
+        });
+        if (row.recipient_id === userId && !row.read_at) c.unread += 1;
+        byConversation.set(otherId, c);
       });
 
-      if (row.recipient_id === session.user.id && !row.read_at) c.unread += 1;
-      byConversation.set(otherId, c);
-    });
+      conversations = Array.from(byConversation.values());
+      mingMessagesLoadedForUser = userId;
+      updateProfileMessageUnreadBadge();
+      return true;
+    })();
 
-    conversations = Array.from(byConversation.values());
-    updateProfileMessageUnreadBadge();
-    return true;
+    if (!force) mingMessagesLoadPromise = loadPromise;
+    return await loadPromise;
   } catch (error) {
     console.warn('Tweaklr: message load failed.', error);
     return false;
+  } finally {
+    if (mingMessagesLoadPromise) mingMessagesLoadPromise = null;
   }
 }
 
@@ -5622,12 +5633,14 @@ async function openChat(personId) {
   if (!p) return;
 
   if (isUuidPerson(personId)) {
-    const blocksReady = await refreshTweaklrBlocks();
+    const [blocksReady] = await Promise.all([
+      refreshTweaklrBlocks(),
+      mingMessagesLoadedForUser === currentUser.id ? Promise.resolve(true) : loadMingMessages()
+    ]);
     if (blocksReady && tweaklrBlockedUserIds.has(personId)) {
       toast('You have blocked this person. Unblock them in Settings to message again.', 'alert');
       return;
     }
-    await loadMingMessages();
     await markMingConversationRead(personId);
   }
 
@@ -5757,7 +5770,58 @@ function renderChatAttachment(m) {
   return '<button type="button" class="chat-attachment chat-attachment--file" data-chat-attachment="'+esc(path)+'" data-chat-attachment-download="true"><span class="chat-attachment-file-icon">'+icon('note')+'</span><span class="chat-attachment-file-copy"><strong>'+esc(name)+'</strong><small>'+esc(mime||'File')+(size?' · '+esc(size):'')+'</small></span><span class="go">'+icon('chev')+'</span></button>';
 }
 function formatChatFileSize(bytes){const n=Number(bytes||0);if(!n)return '';if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(0)+' KB';return (n/1048576).toFixed(1)+' MB';}
-async function hydrateChatAttachments(){for(const node of $$('[data-chat-attachment]')){const path=node.dataset.chatAttachment;if(!path)continue;const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,3600);if(error||!data?.signedUrl){const l=node.querySelector('.chat-attachment-loading');if(l)l.textContent='Attachment unavailable';continue;}const img=node.querySelector('[data-chat-attachment-image]');if(img){img.onload=()=>{img.hidden=false;node.querySelector('.chat-attachment-loading')?.remove();node.removeAttribute('data-chat-attachment');node.removeAttribute('aria-label');};img.onerror=()=>{img.hidden=true;const l=node.querySelector('.chat-attachment-loading');if(l)l.textContent='Image could not be loaded';};img.src=data.signedUrl;}const video=node.querySelector('[data-chat-attachment-video]');if(video){video.onloadedmetadata=()=>{video.hidden=false;node.querySelector('.chat-attachment-loading')?.remove();node.removeAttribute('data-chat-attachment');node.removeAttribute('aria-label');};video.onerror=()=>{video.hidden=true;const l=node.querySelector('.chat-attachment-loading');if(l)l.textContent='Video could not be loaded';};video.src=data.signedUrl;}}}
+async function hydrateChatAttachments() {
+  const nodes = $('[data-chat-attachment]');
+  await Promise.all(nodes.map(async node => {
+    const path = node.dataset.chatAttachment;
+    if (!path || node.dataset.chatHydration === 'loading' || node.dataset.chatHydration === 'ready') return;
+    const img = node.querySelector('[data-chat-attachment-image]');
+    const video = node.querySelector('[data-chat-attachment-video]');
+    if (!img && !video) return;
+
+    node.dataset.chatHydration = 'loading';
+    try {
+      const { data, error } = await supabaseClient.storage
+        .from('ming-message-files')
+        .createSignedUrl(path, 3600);
+      if (error || !data?.signedUrl) throw error || new Error('No signed URL');
+
+      const finish = () => {
+        node.dataset.chatHydration = 'ready';
+        node.querySelector('.chat-attachment-loading')?.remove();
+        node.removeAttribute('data-chat-attachment');
+        node.removeAttribute('aria-label');
+      };
+      const fail = message => {
+        node.dataset.chatHydration = '';
+        const loading = node.querySelector('.chat-attachment-loading');
+        if (loading) loading.textContent = message;
+      };
+
+      if (img) {
+        img.onload = finish;
+        img.onerror = () => {
+          img.hidden = true;
+          fail('Image could not be loaded');
+        };
+        img.hidden = false;
+        img.src = data.signedUrl;
+      } else if (video) {
+        video.onloadedmetadata = finish;
+        video.onerror = () => {
+          video.hidden = true;
+          fail('Video could not be loaded');
+        };
+        video.hidden = false;
+        video.src = data.signedUrl;
+      }
+    } catch (error) {
+      node.dataset.chatHydration = '';
+      const loading = node.querySelector('.chat-attachment-loading');
+      if (loading) loading.textContent = 'Attachment unavailable';
+    }
+  }));
+}
 
 function renderVoiceMessage(m) {
   const rawSeconds = Number(m.voiceDuration);
