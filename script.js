@@ -4254,6 +4254,13 @@ let chatReplyTarget = null;
 let chatRecording = null;
 let chatRecordChunks = [];
 let chatRecordStartedAt = 0;
+let chatRecordStream = null;
+let chatRecordTimer = null;
+let chatRecordElapsedMs = 0;
+let chatRecordSegmentStartedAt = 0;
+let chatVoiceDraft = null;
+let chatVoiceDraftUrl = '';
+let chatVoiceDiscarding = false;
 const chatVoiceUrls = new Map();
 const MING_CHAT_MAX_FILE_BYTES=50*1024*1024;
 const MING_CHAT_ALLOWED_MIME=new Set(['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif','video/mp4','video/webm','video/quicktime','video/x-m4v','application/pdf','text/plain','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation']);
@@ -6352,9 +6359,80 @@ async function sendMessage(text, options = {}) {
   const t=$('#chat-thread'); if(t) t.scrollTop=t.scrollHeight;
 }
 
+function formatChatVoiceTime(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
+}
+
+function chatVoiceElapsed() {
+  return chatRecordElapsedMs + (chatRecording?.state === 'recording' ? Date.now() - chatRecordSegmentStartedAt : 0);
+}
+
+function updateChatVoicePanel() {
+  const panel = $('#chat-recording-panel');
+  const label = $('#chat-recording-label');
+  const time = $('#chat-recording-time');
+  const pause = $('#chat-recording-pause');
+  const finish = $('#chat-recording-finish');
+  const send = $('#chat-recording-send');
+  const preview = $('#chat-voice-preview');
+  if (!panel) return;
+  const recording = !!chatRecording && chatRecording.state !== 'inactive';
+  const paused = !!chatRecording && chatRecording.state === 'paused';
+  const hasDraft = !!chatVoiceDraft;
+  panel.hidden = !recording && !hasDraft;
+  panel.classList.toggle('is-recording', recording && !paused);
+  panel.classList.toggle('is-paused', paused);
+  if (label) label.textContent = hasDraft ? 'Voice note ready to send' : (paused ? 'Recording paused' : 'Recording voice note');
+  if (time) time.textContent = formatChatVoiceTime(hasDraft ? chatVoiceElapsed() : chatVoiceElapsed());
+  if (pause) { pause.hidden = !recording; pause.textContent = paused ? 'Resume' : 'Pause'; }
+  if (finish) finish.hidden = !recording;
+  if (send) { send.hidden = !hasDraft; send.disabled = !hasDraft; }
+  if (preview) preview.hidden = !hasDraft;
+  const indicator = $('#chat-recording-indicator');
+  if (indicator) indicator.hidden = hasDraft;
+  const mic = $('#chat-voice');
+  if (mic) mic.classList.toggle('is-recording', recording);
+  if (mic) mic.setAttribute('aria-label', recording ? 'Finish voice recording' : (hasDraft ? 'Voice note ready' : 'Record voice note'));
+}
+
+function clearChatVoiceDraft() {
+  if (chatVoiceDraftUrl) URL.revokeObjectURL(chatVoiceDraftUrl);
+  chatVoiceDraftUrl = '';
+  chatVoiceDraft = null;
+  const preview = $('#chat-voice-preview');
+  if (preview) { preview.pause(); preview.removeAttribute('src'); preview.load(); preview.hidden = true; }
+  if (chatRecordTimer) clearInterval(chatRecordTimer);
+  chatRecordTimer = null;
+  chatRecordElapsedMs = 0;
+  chatRecordSegmentStartedAt = 0;
+  chatVoiceDiscarding = false;
+  updateChatVoicePanel();
+}
+
+function stopChatVoiceStream() {
+  if (chatRecordTimer) clearInterval(chatRecordTimer);
+  chatRecordTimer = null;
+  chatRecordStream?.getTracks().forEach(track => track.stop());
+  chatRecordStream = null;
+}
+
+function finishChatVoiceRecording(discard = false) {
+  if (!chatRecording || chatRecording.state === 'inactive') return;
+  chatVoiceDiscarding = discard;
+  if (chatRecording.state === 'recording') {
+    chatRecordElapsedMs += Date.now() - chatRecordSegmentStartedAt;
+  }
+  chatRecording.stop();
+}
+
 async function recordVoiceNote() {
+  if (chatVoiceDraft) {
+    toast('Send or delete the current voice note first.', 'alert');
+    return;
+  }
   if (chatRecording) {
-    chatRecording.stop();
+    finishChatVoiceRecording(false);
     return;
   }
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
@@ -6367,66 +6445,114 @@ async function recordVoiceNote() {
   }
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chatRecordStream = stream;
+    const preferred = ['audio/webm;codecs=opus', 'audio/webm'];
+    const mime = preferred.find(type => MediaRecorder.isTypeSupported(type)) || '';
+    const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     chatRecordChunks = [];
-    chatRecordStartedAt = Date.now();
-    chatRecording = new MediaRecorder(stream, { mimeType:mime });
-    $('#chat-voice')?.classList.add('is-recording');
-    $('#chat-input').placeholder = 'Recording voice note… tap mic to stop';
-    chatRecording.ondataavailable = e => { if (e.data.size) chatRecordChunks.push(e.data); };
-    chatRecording.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      $('#chat-voice')?.classList.remove('is-recording');
-      $('#chat-input').placeholder = 'Message';
-      const duration = Math.max(1, Math.round((Date.now() - chatRecordStartedAt) / 1000));
-      const blob = new Blob(chatRecordChunks, { type:mime });
+    chatRecordElapsedMs = 0;
+    chatRecordSegmentStartedAt = Date.now();
+    chatVoiceDiscarding = false;
+    chatRecording = recorder;
+    recorder.ondataavailable = event => { if (event.data?.size) chatRecordChunks.push(event.data); };
+    recorder.onstop = () => {
+      const duration = Math.max(1, Math.round(chatRecordElapsedMs / 1000));
+      const blob = new Blob(chatRecordChunks, { type: recorder.mimeType || mime || 'audio/webm' });
       chatRecording = null;
       chatRecordChunks = [];
-      await uploadVoiceNote(blob, duration);
+      stopChatVoiceStream();
+      if (chatVoiceDiscarding || !blob.size) {
+        clearChatVoiceDraft();
+        return;
+      }
+      chatVoiceDraft = { blob, duration };
+      if (chatVoiceDraftUrl) URL.revokeObjectURL(chatVoiceDraftUrl);
+      chatVoiceDraftUrl = URL.createObjectURL(blob);
+      const preview = $('#chat-voice-preview');
+      if (preview) preview.src = chatVoiceDraftUrl;
+      updateChatVoicePanel();
     };
-    chatRecording.start();
-  } catch (e) {
+    recorder.onerror = () => {
+      chatRecording = null;
+      chatRecordChunks = [];
+      stopChatVoiceStream();
+      clearChatVoiceDraft();
+      toast('The voice note could not be recorded.', 'alert');
+    };
+    recorder.start(250);
+    if (chatRecordTimer) clearInterval(chatRecordTimer);
+    chatRecordTimer = setInterval(updateChatVoicePanel, 250);
+    updateChatVoicePanel();
+  } catch (error) {
+    stopChatVoiceStream();
+    chatRecording = null;
+    updateChatVoicePanel();
     toast('Microphone permission was not granted.', 'alert');
   }
 }
 
+async function sendChatVoiceDraft() {
+  if (!chatVoiceDraft || !$('#chat-recording-send') || $('#chat-recording-send').disabled) return;
+  const button = $('#chat-recording-send');
+  button.disabled = true;
+  button.textContent = 'Sending…';
+  const sent = await uploadVoiceNote(chatVoiceDraft.blob, chatVoiceDraft.duration);
+  if (sent) {
+    clearChatVoiceDraft();
+  } else {
+    button.disabled = false;
+    button.textContent = 'Send';
+  }
+}
+
 async function uploadVoiceNote(blob, duration) {
-  const { data:{session} } = await supabaseClient.auth.getSession();
-  if (!session?.user) return;
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session?.user) { toast('Please sign in again.', 'alert'); return false; }
   const path = `${session.user.id}/${crypto.randomUUID()}.webm`;
-  const { error:uploadError } = await supabaseClient.storage.from('ming-voice').upload(path, blob, { contentType:blob.type, upsert:false });
+  const { error: uploadError } = await supabaseClient.storage.from('ming-voice').upload(path, blob, { contentType: blob.type || 'audio/webm', upsert: false });
   if (uploadError) {
     toast('Could not upload voice note. Run supabase_message_extras.sql first.', 'alert');
-    return;
+    return false;
   }
 
   const replyToId = chatReplyTarget?.id || null;
+  const viewOnce = !!$('#chat-view-once')?.checked;
   const direct = await supabaseClient.from('messages').insert({
-    sender_id:session.user.id, recipient_id:state.activeChat, body:'',
-    message_type:'voice', voice_path:path, voice_duration:duration, reply_to_id:replyToId, view_once:!!$('#chat-view-once')?.checked
+    sender_id: session.user.id, recipient_id: state.activeChat, body: '',
+    message_type: 'voice', voice_path: path, voice_duration: duration, reply_to_id: replyToId, view_once: viewOnce
   }).select('id,sender_id,recipient_id,body,created_at,read_at,message_type,voice_path,voice_duration,reply_to_id,attachment_path,attachment_name,attachment_mime,attachment_size,view_once,viewed_at').single();
 
-  let row=direct.data, error=direct.error;
-  if(error && !$('#chat-view-once')?.checked) {
-    const rpc=await supabaseClient.rpc('ming_send_message_v2',{
-      p_recipient_id:state.activeChat,p_body:'',p_message_type:'voice',
-      p_voice_path:path,p_voice_duration:duration,p_reply_to_id:replyToId
+  let row = direct.data, error = direct.error;
+  if (error && !viewOnce) {
+    const rpc = await supabaseClient.rpc('ming_send_message_v2', {
+      p_recipient_id: state.activeChat, p_body: '', p_message_type: 'voice',
+      p_voice_path: path, p_voice_duration: duration, p_reply_to_id: replyToId
     });
-    row=Array.isArray(rpc.data)?rpc.data[0]:rpc.data; error=rpc.error;
+    row = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
+    error = rpc.error;
   }
-  if(error||!row) {
+  if (error || !row) {
     await supabaseClient.storage.from('ming-voice').remove([path]).catch(() => {});
     toast(error?.message || 'Could not save voice note.', 'alert');
-    return;
+    return false;
   }
 
-  const c=convoFor(state.activeChat);
-  c.messages.push({id:row.id,me:true,text:'',at:new Date(row.created_at).getTime(),read:false,type:'voice',voicePath:path,voiceDuration:duration,replyToId:row.reply_to_id||null,attachmentPath:row.attachment_path||'',attachmentName:row.attachment_name||'',attachmentMime:row.attachment_mime||'',attachmentSize:Number(row.attachment_size||0),viewOnce:!!row.view_once,viewedAt:row.viewed_at||null,reactions:[]});
-  const viewOnceToggle=$('#chat-view-once');if(viewOnceToggle)viewOnceToggle.checked=false;
+  const c = convoFor(state.activeChat);
+  c.messages.push({
+    id: row.id, me: true, text: '', at: new Date(row.created_at).getTime(), read: false,
+    type: 'voice', voicePath: path, voiceDuration: duration, replyToId: row.reply_to_id || null,
+    attachmentPath: row.attachment_path || '', attachmentName: row.attachment_name || '',
+    attachmentMime: row.attachment_mime || '', attachmentSize: Number(row.attachment_size || 0),
+    viewOnce: !!row.view_once, viewedAt: row.viewed_at || null, reactions: []
+  });
+  const viewOnceToggle = $('#chat-view-once');
+  if (viewOnceToggle) viewOnceToggle.checked = false;
   clearChatReply();
   renderThread();
-  const t=$('#chat-thread'); if(t) t.scrollTop=t.scrollHeight;
+  const thread = $('#chat-thread');
+  if (thread) thread.scrollTop = thread.scrollHeight;
+  return true;
 }
 
 document.addEventListener('input',e=>{const seek=e.target.closest('[data-voice-seek]');if(!seek)return;const player=seek.closest('[data-voice-player]');const audio=player?.querySelector('[data-voice-path]')?._audio;if(audio&&Number.isFinite(audio.duration))audio.currentTime=(Number(seek.value)/Number(seek.max))*audio.duration;});
@@ -8835,6 +8961,23 @@ $('#chat-form').addEventListener('submit', async e => {
   sendMessage(v, { replyToId: chatReplyTarget?.id || null });
 });
 $('#chat-voice').addEventListener('click', recordVoiceNote);
+$('#chat-recording-pause').addEventListener('click', () => {
+  if (!chatRecording) return;
+  if (chatRecording.state === 'recording') {
+    chatRecordElapsedMs += Date.now() - chatRecordSegmentStartedAt;
+    chatRecording.pause();
+  } else if (chatRecording.state === 'paused') {
+    chatRecordSegmentStartedAt = Date.now();
+    chatRecording.resume();
+  }
+  updateChatVoicePanel();
+});
+$('#chat-recording-finish').addEventListener('click', () => finishChatVoiceRecording(false));
+$('#chat-recording-delete').addEventListener('click', () => {
+  if (chatRecording && chatRecording.state !== 'inactive') finishChatVoiceRecording(true);
+  else clearChatVoiceDraft();
+});
+$('#chat-recording-send').addEventListener('click', sendChatVoiceDraft);
 $('#chat-attach').addEventListener('click',()=>{const input=$('#chat-attachment-input');if(!input)return;try{if(typeof input.showPicker==='function')input.showPicker();else input.click();}catch(_){input.click();}});
 $('#chat-attachment-input').addEventListener('change',async e=>{await chooseChatAttachment(e.target.files?.[0]||null);chatSend.disabled=!chatInput.value.trim()&&!pendingChatAttachment;});
 chatInput.addEventListener('keydown', e => {
