@@ -9287,8 +9287,33 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
     };
     seek.addEventListener('input',seekAudio);
     seek.addEventListener('change',seekAudio);
-    seek.addEventListener('pointerdown',()=>{seek.dataset.userSeeking='true';});
-    const finishSeeking=()=>{delete seek.dataset.userSeeking;seekAudio();};
+    // Use pointer coordinates rather than native range dragging. This is
+    // reliable on mobile browsers where the range thumb may not seek audio.
+    const seekFromPointer=event=>{
+      const duration=validDuration();
+      const rect=seek.getBoundingClientRect();
+      if(!duration||!rect.width)return;
+      const fraction=Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width));
+      seek.value=String(Math.round(fraction*1000));
+      seekAudio();
+    };
+    seek.addEventListener('pointerdown',event=>{
+      if(event.pointerType==='mouse'&&event.button!==0)return;
+      seek.dataset.userSeeking='true';
+      try{seek.setPointerCapture(event.pointerId);}catch(_){}
+      seekFromPointer(event);
+      event.preventDefault();
+    });
+    seek.addEventListener('pointermove',event=>{
+      if(seek.dataset.userSeeking==='true')seekFromPointer(event);
+    });
+    const finishSeeking=event=>{
+      if(seek.dataset.userSeeking!=='true')return;
+      if(event&&Number.isFinite(event.clientX))seekFromPointer(event);
+      delete seek.dataset.userSeeking;
+      seekAudio();
+      try{if(event&&seek.hasPointerCapture(event.pointerId))seek.releasePointerCapture(event.pointerId);}catch(_){}
+    };
     seek.addEventListener('pointerup',finishSeeking);
     seek.addEventListener('pointercancel',finishSeeking);
   }
