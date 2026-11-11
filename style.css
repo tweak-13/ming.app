@@ -6798,3 +6798,53 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 @media(prefers-reduced-motion:reduce) {
   .sheet:has(.tw-share-panel) *, .sheet:has(.tw-share-panel) *::before, .sheet:has(.tw-share-panel) *::after { transition:none!important;animation:none!important; }
 }
+
+
+/* Post like count: separate tap target from the like/unlike action */
+.like-control {
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  min-height:34px;
+}
+.like-control > .act {
+  min-width:34px;
+  min-height:34px;
+}
+.like-count {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:25px;
+  min-height:34px;
+  padding:0 5px;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:var(--muted);
+  font:inherit;
+  font-size:12px;
+  font-weight:750;
+  font-variant-numeric:tabular-nums;
+  cursor:pointer;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease);
+}
+.like-count:active { background:var(--surface-2);color:var(--burgundy); }
+.like-count:focus-visible { outline:2px solid var(--coffee-light);outline-offset:2px; }
+.post-likers-list { display:grid;gap:3px;padding:2px 0 8px; }
+.post-liker-row {
+  display:flex;align-items:center;gap:12px;min-height:62px;padding:8px 10px;
+  border:1px solid transparent;border-radius:15px;
+  background:linear-gradient(110deg,var(--surface-2),transparent);
+}
+.post-liker-identity { display:flex;flex:1;min-width:0;flex-direction:column;gap:3px; }
+.post-liker-identity b { overflow:hidden;color:var(--text);font-size:13px;font-weight:760;text-overflow:ellipsis;white-space:nowrap; }
+.post-liker-identity small { overflow:hidden;color:var(--muted);font-size:10.5px;text-overflow:ellipsis;white-space:nowrap; }
+.post-liker-heart { color:var(--burgundy);font-size:14px;opacity:.85; }
+.post-likers-empty,.post-likers-loading {
+  display:flex;min-height:150px;flex-direction:column;align-items:center;justify-content:center;gap:7px;
+  color:var(--muted);text-align:center;
+}
+.post-likers-empty > span { color:var(--burgundy);font-size:27px; }
+.post-likers-empty b { color:var(--text);font-size:13px; }
+.post-likers-empty small,.post-likers-loading p { margin:0;font-size:11px; }
