@@ -9285,13 +9285,28 @@ document.addEventListener('click', async e => {
       renderThread();
 
       if(isVoice){
-        const audio=new Audio(objectUrl);
+        const audio=document.createElement('audio');
+        audio.controls=true;
+        audio.autoplay=true;
         audio.preload='auto';
-        const release=()=>URL.revokeObjectURL(objectUrl);
+        audio.src=objectUrl;
+        audio.style.width='100%';
+        audio.style.maxWidth='260px';
+        const bubble=Array.from(document.querySelectorAll('#chat-thread .chat-bubble'))
+          .find(node=>node.dataset.messageId===String(messageId));
+        const stateNode=bubble?.querySelector('.chat-view-once-state');
+        if(stateNode)stateNode.appendChild(audio);
+        const release=()=>{
+          URL.revokeObjectURL(objectUrl);
+          audio.remove();
+        };
         audio.addEventListener('ended',release,{once:true});
-        audio.addEventListener('error',release,{once:true});
-        try{await audio.play();}
-        catch(playError){release();throw playError;}
+        audio.addEventListener('error',()=>{
+          toast('This voice note is opened, but the audio could not be played.','alert');
+        },{once:true});
+        audio.play().catch(()=>{
+          toast('Tap play on the audio control to hear this one-time note.','alert');
+        });
       }else{
         popup.location.href=objectUrl;
         // The server will not issue this media again. Revoke the local object
