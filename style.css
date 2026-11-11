@@ -6848,3 +6848,44 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 .post-likers-empty > span { color:var(--burgundy);font-size:27px; }
 .post-likers-empty b { color:var(--text);font-size:13px; }
 .post-likers-empty small,.post-likers-loading p { margin:0;font-size:11px; }
+
+
+/* PROFILE HERO — give the page title and its two controls a clearer,
+   more substantial touch target without changing other navigation headers. */
+#screen-profile > .topbar {
+  padding-top: calc(var(--safe-t) + 24px);
+  padding-bottom: 24px;
+}
+#screen-profile > .topbar .topbar-row {
+  min-height: 56px;
+  gap: 14px;
+}
+#screen-profile > .topbar .topbar-title {
+  font-size: 27px;
+  line-height: 1.15;
+  font-weight: 720;
+  letter-spacing: -.035em;
+}
+#screen-profile > .topbar .icon-btn {
+  width: 54px;
+  height: 54px;
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+#screen-profile > .topbar .icon-btn svg,
+#screen-profile > .topbar .theme-toggle .tt-icon {
+  width: 24px;
+  height: 24px;
+}
+#screen-profile > .topbar .theme-toggle .tt-halo {
+  inset: -5px;
+}
+@media (max-width: 360px) {
+  #screen-profile > .topbar {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  #screen-profile > .topbar .topbar-row { gap: 9px; }
+  #screen-profile > .topbar .topbar-title { font-size: 25px; }
+  #screen-profile > .topbar .icon-btn { width: 50px; height: 50px; }
+}
