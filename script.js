@@ -9138,8 +9138,8 @@ document.addEventListener('click', async e => {
         /* A comment notification should open the conversation itself, not
            merely send the user to their profile or leave an older sheet open. */
         closeSheet();
-        setTab('home');
         await loadHome();
+        setTab('home');
         const post = document.getElementById('upd-' + n.updateId);
         if (post) post.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await openComments(n.updateId);
