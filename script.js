@@ -5633,6 +5633,109 @@ async function subscribeMingMessages() {
     });
 }
 
+let mingAppRealtimeChannel = null;
+let mingAppRealtimeRefreshTimer = null;
+const mingAppRealtimePendingTables = new Set();
+
+function scheduleMingAppRealtimeRefresh(tableName, eventType) {
+  mingAppRealtimePendingTables.add(tableName + ':' + eventType);
+  if (mingAppRealtimeRefreshTimer) clearTimeout(mingAppRealtimeRefreshTimer);
+  mingAppRealtimeRefreshTimer = setTimeout(async () => {
+    mingAppRealtimeRefreshTimer = null;
+    const changed = new Set([...mingAppRealtimePendingTables].map(value => value.split(':')[0]));
+    mingAppRealtimePendingTables.clear();
+
+    try {
+      const has = name => changed.has(name);
+      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments');
+      const feedChanged = has('daily_updates') || has('daily_update_likes') || has('daily_update_comments');
+      const connectionChanged = has('connections');
+      const profileChanged = has('profiles');
+      const spacesChanged = has('ming_space_content') || has('ming_space_members');
+
+      const jobs = [];
+      if (postActivityChanged || connectionChanged) jobs.push(loadMingNotifications());
+      if (connectionChanged) jobs.push(loadMingConnections());
+      if (feedChanged) jobs.push(loadMingDailyUpdates());
+      if (profileChanged && !changed.has('connections')) jobs.push(refreshMingCurrentUserProfile());
+      if (has('discover_places') || has('saved_discover_places')) jobs.push(loadMingDiscoverContent());
+      if (spacesChanged && typeof Server !== 'undefined' && Server.load) jobs.push(loadSpacesFromDatabase());
+
+      await Promise.all(jobs);
+
+      if (feedChanged) {
+        if (state.loaded.home) renderHome();
+        if (state.loaded.profile) renderProfile();
+      }
+      if (connectionChanged) {
+        if (state.loaded.home) renderHomePeople();
+        if (state.tab === 'connections') renderConnections();
+      }
+      if (profileChanged) {
+        if (state.loaded.home) renderHomePeople();
+        if (state.loaded.profile) renderProfile();
+      }
+      if (has('discover_places') || has('saved_discover_places')) {
+        if (state.loaded.discover) renderDiscover();
+      }
+      if (spacesChanged) {
+        if (sp.activeId && spaceById(sp.activeId)) refreshSpace();
+        if (state.tab === 'spaces') renderSpaces();
+      }
+      if (postActivityChanged) {
+        updateNotifDot();
+        if (state.tab === 'notifications') renderNotifications();
+      }
+    } catch (error) {
+      console.warn('Tweaklr: app realtime refresh failed.', error);
+    }
+  }, 180);
+}
+
+async function subscribeMingAppRealtime() {
+  if (mingAppRealtimeChannel) return;
+  const { data: { session }, error } = await supabaseClient.auth.getSession();
+  if (error || !session?.user) return;
+
+  await supabaseClient.realtime.setAuth(session.access_token);
+  const channel = supabaseClient.channel('tweaklr-app-live-' + session.user.id);
+
+  const watch = (table, events = ['INSERT', 'UPDATE', 'DELETE']) => {
+    events.forEach(event => {
+      channel.on('postgres_changes', {
+        event,
+        schema: 'public',
+        table
+      }, payload => {
+        scheduleMingAppRealtimeRefresh(table, payload.eventType || event);
+      });
+    });
+  };
+
+  watch('connections');
+  watch('daily_updates');
+  watch('daily_update_likes');
+  watch('daily_update_comments');
+  watch('profiles', ['UPDATE']);
+  watch('ming_space_content');
+  watch('ming_space_members');
+  watch('discover_places');
+  watch('saved_discover_places');
+
+  mingAppRealtimeChannel = channel;
+  channel.subscribe(status => {
+    if (status === 'SUBSCRIBED') {
+      // Reconcile once after joining so events missed while offline are recovered.
+      scheduleMingAppRealtimeRefresh('daily_updates', 'SYNC');
+      scheduleMingAppRealtimeRefresh('daily_update_likes', 'SYNC');
+      scheduleMingAppRealtimeRefresh('connections', 'SYNC');
+      scheduleMingAppRealtimeRefresh('ming_space_content', 'SYNC');
+    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+      console.warn('Tweaklr: app realtime updates are temporarily unavailable.', status);
+    }
+  });
+}
+
 function convoFor(personId) {
   let c = conversations.find(x => x.personId === personId);
   if (!c) {
@@ -9725,6 +9828,7 @@ async function boot() {
   setupMingNotificationAudioUnlock();
   await loadMingNotifications();
   await subscribeMingMessages();
+  await subscribeMingAppRealtime();
   await loadMingDailyUpdates();
   startMingCallInbox();
   void ensureMingPushReady({ prompt: false });
