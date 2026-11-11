@@ -5904,7 +5904,7 @@ function renderVoiceMessage(m) {
         '<button type="button" class="chat-voice-play" data-voice-path="view-once" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button>'+
         '<div class="chat-voice-track">'+
           '<input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />'+
-          '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>'+formatChatVoiceTime(seconds*1000)+'</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>'+
+          '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>0.00 / '+(seconds?seconds.toFixed(2):'0.00')+'</span><span class="chat-voice-transport"><button type="button" class="chat-voice-skip" data-voice-skip="-10" aria-label="Rewind 10 seconds">−10</button><button type="button" class="chat-voice-skip" data-voice-skip="10" aria-label="Fast forward 10 seconds">+10</button><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></span></div>'+
         '</div>'+
       '</div>';
     }
@@ -9304,16 +9304,16 @@ document.addEventListener('pointercancel', () => {
 
 
 /* Shared playback engine for normal and view-once voice notes. */
-function bindChatVoicePlayer(audio, voiceBtn, onEnded) {
+function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
   const player=voiceBtn?.closest('[data-voice-player]');
   const seek=player?.querySelector('[data-voice-seek]');
   const time=player?.querySelector('[data-voice-time]');
-  const fmt=v=>Number.isFinite(Number(v))&&Number(v)>=0?(()=>{const n=Math.floor(v);return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');})():'--:--';
+  const fmt=v=>{const n=Number(v);if(!Number.isFinite(n)||n<0)return options.decimal?'0.00':'--:--';return options.decimal?n.toFixed(2):(()=>{const whole=Math.floor(n);return Math.floor(whole/60)+':'+String(whole%60).padStart(2,'0');})();};
   const validDuration=()=>Number.isFinite(audio.duration)&&audio.duration>0?audio.duration:0;
   audio.addEventListener('loadedmetadata',()=>{
     const duration=validDuration();
     if(seek&&duration){seek.max=Math.max(1,Math.floor(duration*1000));seek.value='0';}
-    if(time)time.textContent=duration?fmt(duration):'0:00 / --:--';
+    if(time)time.textContent=duration?(options.decimal?'0.00 / '+fmt(duration):fmt(duration)):(options.decimal?'0.00 / 0.00':'0:00 / --:--');
   });
   audio.addEventListener('durationchange',()=>{
     const duration=validDuration();
@@ -9335,7 +9335,7 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded) {
   audio.addEventListener('ended',()=>{
     if(voiceBtn){voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';voiceBtn.setAttribute('aria-label','Replay voice note');}
     if(seek){seek.value='0';seek.style.setProperty('--voice-progress','0%');}
-    if(time)time.textContent=fmt(audio.duration);
+    if(time)time.textContent=fmt(audio.duration)+' / '+fmt(audio.duration);
     if(typeof onEnded==='function')onEnded({audio,voiceBtn,seek,time,formatTime:fmt});
   });
   audio.addEventListener('error',()=>{
@@ -9414,7 +9414,7 @@ document.addEventListener('click', async e => {
         bindChatVoicePlayer(audio,oncePlayButton,()=>{
           if(!message.viewOnceExpiryAt){
             message.viewOnceEnded=true;
-            message.viewOnceExpiryAt=Date.now()+20000;
+            message.viewOnceExpiryAt=Date.now()+30000;
             message.viewOnceExpiryTimer=setTimeout(()=>{
               message.viewOnceFinished=true;
               message.viewOncePlayback=false;
@@ -9425,9 +9425,9 @@ document.addEventListener('click', async e => {
               URL.revokeObjectURL(objectUrl);
               message.viewOnceExpiryAt=null;
               renderThread();
-            },20000);
+            },30000);
           }
-        });
+        },{decimal:true});
         const player=getPlayer();
         const playButton=player?.querySelector('[data-voice-path]');
         if(playButton)playButton._audio=audio;
@@ -9459,6 +9459,18 @@ document.addEventListener('click', async e => {
   }
   const attachmentBtn=e.target.closest('[data-chat-attachment]');
   if(attachmentBtn){e.stopPropagation();if(attachmentBtn.querySelector('[data-chat-attachment-video]'))return;const path=attachmentBtn.dataset.chatAttachment;if(!path)return;let url=attachmentBtn.dataset.chatAttachmentUrl;if(!url){const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,3600);if(error||!data?.signedUrl){toast('Could not open attachment.','alert');return;}url=data.signedUrl;}window.open(url,'_blank','noopener');return;}
+  const skipBtn=e.target.closest('[data-voice-skip]');
+  if(skipBtn){
+    e.preventDefault();e.stopPropagation();
+    const player=skipBtn.closest('[data-voice-player]');
+    const play=player?.querySelector('[data-voice-path]');
+    const audio=play?._audio;
+    if(audio&&Number.isFinite(audio.duration)&&audio.duration>0){
+      const delta=Number(skipBtn.dataset.voiceSkip)||0;
+      audio.currentTime=Math.max(0,Math.min(audio.duration,audio.currentTime+delta));
+    }
+    return;
+  }
   const speedBtn=e.target.closest('[data-voice-speed]');
   if(speedBtn){
     e.preventDefault();e.stopPropagation();
