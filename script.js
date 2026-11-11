@@ -5904,7 +5904,7 @@ function renderVoiceMessage(m) {
         '<button type="button" class="chat-voice-play" data-voice-path="view-once" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button>'+
         '<div class="chat-voice-track">'+
           '<input type="range" class="chat-voice-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />'+
-          '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>0.00 / '+(seconds?seconds.toFixed(2):'0.00')+'</span><span class="chat-voice-transport"><button type="button" class="chat-voice-skip" data-voice-skip="-10" aria-label="Rewind 10 seconds">−10</button><button type="button" class="chat-voice-skip" data-voice-skip="10" aria-label="Fast forward 10 seconds">+10</button><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></span></div>'+
+          '<div class="chat-voice-meta"><span class="chat-voice-duration" data-voice-time>0.00 / '+(seconds?seconds.toFixed(2):'0.00')+'</span><button type="button" class="chat-voice-speed" data-voice-speed aria-label="Playback speed">1×</button></div>'+
         '</div>'+
       '</div>';
     }
@@ -6734,7 +6734,7 @@ document.addEventListener('input',e=>{
   seek.style.setProperty('--voice-progress',progress+'%');
   const player=seek.closest('[data-voice-player]');
   const button=player?.querySelector('[data-voice-path]');
-  const audio=button?._audio;
+  const audio=button?._audio||player?._audio;
   if(!audio||!Number.isFinite(audio.duration)||audio.duration<=0)return;
   const target=(value/max)*audio.duration;
   try{audio.currentTime=target;}catch(_){}
@@ -6745,7 +6745,7 @@ document.addEventListener('change',e=>{
   delete seek.dataset.userSeeking;
   const player=seek.closest('[data-voice-player]');
   const button=player?.querySelector('[data-voice-path]');
-  const audio=button?._audio;
+  const audio=button?._audio||player?._audio;
   if(!audio||!Number.isFinite(audio.duration)||audio.duration<=0)return;
   const max=Number(seek.max)||1000;
   const value=Math.max(0,Math.min(max,Number(seek.value)||0));
@@ -9409,6 +9409,7 @@ document.addEventListener('click', async e => {
         const fmt=v=>Number.isFinite(Number(v))&&Number(v)>=0?(()=>{const n=Math.floor(Number(v));return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');})():'--:--';
         const validDuration=()=>Number.isFinite(audio.duration)&&audio.duration>0?audio.duration:0;
         if(oncePlayButton)oncePlayButton._audio=audio;
+        if(oncePlayer)oncePlayer._audio=audio;
 
         // Use the normal player's shared controls; only expiry is view-once-specific.
         bindChatVoicePlayer(audio,oncePlayButton,()=>{
@@ -9459,18 +9460,6 @@ document.addEventListener('click', async e => {
   }
   const attachmentBtn=e.target.closest('[data-chat-attachment]');
   if(attachmentBtn){e.stopPropagation();if(attachmentBtn.querySelector('[data-chat-attachment-video]'))return;const path=attachmentBtn.dataset.chatAttachment;if(!path)return;let url=attachmentBtn.dataset.chatAttachmentUrl;if(!url){const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,3600);if(error||!data?.signedUrl){toast('Could not open attachment.','alert');return;}url=data.signedUrl;}window.open(url,'_blank','noopener');return;}
-  const skipBtn=e.target.closest('[data-voice-skip]');
-  if(skipBtn){
-    e.preventDefault();e.stopPropagation();
-    const player=skipBtn.closest('[data-voice-player]');
-    const play=player?.querySelector('[data-voice-path]');
-    const audio=play?._audio;
-    if(audio&&Number.isFinite(audio.duration)&&audio.duration>0){
-      const delta=Number(skipBtn.dataset.voiceSkip)||0;
-      audio.currentTime=Math.max(0,Math.min(audio.duration,audio.currentTime+delta));
-    }
-    return;
-  }
   const speedBtn=e.target.closest('[data-voice-speed]');
   if(speedBtn){
     e.preventDefault();e.stopPropagation();
