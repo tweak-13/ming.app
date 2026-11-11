@@ -5931,10 +5931,11 @@ function bindViewOnceVoicePlayer(audio, player, message) {
       toast('Tap play to continue listening to this voice note.', 'alert');
     });
   };
-  const onInput = () => {
+  const seekTo = fraction => {
     const total = duration();
     if (!total) return;
-    const target = (Math.max(0, Math.min(1000, Number(seek.value) || 0)) / 1000) * total;
+    const progress = Math.max(0, Math.min(1, fraction));
+    const target = progress * total;
     if (audio.paused) resumeAfterSeek = true;
 
     if (seekPendingHandler) {
@@ -5946,13 +5947,33 @@ function bindViewOnceVoicePlayer(audio, player, message) {
       seekPendingHandler = () => {
         seekPendingHandler = null;
         seekSettled = true;
-        if (!seek.matches(':active')) playAfterSeek();
+        playAfterSeek();
       };
       audio.addEventListener('seeked', seekPendingHandler, { once: true });
     }
-    try { audio.currentTime = target; } catch (_) {}
-    player.style.setProperty('--tw-vo-progress', ((target / total) * 100) + '%');
+    try {
+      audio.currentTime = target;
+      if (!audio.seeking && Math.abs((Number(audio.currentTime) || 0) - target) < 0.05) {
+        seekSettled = true;
+        if (seekPendingHandler) {
+          audio.removeEventListener('seeked', seekPendingHandler);
+          seekPendingHandler = null;
+        }
+      }
+    } catch (_) {}
+    seek.value = String(Math.round(progress * 1000));
+    player.style.setProperty('--tw-vo-progress', (progress * 100) + '%');
     time.textContent = format(target) + ' / ' + format(total);
+    if (seekSettled) playAfterSeek();
+  };
+  const onInput = () => {
+    seekTo((Math.max(0, Math.min(1000, Number(seek.value) || 0))) / 1000);
+  };
+  const onPointerSeek = event => {
+    const rect = seek.getBoundingClientRect();
+    if (!rect.width) return;
+    event.preventDefault();
+    seekTo((event.clientX - rect.left) / rect.width);
   };
   const onChange = () => {
     if (resumeAfterSeek && seekSettled && !audio.seeking) playAfterSeek();
@@ -6003,7 +6024,7 @@ function bindViewOnceVoicePlayer(audio, player, message) {
     toast('This one-time voice note could not be played.', 'alert');
   };
 
-  seek.addEventListener('input', onInput);
+  seek.addEventListener('input', onInput);\n  seek.addEventListener('pointerdown', onPointerSeek);
   seek.addEventListener('change', onChange);
   audio.addEventListener('loadedmetadata', onLoaded);
   audio.addEventListener('durationchange', onLoaded);
@@ -6014,7 +6035,7 @@ function bindViewOnceVoicePlayer(audio, player, message) {
   audio.addEventListener('error', onError);
 
   audio._tweaklrViewOnceCleanup = () => {
-    seek.removeEventListener('input', onInput);
+    seek.removeEventListener('input', onInput);\n    seek.removeEventListener('pointerdown', onPointerSeek);
     seek.removeEventListener('change', onChange);
     audio.removeEventListener('loadedmetadata', onLoaded);
     audio.removeEventListener('durationchange', onLoaded);
