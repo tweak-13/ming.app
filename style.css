@@ -334,8 +334,8 @@ img { display: block; max-width: 100%; }
 #screen-tweak > .topbar,
 #screen-moonflower > .topbar,
 #screen-profile > .topbar {
-  padding-top: var(--safe-t);
-  padding-bottom: 4px;
+  padding-top: calc(var(--safe-t) + 19px);
+  padding-bottom: 23px;
 }
 
 /* Scale header contents to match the reduced header height. */
@@ -347,7 +347,7 @@ img { display: block; max-width: 100%; }
 #screen-tweak > .topbar .topbar-row,
 #screen-moonflower > .topbar .topbar-row,
 #screen-profile > .topbar .topbar-row {
-  gap: 9px;
+  gap: 11px;
 }
 
 #screen-home > .topbar .brand {
@@ -358,7 +358,7 @@ img { display: block; max-width: 100%; }
 #screen-tweak > .topbar .topbar-title,
 #screen-moonflower > .topbar .topbar-title,
 #screen-profile > .topbar .topbar-title {
-  font-size: 17px;
+  font-size: 21px;
 }
 
 #screen-discover > .topbar .topbar-sub {
@@ -374,8 +374,8 @@ img { display: block; max-width: 100%; }
 #screen-tweak > .topbar .icon-btn,
 #screen-moonflower > .topbar .icon-btn,
 #screen-profile > .topbar .icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
 }
 
 #screen-home > .topbar .icon-btn svg,
@@ -392,8 +392,8 @@ img { display: block; max-width: 100%; }
 #screen-tweak > .topbar .theme-toggle .tt-icon,
 #screen-moonflower > .topbar .theme-toggle .tt-icon,
 #screen-profile > .topbar .theme-toggle .tt-icon {
-  width: 18px;
-  height: 18px;
+  width: 21px;
+  height: 21px;
 }
 
 #screen-home > .topbar .icon-btn .dot,
