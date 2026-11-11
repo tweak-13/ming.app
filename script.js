@@ -5899,7 +5899,7 @@ function renderVoiceMessage(m) {
   const seconds = Number.isFinite(rawSeconds) && rawSeconds > 0 ? rawSeconds : 0;
   if(m.viewOnce){
     if(m.viewedAt) return '<div class="chat-view-once-state">Opened</div>';
-    return '<div class="chat-voice-note"><button type="button" class="chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'">◉ Play once</button><span>Voice note · '+seconds+'s</span></div>';
+    return '<div class="chat-voice-note"><button type="button" class="chat-voice-play chat-view-once-button" data-view-once="voice" data-message-id="'+esc(m.id)+'" aria-label="Play voice note"><span class="chat-voice-play-icon" aria-hidden="true">▶</span></button><span class="chat-voice-duration">'+seconds+'s</span></div>';
   }
   if (!m.voicePath) {
     return `<div class="chat-voice-note"><span>🎙️</span><span>Voice note</span><span class="chat-voice-duration">${seconds}s</span></div>`;
