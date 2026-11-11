@@ -9134,7 +9134,16 @@ document.addEventListener('click', async e => {
         pushStack('connections');
       } else if (n.type === 'update') {
         setTab('home');
-      } else if ((n.type === 'like' || n.type === 'comment') && n.updateId) {
+      } else if (n.type === 'comment' && n.updateId) {
+        /* A comment notification should open the conversation itself, not
+           merely send the user to their profile or leave an older sheet open. */
+        closeSheet();
+        setTab('home');
+        await loadHome();
+        const post = document.getElementById('upd-' + n.updateId);
+        if (post) post.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await openComments(n.updateId);
+      } else if (n.type === 'like' && n.updateId) {
         profileContentTab = 'posts';
         setTab('profile');
         setTimeout(() => {
