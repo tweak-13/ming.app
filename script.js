@@ -4287,7 +4287,6 @@ let chatOnline = false;
 let chatReplyTarget = null;
 let chatRecording = null;
 let chatRecordChunks = [];
-let chatRecordStartedAt = 0;
 let chatRecordStream = null;
 let chatRecordTimer = null;
 let chatRecordElapsedMs = 0;
@@ -4295,7 +4294,6 @@ let chatRecordSegmentStartedAt = 0;
 let chatVoiceDraft = null;
 let chatVoiceDraftUrl = '';
 let chatVoiceDiscarding = false;
-const chatVoiceUrls = new Map();
 const MING_CHAT_MAX_FILE_BYTES=50*1024*1024;
 const MING_CHAT_ALLOWED_MIME=new Set(['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif','video/mp4','video/webm','video/quicktime','video/x-m4v','application/pdf','text/plain','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation']);
 let pendingChatAttachment=null;
@@ -4317,8 +4315,6 @@ let mingCallOutboundChannel = null;
 let mingCallOutboundChannelPromise = null;
 let mingCallOutboundTarget = null;
 let mingCallPeerChannel = null;
-let mingCallPeerSubscribed = false;
-let mingCallPeerId = null;
 let mingCall = null;
 let mingIncomingCall = null;
 let mingCallTimer = null;
@@ -4326,7 +4322,6 @@ let mingCallFailureTimer = null;
 let mingCallStartedAt = 0;
 let mingCallRemoteStream = null;
 let mingCallPendingIce = [];
-let mingCallOutgoingIce = [];
 let mingServiceWorkerRegistration = null;
 let mingPushReady = false;
 
@@ -4403,11 +4398,6 @@ function waitForMingIceGatheringComplete(pc, timeoutMs = 8000) {
 
 function callTopicFor(userId) {
   return 'ming:call:' + userId;
-}
-
-function callSessionTopicFor(callId, a, b) {
-  const users = [String(a || ''), String(b || '')].sort();
-  return 'ming:call:' + callId + ':' + users[0] + ':' + users[1];
 }
 
 function setCallStatus(text) {
@@ -4511,15 +4501,6 @@ async function closeCallPeerChannel() {
   await closeMingCallOutboundChannel();
   if (mingCallPeerChannel) await supabaseClient.removeChannel(mingCallPeerChannel);
   mingCallPeerChannel = null;
-  mingCallPeerId = null;
-  mingCallPeerSubscribed = false;
-}
-
-async function ensureCallPeerChannel(targetId, callId = null) {
-  // Kept for compatibility with older call state. Call signaling now uses
-  // the recipient's private inbox exclusively, so a second per-call room
-  // cannot block negotiation.
-  return isUuidPerson(targetId) && isUuidPerson(currentUser.id) && !!(callId || mingCall?.callId);
 }
 
 async function ensureMingCallOutboundChannel(targetId) {
@@ -4863,7 +4844,6 @@ async function endMingCall({ notify = true, reason = 'ended' } = {}) {
   mingCallRemoteStream?.getTracks().forEach(track => track.stop());
   mingCallRemoteStream = null;
   mingCallPendingIce = [];
-  mingCallOutgoingIce = [];
   mingIncomingCall = null;
   mingCall = null;
   stopCallTimer();
@@ -5494,10 +5474,15 @@ async function subscribeMingMessages() {
         filter: 'sender_id=eq.' + session.user.id
       },
       payload => {
-        const row=payload.new;
-        const conversation=conversations.find(c=>c.personId===row.recipient_id);
-        const message=conversation?.messages.find(m=>String(m.id)===String(row.id));
-        if(message){message.viewedAt=row.viewed_at||null;renderThread();}
+        const row = payload.new;
+        const conversation = conversations.find(c => c.personId === row.recipient_id);
+        const message = conversation?.messages.find(m => String(m.id) === String(row.id));
+        if (!message) return;
+        message.text = row.body;
+        message.read = !!row.read_at;
+        message.viewedAt = row.viewed_at || null;
+        if (state.activeChat === row.recipient_id) renderThread();
+        if (state.loaded.messages) renderMessages();
       }
     )
     .on(
@@ -5553,25 +5538,6 @@ async function subscribeMingMessages() {
         if (state.loaded.messages) renderMessages();
         updateProfileMessageUnreadBadge();
         void loadMingNotifications().then(() => updateNotifDot());
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'messages',
-        filter: 'sender_id=eq.' + session.user.id
-      },
-      payload => {
-        const row = payload.new;
-        const c = conversations.find(x => x.personId === row.recipient_id);
-        const m = c?.messages.find(x => x.id === row.id);
-        if (!m) return;
-        m.text = row.body;
-        m.read = !!row.read_at;
-        if (state.activeChat === row.recipient_id) renderThread();
-        if (state.loaded.messages) renderMessages();
       }
     )
     .on(
