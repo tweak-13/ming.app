@@ -9064,28 +9064,61 @@ document.addEventListener('click', async e => {
   const attachmentBtn=e.target.closest('[data-chat-attachment]');
   if(attachmentBtn){e.stopPropagation();if(attachmentBtn.querySelector('[data-chat-attachment-video]'))return;const path=attachmentBtn.dataset.chatAttachment;if(!path)return;let url=attachmentBtn.dataset.chatAttachmentUrl;if(!url){const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,3600);if(error||!data?.signedUrl){toast('Could not open attachment.','alert');return;}url=data.signedUrl;}window.open(url,'_blank','noopener');return;}
   const speedBtn=e.target.closest('[data-voice-speed]');
-  if(speedBtn){e.stopPropagation();const player=speedBtn.closest('[data-voice-player]');const play=player?.querySelector('[data-voice-path]');const audio=play?._audio;if(!audio)return;const rates=[1,1.5,2];const next=rates[(rates.indexOf(audio.playbackRate)+1)%rates.length];audio.playbackRate=next;speedBtn.textContent=next+'×';return;}
+  if(speedBtn){
+    e.preventDefault();e.stopPropagation();
+    const player=speedBtn.closest('[data-voice-player]');
+    const play=player?.querySelector('[data-voice-path]');
+    if(!play)return;
+    const rates=[1,1.5,2];
+    const current=Number(speedBtn.dataset.rate||play._playbackRate||1);
+    const next=rates[(rates.indexOf(current)+1)%rates.length];
+    speedBtn.dataset.rate=String(next);
+    play._playbackRate=next;
+    if(play._audio)play._audio.playbackRate=next;
+    speedBtn.textContent=next+'×';
+    return;
+  }
   const voiceBtn=e.target.closest('[data-voice-path]');
-  if (voiceBtn) {
-    e.stopPropagation();
+  if(voiceBtn){
+    e.preventDefault();e.stopPropagation();
     const path=voiceBtn.dataset.voicePath;if(!path)return;
-    try {
+    try{
       let audio=voiceBtn._audio;
       if(!audio){
         const {data,error}=await supabaseClient.storage.from('ming-voice').createSignedUrl(path,3600);
-        if(error||!data?.signedUrl){toast('Could not load this voice note.','alert');return;}
-        audio=new Audio();audio.preload='metadata';audio.src=data.signedUrl;voiceBtn._audio=audio;
-        const player=voiceBtn.closest('[data-voice-player]');const seek=player?.querySelector('[data-voice-seek]');const time=player?.querySelector('[data-voice-time]');
+        if(error||!data?.signedUrl)throw error||new Error('Could not load this voice note.');
+        audio=new Audio();audio.preload='metadata';audio.src=data.signedUrl;
+        audio.playbackRate=Number(voiceBtn._playbackRate||1);
+        voiceBtn._audio=audio;
+        const player=voiceBtn.closest('[data-voice-player]');
+        const seek=player?.querySelector('[data-voice-seek]');
+        const time=player?.querySelector('[data-voice-time]');
+        const speed=player?.querySelector('[data-voice-speed]');
         const fmt=v=>{v=Math.max(0,Math.floor(v||0));return Math.floor(v/60)+':'+String(v%60).padStart(2,'0');};
-        audio.addEventListener('loadedmetadata',()=>{if(seek)seek.max=Math.max(1,Math.floor(audio.duration*1000));if(time)time.textContent=fmt(audio.duration);});
-        audio.addEventListener('timeupdate',()=>{if(seek&&!seek.matches(':active'))seek.value=Math.floor(audio.currentTime*1000);if(seek&&Number.isFinite(audio.duration)&&audio.duration>0)seek.style.setProperty('--voice-progress',((audio.currentTime/audio.duration)*100)+'%');if(time)time.textContent=fmt(audio.currentTime)+' / '+fmt(audio.duration);});
+        audio.addEventListener('loadedmetadata',()=>{
+          if(seek){seek.max=Math.max(1,Math.floor(audio.duration*1000));seek.value='0';}
+          if(time)time.textContent=fmt(audio.duration);
+        });
+        audio.addEventListener('timeupdate',()=>{
+          if(seek&&!seek.matches(':active'))seek.value=Math.floor(audio.currentTime*1000);
+          if(seek&&Number.isFinite(audio.duration)&&audio.duration>0)seek.style.setProperty('--voice-progress',((audio.currentTime/audio.duration)*100)+'%');
+          if(time)time.textContent=fmt(audio.currentTime)+' / '+fmt(audio.duration);
+        });
         audio.addEventListener('play',()=>{voiceBtn.innerHTML='<span class="chat-voice-pause-icon" aria-hidden="true">Ⅱ</span>';voiceBtn.setAttribute('aria-label','Pause voice note');});
         audio.addEventListener('pause',()=>{voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';voiceBtn.setAttribute('aria-label','Play voice note');});
-        audio.addEventListener('ended',()=>{voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';voiceBtn.setAttribute('aria-label','Replay voice note');if(seek)seek.value=0;if(time)time.textContent=fmt(audio.duration);});
-        audio.addEventListener('error',()=>{voiceBtn.textContent='▶';toast('This voice note could not be played.','alert');});
+        audio.addEventListener('ended',()=>{voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';voiceBtn.setAttribute('aria-label','Replay voice note');if(seek){seek.value=0;seek.style.setProperty('--voice-progress','0%');}if(time)time.textContent=fmt(audio.duration);});
+        audio.addEventListener('error',()=>{voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';toast('This voice note could not be played.','alert');});
       }
-      if(audio.paused){voiceBtn.textContent='…';await audio.play();voiceBtn.textContent='⏸';}else{audio.pause();}
-    }catch(error){console.error('Tweaklr voice playback failed:',error);voiceBtn.textContent='▶';toast('This voice note could not be played.','alert');}
+      if(audio.paused){
+        voiceBtn.disabled=true;
+        try{await audio.play();}finally{voiceBtn.disabled=false;}
+      }else audio.pause();
+    }catch(error){
+      console.error('Tweaklr voice playback failed:',error);
+      voiceBtn.disabled=false;
+      voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';
+      toast(error?.message||'This voice note could not be played.','alert');
+    }
     return;
   }
   const b=e.target.closest('[data-action^="chat-"]');
