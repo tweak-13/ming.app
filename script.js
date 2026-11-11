@@ -2430,9 +2430,10 @@ function updateCard(u) {
     <p>${esc(u.body)}</p>
     ${renderDailyUpdateMedia(u)}
     <div class="upd-foot">
-      <button class="act ${u.liked ? 'is-on' : ''}" data-action="like:${u.id}" aria-pressed="${u.liked}" aria-label="React to this update">
-        ${icon('heart')}<span>${u.likes}</span>
-      </button>
+      <span class="like-control">
+        <button class="act ${u.liked ? 'is-on' : ''}" data-action="like:${u.id}" aria-pressed="${u.liked}" aria-label="Like or unlike this post">${icon('heart')}</button>
+        <button type="button" class="like-count" data-action="post-likes:${u.id}" aria-label="See ${u.likes} people who liked this post" title="See who liked this post">${u.likes}</button>
+      </span>
       <button class="act" data-action="comments:${u.id}" aria-label="Open replies">
         ${icon('chat')}<span>${u.commentsCount ?? u.comments.length}</span>
       </button>
@@ -2532,6 +2533,47 @@ async function copyTweaklrShareText(value) {
   } catch (_) {
     return false;
   }
+}
+
+
+function renderPostLikerRows(rows) {
+  if (!rows?.length) return '<div class="post-likers-empty"><span>♡</span><b>No likes yet</b><small>Be the first to show some love.</small></div>';
+  return '<div class="post-likers-list">' + rows.map(row => {
+    const name = row.display_name || row.username || 'Tweaklr member';
+    const profile = { id: row.id, name, short: name.split(' ')[0] || name,
+      username: row.username ? '@' + String(row.username).replace(/^@/, '') : '',
+      avatarUrl: row.avatar_url || '', hue: 24 };
+    return '<div class="post-liker-row">' + avatar(profile, 44) +
+      '<span class="post-liker-identity"><b>' + esc(name) + '</b><small>' + esc(profile.username || 'Tweaklr member') + '</small></span>' +
+      '<span class="post-liker-heart" aria-hidden="true">♥</span></div>';
+  }).join('') + '</div>';
+}
+
+async function openPostLikersSheet(postId, kind) {
+  const business = kind === 'business';
+  const post = business
+    ? Server.db.content.find(item => item.id === postId && item.spaceId === sp.activeId && item.kind === 'business_post')
+    : dailyUpdates.find(item => item.id === postId);
+  if (!post) { toast('This post is no longer available.', 'alert'); return; }
+  const count = business ? Number(post.likeCount || 0) : Number(post.likes || 0);
+  openSheet({ title: 'Liked by', sub: count === 1 ? '1 person showed some love' : count + ' people showed some love',
+    body: '<div class="post-likers-loading"><span class="loader"></span><p>Finding everyone who liked this post…</p></div>' });
+  const sheetBody = $('#sheet-body');
+  if (sheetBody) sheetBody.dataset.likersKey = kind + ':' + postId;
+  const { data, error } = await supabaseClient.rpc(
+    business ? 'get_ming_business_space_post_likers' : 'get_daily_update_likers',
+    business ? { p_content_id: postId } : { p_update_id: postId }
+  );
+  if (!sheetBody || sheetBody.dataset.likersKey !== kind + ':' + postId) return;
+  if (error) {
+    console.warn('Tweaklr: post likers could not be loaded.', error.message);
+    sheetBody.innerHTML = '<div class="post-likers-empty"><span>!</span><b>Could not load likes</b><small>Please try again in a moment.</small></div>';
+    return;
+  }
+  const rows = Array.isArray(data) ? data : [];
+  sheetBody.innerHTML = renderPostLikerRows(rows);
+  const head = $('#sheet-head');
+  if (head) head.innerHTML = '<h2>Liked by</h2><p>' + (rows.length === 1 ? '1 person liked this post' : rows.length + ' people liked this post') + '</p>';
 }
 
 async function shareDailyUpdate(id) {
@@ -2753,8 +2795,11 @@ async function toggleLike(id) {
     $$('[data-action="like:' + id + '"]').forEach(btn => {
       btn.classList.toggle('is-on', u.liked);
       btn.setAttribute('aria-pressed', String(u.liked));
-      const count = btn.querySelector('span');
-      if (count) count.textContent = u.likes;
+      const count = btn.closest('.like-control')?.querySelector('.like-count');
+      if (count) {
+        count.textContent = u.likes;
+        count.setAttribute('aria-label', 'See ' + u.likes + ' people who liked this post');
+      }
       btn.classList.remove('bump');
       void btn.offsetWidth;
       btn.classList.add('bump');
@@ -8801,6 +8846,7 @@ document.addEventListener('click', async e => {
     case 'blocked-users': await openBlockedUsersSheet(); break;
     case 'block-current-chat': if (state.activeChat) confirmBlockTweaklrUser(state.activeChat); break;
     case 'like': toggleLike(arg); break;
+    case 'post-likes': await openPostLikersSheet(arg, 'daily'); break;
     case 'comments': openComments(arg); break;
     case 'share-update': await shareDailyUpdate(arg); break;
     case 'open-update-media': openDailyUpdateMedia(arg, arg2); break;
@@ -12018,7 +12064,7 @@ function businessUpdateCard(post, space) {
     '<h3>' + esc(post.title || (post.text ? 'Daily Update' : 'Daily Update')) + '</h3><p>' + esc(post.body || post.text || '') + '</p>' +
     businessPostMediaMarkup(post) +
     '<div class="upd-foot">' +
-      '<button class="act ' + (liked ? 'is-on' : '') + '" data-sp="biz-like:' + post.id + '" aria-pressed="' + liked + '" aria-label="React to this update">' + icon('heart') + '<span>' + likes + '</span></button>' +
+      '<span class="like-control"><button class="act ' + (liked ? 'is-on' : '') + '" data-sp="biz-like:' + post.id + '" aria-pressed="' + liked + '" aria-label="Like or unlike this post">' + icon('heart') + '</button><button type="button" class="like-count" data-sp="biz-likes:' + post.id + '" aria-label="See ' + likes + ' people who liked this post" title="See who liked this post">' + likes + '</button></span>' +
       '<button class="act" data-sp="biz-comments:' + post.id + '" aria-label="Open replies">' + icon('chat') + '<span>' + commentsCount + '</span></button>' +
       '<button class="act" data-sp="biz-share:' + post.id + '" aria-label="Share this update"><span aria-hidden="true">↗</span><span>Share</span></button>' +
 
@@ -14255,6 +14301,7 @@ document.addEventListener('click', async e => {
       refreshSpace(); toast('A little love has been sent ♡', 'check'); break;
     }
     case 'biz-compose': openBusinessUpdateComposer(); break;
+    case 'biz-likes': await openPostLikersSheet(a, 'business'); break;
     case 'biz-like': {
       const post=Server.db.content.find(x=>x.id===a&&x.spaceId===sp.activeId&&x.kind==='business_post');
       if(!post)break;
