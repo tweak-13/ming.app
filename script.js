@@ -5684,7 +5684,7 @@ function scheduleMingAppRealtimeRefresh(tableName, eventType) {
       }
       if (postActivityChanged) {
         updateNotifDot();
-        if (state.tab === 'notifications') renderNotifications();
+        if (state.stack.includes('notifications')) renderNotifications();
       }
     } catch (error) {
       console.warn('Tweaklr: app realtime refresh failed.', error);
