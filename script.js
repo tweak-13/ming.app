@@ -5614,7 +5614,52 @@ async function subscribeMingMessages() {
         if (state.loaded.messages) renderMessages();
       }
     )
-    .subscribe();
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'message_reactions'
+      },
+      payload => {
+        const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
+        if (!row?.message_id) return;
+
+        const conversation = conversations.find(c =>
+          c.messages.some(message => String(message.id) === String(row.message_id))
+        );
+        if (!conversation) return;
+
+        const message = conversation.messages.find(item =>
+          String(item.id) === String(row.message_id)
+        );
+        if (!message) return;
+
+        const reactions = message.reactions || [];
+        if (payload.eventType === 'DELETE') {
+          message.reactions = reactions.filter(reaction =>
+            row.id
+              ? String(reaction.id) !== String(row.id)
+              : !(reaction.user_id === row.user_id && reaction.message_id === row.message_id)
+          );
+        } else {
+          const index = reactions.findIndex(reaction =>
+            (row.id && String(reaction.id) === String(row.id)) ||
+            (reaction.user_id === row.user_id)
+          );
+          message.reactions = reactions.slice();
+          if (index >= 0) message.reactions[index] = row;
+          else message.reactions.push(row);
+        }
+
+        if (state.activeChat === conversation.personId) renderThread();
+      }
+    )
+    .subscribe((status, error) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        console.warn('Tweaklr: message reaction live updates are unavailable.', status, error || '');
+      }
+    });
 }
 
 function convoFor(personId) {
@@ -5759,7 +5804,7 @@ async function loadChatReactions(c) {
   if (!ids.length) return;
   const { data, error } = await supabaseClient
     .from('message_reactions')
-    .select('message_id,user_id,emoji')
+    .select('id,message_id,user_id,emoji')
     .in('message_id', ids);
   if (error) return;
   const grouped = new Map();
