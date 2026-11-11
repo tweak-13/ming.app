@@ -6024,7 +6024,8 @@ function bindViewOnceVoicePlayer(audio, player, message) {
     toast('This one-time voice note could not be played.', 'alert');
   };
 
-  seek.addEventListener('input', onInput);\n  seek.addEventListener('pointerdown', onPointerSeek);
+  seek.addEventListener('input', onInput);
+  seek.addEventListener('pointerdown', onPointerSeek);
   seek.addEventListener('change', onChange);
   audio.addEventListener('loadedmetadata', onLoaded);
   audio.addEventListener('durationchange', onLoaded);
@@ -6035,7 +6036,8 @@ function bindViewOnceVoicePlayer(audio, player, message) {
   audio.addEventListener('error', onError);
 
   audio._tweaklrViewOnceCleanup = () => {
-    seek.removeEventListener('input', onInput);\n    seek.removeEventListener('pointerdown', onPointerSeek);
+    seek.removeEventListener('input', onInput);
+    seek.removeEventListener('pointerdown', onPointerSeek);
     seek.removeEventListener('change', onChange);
     audio.removeEventListener('loadedmetadata', onLoaded);
     audio.removeEventListener('durationchange', onLoaded);
