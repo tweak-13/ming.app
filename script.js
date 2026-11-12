@@ -2112,7 +2112,46 @@ function stopWatching() {
   state.geoWatchId = null;
 }
 
+function validateTweaklrBrowserLocationFix(pos) {
+  // Browser geolocation is only trusted in a secure context (HTTPS).
+  if (!window.isSecureContext) return 'Location requires a secure connection';
+
+  const c = pos && pos.coords;
+  const timestamp = Number(pos && pos.timestamp);
+  const nowMs = Date.now();
+
+  if (!c || !Number.isFinite(Number(c.latitude)) || !Number.isFinite(Number(c.longitude)) ||
+      Number(c.latitude) < -90 || Number(c.latitude) > 90 ||
+      Number(c.longitude) < -180 || Number(c.longitude) > 180) {
+    return 'The device returned invalid coordinates';
+  }
+
+  if (!Number.isFinite(timestamp) || timestamp > nowMs + 30000 || nowMs - timestamp > 10 * 60 * 1000) {
+    return 'The location timestamp is invalid or too old';
+  }
+
+  const accuracy = Number(c.accuracy);
+  if (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > 50000) {
+    return 'The reported location accuracy is not valid';
+  }
+
+  // A browser cannot prove that a location is genuine. This only catches
+  // obviously impossible reported sensor values; server checks remain decisive.
+  if (c.speed != null && Number.isFinite(Number(c.speed)) && Number(c.speed) > (350 / 3.6)) {
+    return 'The reported movement speed could not be verified';
+  }
+
+  return '';
+}
+
 function acceptFix(pos, announce) {
+  const integrityIssue = validateTweaklrBrowserLocationFix(pos);
+  if (integrityIssue) {
+    console.warn('Tweaklr location integrity check:', integrityIssue);
+    toast('Location could not be verified. Please refresh your location.', 'shield');
+    return false;
+  }
+
   const c = pos.coords;
   const prev = state.userLocation;
 
@@ -2170,6 +2209,7 @@ function acceptFix(pos, announce) {
   if (announce) {
     toast('Location on — your coordinates stay on your device', 'shield');
   }
+  return true;
 }
 
 function handleGeoError(err) {
