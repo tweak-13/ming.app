@@ -9122,7 +9122,9 @@ document.addEventListener('click', async e => {
         toast('Could not save read status. Please try again.', 'alert');
         break;
       }
-      n.read = true;
+      /* Remove acknowledged notifications from the inbox immediately.
+         The backend read receipt prevents them from returning after refresh. */
+      notifications = notifications.filter(item => item.id !== n.id);
       renderNotifications();
       updateNotifDot();
 
