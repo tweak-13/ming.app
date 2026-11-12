@@ -4152,7 +4152,9 @@ async function loadPublicConnectionCount(personId) {
 }
 
 function openPerson(id) {
-  const p = byId(id);
+  // Public Connections entries are loaded from the public-connections RPC and
+  // cached separately from the local discovery/connection list.
+  const p = byId(id) || mingConnectionProfiles.get(id);
   if (!p) return;
   // Keep the currently opened public profile resolvable by its Connections action.
   mingConnectionProfiles.set(id, p);
