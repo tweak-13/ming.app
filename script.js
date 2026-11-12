@@ -3979,9 +3979,15 @@ function openPerson(id) {
       </div>
     </div>
     <div class="public-profile-stats" aria-label="Public profile statistics">
-      <div class="public-profile-stat"><strong>${publicLikes.toLocaleString()}</strong><span>Likes received</span></div>
-      <div class="public-profile-stat"><strong>${theirUpdates.length.toLocaleString()}</strong><span>Live updates</span></div>
-      <div class="public-profile-stat"><strong data-public-connection-count>${isUuidPerson(id) ? "…" : "0"}</strong><span>Connections</span></div>
+      <button type="button" class="public-profile-stat" data-action="public-likes:${p.id}" aria-label="View ${esc(p.short)}'s updates with likes">
+        <strong>${publicLikes.toLocaleString()}</strong><span>Likes received</span>
+      </button>
+      <button type="button" class="public-profile-stat" data-action="public-updates:${p.id}" aria-label="View ${esc(p.short)}'s live updates">
+        <strong>${theirUpdates.length.toLocaleString()}</strong><span>Live updates</span>
+      </button>
+      <button type="button" class="public-profile-stat" data-action="public-connections:${p.id}" aria-label="View ${esc(p.short)}'s connections">
+        <strong data-public-connection-count>${isUuidPerson(id) ? "…" : "0"}</strong><span>Connections</span>
+      </button>
     </div>
     <div class="pmeta"><p class="bio">${esc(p.bio || 'This member has not added a bio yet.')}</p></div>
     <div class="now">
@@ -4000,7 +4006,10 @@ function openPerson(id) {
       <div class="tags">${(Array.isArray(p.interests) ? p.interests : []).map(i => `<span class="tag-pill">${esc(i)}</span>`).join('') || '<span class="u">No interests added yet.</span>'}</div>
     </div>
     ${Array.isArray(p.tags) && p.tags.length ? `<div class="section">${sectionHead('Likes & preferences')}<div class="tags">${p.tags.map(tag => `<span class="tag-pill">${esc(tag)}</span>`).join('')}</div></div>` : ''}
-    <div class="section">${sectionHead('Daily Updates', 'Gone in 24 hours')}
+    <div class="section" id="public-profile-likes" hidden>${sectionHead('Updates with likes', 'Most liked first')}
+      ${theirUpdates.filter(update => Math.max(0, Number(update.likes) || 0) > 0).sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0)).map(updateCard).join('') || emptyState('No likes received yet', `${p.short} has no active updates with likes right now.`)}
+    </div>
+    <div class="section" id="public-profile-updates">${sectionHead('Daily Updates', 'Gone in 24 hours')}
       ${theirUpdates.length ? theirUpdates.map(updateCard).join('') : emptyState('Nothing shared today', `${p.short} has not posted an update in the last 24 hours.`)}
     </div>
     <div class="privacy-note" style="margin-bottom:8px">${icon('shield')}
@@ -4053,6 +4062,74 @@ function renderConnections() {
   $('#connections-body').innerHTML =
     (connectionRequests.length ? `<div class="section" style="margin-top:14px">${sectionHead('Requests', `${connectionRequests.length} waiting`)}${reqs}</div>` : '') +
     `<div class="section">${sectionHead('Your connections', `${connections.length} people`)}${list}</div>`;
+}
+
+async function openPublicConnections(personId) {
+  const person = byId(personId);
+  if (!person || !isUuidPerson(personId)) {
+    toast('This member’s connections are not available.', 'alert');
+    return;
+  }
+
+  const body = $('#connections-body');
+  const title = $('#screen-connections .topbar-title');
+  const subtitle = $('#conn-sub');
+  if (title) title.textContent = person.short + "'s Connections";
+  if (subtitle) subtitle.textContent = 'Loading connections…';
+  if (body) body.innerHTML = '<div class="section">' + emptyState('Loading connections', 'Please wait while we load this member’s public connections.') + '</div>';
+  pushStack('connections');
+
+  try {
+    const { data, error } = await supabaseClient.rpc('get_public_user_connections', {
+      p_user_id: personId
+    });
+    if (error) throw error;
+
+    const profiles = (data || []).map(profile => {
+      const name = profile.display_name || 'Tweaklr user';
+      const interests = Array.isArray(profile.interests) ? profile.interests : [];
+      const tags = Array.isArray(profile.tags) ? profile.tags : [];
+      const item = {
+        ...(mingConnectionProfiles.get(profile.id) || {}),
+        id: profile.id,
+        name,
+        short: name,
+        username: profile.username ? '@' + profile.username.replace(/^@/, '') : '',
+        avatarUrl: profile.avatar_url || '',
+        bio: profile.bio || '',
+        headline: profile.headline || '',
+        tag: profile.headline || tags.join(' · ') || 'Tweaklr member',
+        interests,
+        tags,
+        activity: profile.activity || '',
+        hue: 26,
+        km: null,
+        status: null,
+        visitor: false
+      };
+      mingConnectionProfiles.set(item.id, item);
+      return item;
+    });
+
+    if (subtitle) subtitle.textContent = profiles.length + ' public connections';
+    if (body) {
+      body.innerHTML = profiles.length
+        ? '<div class="section">' + profiles.map(profile => `
+            <div class="conn-card">
+              <button type="button" style="display:flex;gap:13px;flex:1;align-items:center;text-align:left" data-action="person:${profile.id}">
+                ${avatar(profile, 48)}
+                <span class="m"><span class="n" style="display:block">${esc(profile.name)}</span>
+                <span class="s" style="display:block">${esc(profile.tag)}</span></span>
+              </button>
+            </div>`).join('') + '</div>'
+        : '<div class="section">' + emptyState('No public connections to show', 'This member has no connections currently visible to you.') + '</div>';
+    }
+  } catch (error) {
+    console.error('Tweaklr: public connections could not be loaded:', error.message || error);
+    if (subtitle) subtitle.textContent = 'Could not load connections';
+    if (body) body.innerHTML = '<div class="section">' + emptyState('Connections unavailable', 'Please try again in a moment.') + '</div>';
+    toast('Could not load this member’s connections.', 'alert');
+  }
 }
 
 function connectWith(id) {
@@ -8872,6 +8949,23 @@ document.addEventListener('click', async e => {
     case 'tweak-connect': await beginTweakSetup(); break;
     case 'tweak-refresh': await loadTweakTikTokData(true); break;
     case 'person': openPerson(arg); break;
+    case 'public-connections': await openPublicConnections(arg); break;
+    case 'public-likes': {
+      if (state.activePerson !== arg) openPerson(arg);
+      const likes = $('#person-body #public-profile-likes');
+      const updates = $('#person-body #public-profile-updates');
+      if (likes) { likes.hidden = false; likes.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      if (updates) updates.hidden = true;
+      break;
+    }
+    case 'public-updates': {
+      if (state.activePerson !== arg) openPerson(arg);
+      const likes = $('#person-body #public-profile-likes');
+      const updates = $('#person-body #public-profile-updates');
+      if (likes) likes.hidden = true;
+      if (updates) { updates.hidden = false; updates.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      break;
+    }
     case 'block-user': confirmBlockTweaklrUser(arg); break;
     case 'confirm-block-user': await blockTweaklrUser(arg); break;
     case 'unblock-user': await unblockTweaklrUser(arg); break;
@@ -9107,6 +9201,8 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'go-connections': {
+      const connTitle = $('#screen-connections .topbar-title');
+      if (connTitle) connTitle.textContent = 'Connections';
       const loaded = await loadMingConnections();
       renderConnections();
       pushStack('connections');
