@@ -1354,6 +1354,33 @@ async function loadMingNotifications() {
       console.warn('Tweaklr: post activity notifications failed.', postNotificationError);
     }
 
+    /* Comments on Activities created by the current user. The RPC enforces ownership,
+       hides blocked actors, and exposes only the minimum notification fields. */
+    try {
+      const { data: activityCommentRows, error: activityCommentError } = await supabaseClient
+        .rpc('get_my_activity_comment_notifications');
+
+      if (activityCommentError) {
+        console.warn('Tweaklr: Activity comment notifications could not be loaded.', activityCommentError.message);
+      } else {
+        (activityCommentRows || []).forEach(row => {
+          const id = 'activity_comment_' + row.comment_id;
+          const actorName = row.actor_display_name || (row.actor_username ? '@' + String(row.actor_username).replace(/^@/, '') : 'Someone');
+          next.push({
+            id,
+            type: 'activity_comment',
+            personId: row.actor_id,
+            updateId: row.update_id,
+            text: '<b>' + esc(actorName) + '</b> commented on your Activity' + (row.activity_title ? ' “' + esc(row.activity_title) + '”' : '') + '.',
+            at: new Date(row.created_at).getTime(),
+            read: notificationReadIds.has(id)
+          });
+        });
+      }
+    } catch (activityCommentNotificationError) {
+      console.warn('Tweaklr: Activity comment notifications failed.', activityCommentNotificationError);
+    }
+
     /* Comment activity notifications: replies and likes on the current user's own comments. */
     try {
       const cutoff = new Date(Date.now() - TWEAKLR_NOTIFICATION_RETENTION_MS).toISOString();
@@ -8239,7 +8266,7 @@ function renderSearch(mode, q = '') {
 /* ------------------------------------------------------------
    NOTIFICATIONS
 ------------------------------------------------------------ */
-const NOTIF_ICON = { connect: 'users', update: 'spark', activity: 'spark', message: 'chat', nearby: 'pin', expiry: 'clock', request: 'users', like: 'heart', comment: 'chat' };
+const NOTIF_ICON = { connect: 'users', update: 'spark', activity: 'spark', activity_comment: 'chat', message: 'chat', nearby: 'pin', expiry: 'clock', request: 'users', like: 'heart', comment: 'chat' };
 
 function renderNotifications() {
   const host = $('#notif-body');
@@ -9654,6 +9681,12 @@ document.addEventListener('click', async e => {
         pushStack('connections');
       } else if (n.type === 'update') {
         setTab('home');
+      } else if (n.type === 'activity_comment' && n.updateId) {
+        closeSheet();
+        state.discoverFilter = 'all';
+        await loadDiscover();
+        setTab('discover');
+        await openActivitySheet(n.updateId);
       } else if (n.type === 'comment' && n.updateId) {
         /* A comment notification should open the conversation itself, not
            merely send the user to their profile or leave an older sheet open. */
