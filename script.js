@@ -8766,6 +8766,7 @@ async function openActivitySheet(id) {
     : '<div class="privacy-note" style="margin:18px 0 0">' + icon('lock') + '<p>Join this activity to unlock its private discussion and talk with the people attending.</p></div>';
   openSheet({
     activityKeyboard: true,
+    composerBack: true,
     title: a.title,
     sub: (a.startsAt ? new Date(a.startsAt).toLocaleString([], { weekday: 'long', hour: 'numeric', minute: '2-digit' }) : timeAgo(a.createdAt)) + ' · ' + (a.going || 0) + ' going',
     body: '<div style="display:flex;align-items:center;gap:12px;padding:6px 0 14px">' +
