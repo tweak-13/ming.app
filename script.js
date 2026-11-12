@@ -4386,32 +4386,29 @@ if (!document.documentElement.dataset.publicProfileScrollOnlyReady) {
   }, true);
 }
 
-// Route the public-profile Connections control at window capture phase,
-// ahead of document-level handlers that may intercept or swallow clicks.
-// Route member taps inside another user's Connections list before avatar/profile
-// handlers can intercept them. Close the elevated Connections layer first so the
-// selected member's profile is brought to the front instead of opening behind it.
+// Route every tap within a public Connections member row before generic avatar
+// handlers or delegated actions can consume it. Re-fetch the selected public
+// profile so navigation does not depend on the row's local cache entry.
 if (!window.__tweaklrPublicConnectionsClickReady) {
   window.__tweaklrPublicConnectionsClickReady = true;
   window.addEventListener('click', event => {
     const target = event.target;
-    const button = target && typeof target.closest === 'function'
-      ? target.closest('#screen-connections .conn-card button[data-action^="person:"]')
+    const row = target && typeof target.closest === 'function'
+      ? target.closest('#screen-connections [data-action^="person:"]')
       : null;
-    if (!button) return;
-    const personId = (button.getAttribute('data-action') || '').slice('person:'.length);
+    if (!row) return;
+    const personId = (row.getAttribute('data-action') || '').slice('person:'.length);
     if (!personId) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    // The Connections screen is stacked over the public profile. Pop it before
-    // rendering the selected member, otherwise the new profile remains obscured.
-    if (state.stack[state.stack.length - 1] === 'connections') popStack();
-    const person = mingConnectionProfiles.get(personId) || byId(personId);
-    if (!person) {
-      toast('This member’s profile is not available. Please refresh and try again.', 'alert');
-      return;
-    }
-    openPerson(personId);
+
+    // The public Connections screen is stacked above the profile being viewed.
+    // Remove that layer before loading the selected member's profile.
+    while (state.stack[state.stack.length - 1] === 'connections') popStack();
+    openPublicProfile(personId).catch(error => {
+      console.error('Tweaklr: could not open a public connection profile:', error);
+      toast('Could not open this member’s profile. Please try again.', 'alert');
+    });
   }, true);
 }
 
