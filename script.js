@@ -1758,7 +1758,11 @@ function pushStack(id) {
 function popStack() {
   const id = state.stack.pop();
   if (id === 'chat') stopMingChatRealtime();
-  if (id) document.getElementById('screen-' + id).classList.remove('is-active');
+  if (id) {
+    const poppedScreen = document.getElementById('screen-' + id);
+    poppedScreen?.classList.remove('is-active');
+    if (id === 'connections' && poppedScreen) poppedScreen.style.zIndex = '';
+  }
   const top = state.stack[state.stack.length - 1];
   const topScreen = top ? document.getElementById('screen-' + top) : null;
   fab.classList.toggle('hidden', !!top || state.tab === 'moonflower' || state.tab === 'profile');
@@ -4081,10 +4085,14 @@ async function openPublicConnections(personId) {
   }
 
   const body = $('#connections-body');
+  const connectionsScreen = document.getElementById('screen-connections');
   const title = $('#screen-connections .topbar-title');
   const subtitle = $('#conn-sub');
   if (title) title.textContent = person.short + "'s Connections";
   if (subtitle) subtitle.textContent = 'Loading connections…';
+  // Keep the public Connections screen above the still-open profile screen.
+  // The profile remains underneath so the normal back button returns to it.
+  if (connectionsScreen) connectionsScreen.style.zIndex = '50';
   if (body) body.innerHTML = '<div class="section">' + emptyState('Loading connections', 'Please wait while we load this member’s public connections.') + '</div>';
   pushStack('connections');
 
