@@ -2631,17 +2631,23 @@ function openDailyUpdateMedia(id, index) {
 
 function updateCard(u) {
   const p = u.authorId === currentUser.id ? currentUser : byId(u.authorId);
+  const mine = u.authorId === currentUser.id;
+
+  // Activities use the exact compact card pattern used in Discover > Activities.
+  if (u.kind === 'activity') {
+    const activity = discoverActivities.find(item => item.id === u.id);
+    const going = Number(activity?.going || 0);
+    const comments = Number(u.commentsCount ?? activity?.commentsCount ?? 0);
+    return `<button class="acard" data-action="activity:${u.id}" aria-label="Open activity: ${esc(u.title)}">
+      <div class="when"><div class="h">${esc(timeAgo(u.createdAt))}</div><div class="d">${esc(going)} going · ${esc(comments)} comments</div></div>
+      <div class="info"><div class="t">${esc(u.title)}</div><div class="s">${esc(u.body || 'Activity shared on Tweaklr')} · ${esc(p.km == null ? 'Local' : distLabel(p.km))}</div></div>
+      <span class="go">${icon('chev')}</span>
+    </button>`;
+  }
+
   const h = hoursLeft(u);
   const pct = Math.max(2, Math.round((h / 24) * 100));
-  const mine = u.authorId === currentUser.id;
-  const isActivity = u.kind === 'activity';
-  const activityWhen = u.startsAt
-    ? new Date(u.startsAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
-    : '';
-  const activityDetails = isActivity
-    ? `<div class="upd-activity-details"><span>${icon('calendar')}<span>${esc(activityWhen || 'Time to be confirmed')}</span></span><span>${icon('pin')}<span>${esc(u.place || 'Nearby location')}</span></span></div>`
-    : '';
-  return `<article class="upd${isActivity ? ' upd--activity' : ''}" id="upd-${u.id}">
+  return `<article class="upd" id="upd-${u.id}">
     <div class="upd-top">
       ${avatar(p, 36)}
       <div class="who">
@@ -2650,10 +2656,8 @@ function updateCard(u) {
       </div>
       ${kindPill(u.kind)}
     </div>
-    ${isActivity ? '<div class="upd-activity-kicker"><span>✦</span> TWEAKLR ACTIVITY</div>' : ''}
     <h3>${esc(u.title)}</h3>
     <p>${esc(u.body)}</p>
-    ${activityDetails}
     ${renderDailyUpdateMedia(u)}
     <div class="upd-foot">
       <span class="like-control">
