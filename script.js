@@ -6105,7 +6105,7 @@ function scheduleMingAppRealtimeRefresh(tableName, eventType) {
 
     try {
       const has = name => changed.has(name);
-      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments') || has('daily_update_comment_likes');
+      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments') || has('daily_update_comment_likes') || has('activity_comment_notification_events');
       const feedChanged = has('daily_updates') || has('daily_update_likes') || has('daily_update_comments') || has('daily_update_participants');
       const connectionChanged = has('connections');
       const profileChanged = has('profiles');
@@ -6175,6 +6175,7 @@ async function subscribeMingAppRealtime() {
   watch('daily_update_likes');
   watch('daily_update_comments');
   watch('daily_update_comment_likes');
+  watch('activity_comment_notification_events', ['INSERT']);
   watch('daily_update_participants');
   watch('profiles', ['UPDATE']);
   watch('ming_space_content');
@@ -6192,6 +6193,7 @@ async function subscribeMingAppRealtime() {
       scheduleMingAppRealtimeRefresh('daily_updates', 'SYNC');
       scheduleMingAppRealtimeRefresh('daily_update_likes', 'SYNC');
       scheduleMingAppRealtimeRefresh('daily_update_comment_likes', 'SYNC');
+      scheduleMingAppRealtimeRefresh('activity_comment_notification_events', 'SYNC');
       scheduleMingAppRealtimeRefresh('connections', 'SYNC');
       scheduleMingAppRealtimeRefresh('ming_space_content', 'SYNC');
     } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
