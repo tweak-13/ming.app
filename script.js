@@ -8605,7 +8605,7 @@ function openComposer(type) {
         <input id="nu-when" type="datetime-local" /></div>
       <div class="field"><label for="nu-place">Place</label>
         <input id="nu-place" type="text" maxlength="100" placeholder="The five-a-side pitch" /></div>` : ''}
-      ${preset.kinds.length > 1 ? `<div class="field"><label>Category</label>
+      ${type !== 'update' && preset.kinds.length > 1 ? `<div class="field"><label>Category</label>
         <div class="pick" id="nu-kinds">${preset.kinds.map(k => `
           <button type="button" data-kind="${k}" aria-pressed="${k === preset.kind}">${KINDS[k].label}</button>`).join('')}</div></div>` : ''}
       <div class="ephemeral-note">${icon('clock')}<span>This disappears in 24 hours. Nothing you post here becomes a permanent profile.</span></div>`,
