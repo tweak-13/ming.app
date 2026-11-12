@@ -7927,7 +7927,7 @@ function editProfile() {
         <label>Profile photo</label>
         <div class="ep-avatar-row">
           <div class="ep-avatar-preview">${ringAvatar(currentUser, 56, false)}</div>
-          <label class="btn btn--soft" style="cursor:pointer;flex:1;text-align:center">
+          <label class="btn btn--soft ep-avatar-change" style="cursor:pointer">
             ${currentUser.avatarUrl ? 'Change photo' : 'Add your photo'}
             <input id="ep-avatar" type="file" accept="image/*" capture="user" style="display:none" />
           </label>
