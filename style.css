@@ -6949,3 +6949,12 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
   background: #1C1511;
   border-color: var(--coffee);
 }
+
+
+/* Edit Profile — compact avatar with presence anchored to its edge. */
+#modal .ep-avatar-row { display:flex; align-items:center; gap:14px; min-width:0; }
+#modal .ep-avatar-preview { display:grid; place-items:center; flex:0 0 60px; width:60px; height:60px; }
+#modal .ep-avatar-preview .av-ring { display:block; flex:0 0 60px; width:60px; height:60px; padding:2px; box-sizing:border-box; }
+#modal .ep-avatar-preview .av { position:relative; display:grid; width:56px; height:56px; min-width:56px; min-height:56px; max-width:56px; max-height:56px; overflow:visible; box-sizing:border-box; }
+#modal .ep-avatar-preview .av > img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+#modal .ep-avatar-preview .av .status { position:absolute; right:2px; bottom:2px; width:12px; height:12px; border:2px solid var(--surface); border-radius:50%; z-index:2; }
