@@ -4402,13 +4402,16 @@ if (!window.__tweaklrPublicConnectionsClickReady) {
     event.preventDefault();
     event.stopImmediatePropagation();
 
-    // The public Connections screen is stacked above the profile being viewed.
-    // Remove that layer before loading the selected member's profile.
+    // The public Connections RPC already returned and cached each visible
+    // profile. Use that exact cached profile directly instead of making a
+    // second profiles-table request that may be restricted by public-profile RLS.
     while (state.stack[state.stack.length - 1] === 'connections') popStack();
-    openPublicProfile(personId).catch(error => {
-      console.error('Tweaklr: could not open a public connection profile:', error);
-      toast('Could not open this member’s profile. Please try again.', 'alert');
-    });
+    const profile = mingConnectionProfiles.get(personId) || byId(personId);
+    if (!profile) {
+      toast('This member’s profile is not available. Please refresh and try again.', 'alert');
+      return;
+    }
+    openPerson(personId);
   }, true);
 }
 
