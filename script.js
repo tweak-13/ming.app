@@ -7808,7 +7808,7 @@ function renderProfile() {
   const mine = liveUpdates().filter(u => u.authorId === currentUser.id);
   $('#profile-body').innerHTML = `
     <div class="phead">
-      <button type="button" data-action="avatar-menu" aria-label="Profile photo" style="border:0;background:none;padding:0;cursor:pointer">
+      <button type="button" data-action="${currentUser.avatarUrl ? 'view-avatar' : 'avatar-menu'}" aria-label="Profile photo" style="border:0;background:none;padding:0;cursor:pointer">
         ${ringAvatar(currentUser, 88, true)}
       </button>
       <div class="who">
@@ -9047,13 +9047,53 @@ function viewAvatar() {
   });
   const photo = $('#public-profile-photo-zoom');
   if (!photo) return;
-  let scale = 1;
+  let scale = 1, startDistance = 0, startScale = 1;
+  let pinching = false, suppressClickUntil = 0;
+  const pointers = new Map();
   const applyZoom = value => {
     scale = Math.max(1, Math.min(4, value));
     photo.dataset.zoom = String(scale);
     photo.style.transform = `scale(${scale})`;
   };
-  photo.addEventListener('click', () => applyZoom(scale === 1 ? 2 : 1));
+
+  photo.addEventListener('click', () => {
+    if (Date.now() < suppressClickUntil) return;
+    applyZoom(scale === 1 ? 2 : 1);
+  });
+
+  photo.addEventListener('pointerdown', event => {
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    photo.setPointerCapture?.(event.pointerId);
+    if (pointers.size === 2) {
+      const pts = [...pointers.values()];
+      startDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      startScale = scale;
+      pinching = startDistance > 0;
+    }
+  });
+
+  photo.addEventListener('pointermove', event => {
+    if (!pointers.has(event.pointerId)) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.size === 2 && startDistance > 0) {
+      const pts = [...pointers.values()];
+      const distance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      applyZoom(startScale * distance / startDistance);
+      suppressClickUntil = Date.now() + 350;
+    }
+  });
+
+  const releasePointer = event => {
+    if (pinching) suppressClickUntil = Date.now() + 350;
+    pointers.delete(event.pointerId);
+    if (pointers.size < 2) {
+      startDistance = 0;
+      pinching = false;
+    }
+  };
+  photo.addEventListener('pointerup', releasePointer);
+  photo.addEventListener('pointercancel', releasePointer);
+  photo.addEventListener('lostpointercapture', releasePointer);
 }
 
 function viewPublicAvatar(personId) {
