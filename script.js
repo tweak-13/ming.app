@@ -8405,6 +8405,7 @@ function restoreSheetToApp() {
   ['top', 'bottom', 'left', 'right', 'width', 'max-height', 'position'].forEach(prop => sheet.style.removeProperty(prop));
 }
 const appShellForSheets = sheet.parentElement;
+let activitySheetBaseViewportHeight = window.innerHeight;
 
 function openSheet({ title, sub, body, foot, activityKeyboard = false }) {
   restoreSheetToApp();
@@ -8414,6 +8415,7 @@ function openSheet({ title, sub, body, foot, activityKeyboard = false }) {
   $('#sheet-body').innerHTML = body || '';
   $('#sheet-foot').innerHTML = foot || '';
   if (activityKeyboard) {
+    activitySheetBaseViewportHeight = window.innerHeight;
     sheet.classList.add('sheet--activity-keyboard');
     // Move only this sheet outside the clipped app shell so Android's
     // visual viewport can position it independently of the fixed nav.
@@ -8439,7 +8441,7 @@ function positionActivitySheet() {
   const visibleHeight = viewport ? viewport.height : window.innerHeight;
   const visibleBottom = visibleTop + visibleHeight;
   const keyboardGap = Math.max(0, window.innerHeight - visibleBottom);
-  const keyboardOpen = !!(document.activeElement?.id === 'activity-comment-input' && (keyboardGap > 80 || visibleHeight < window.innerHeight - 80));
+  const keyboardOpen = !!(document.activeElement?.id === 'activity-comment-input' && (keyboardGap > 80 || visibleHeight < activitySheetBaseViewportHeight - 100 || window.innerHeight < activitySheetBaseViewportHeight - 100));
   const safeBottom = parseFloat(getComputedStyle(appShellForSheets).getPropertyValue('--safe-b')) || 0;
   const navHeight = parseFloat(getComputedStyle(appShellForSheets).getPropertyValue('--nav-h')) || 62;
 
