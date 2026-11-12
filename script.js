@@ -8423,9 +8423,9 @@ function closeSheet() {
   if (!modal.classList.contains('is-open')) scrim.classList.remove('is-open');
 }
 
-// Keep only the Activity sheet's bottom edge aligned with the visible keyboard.
-// The sheet stays absolute inside .app (which clips overflow); fixed positioning
-// would be clipped by that app shell and use the wrong containing block.
+// Keep the entire Activity discussion sheet inside the visible area above
+// Android's keyboard. The sheet remains absolute inside #app to avoid clipping
+// and containing-block problems caused by fixed positioning in the app shell.
 function positionActivitySheet() {
   if (!sheet?.classList.contains('sheet--activity-keyboard') || !sheet.classList.contains('is-open')) return;
   const app = sheet.parentElement;
@@ -8436,20 +8436,30 @@ function positionActivitySheet() {
   const visibleTop = viewport ? viewport.offsetTop : 0;
   const visibleHeight = viewport ? viewport.height : window.innerHeight;
   const visibleBottom = visibleTop + visibleHeight;
-  // Measure the gap against the app shell itself, not window.innerHeight:
-  // Android may resize the visual viewport without resizing the layout viewport.
-  const keyboardInset = Math.max(0, appRect.bottom - visibleBottom);
+
+  // Support both Android keyboard modes: visual-viewport-only resizing and
+  // layout/app-shell resizing. Use whichever measurement detects the larger gap.
+  const keyboardInset = Math.max(
+    0,
+    appRect.bottom - visibleBottom,
+    window.innerHeight - visibleBottom
+  );
   const keyboardOpen = keyboardInset > 100;
   const safeBottom = parseFloat(getComputedStyle(app).getPropertyValue('--safe-b')) || 0;
   const navHeight = parseFloat(getComputedStyle(app).getPropertyValue('--nav-h')) || 62;
-  // When the keyboard is closed, lift the action row above the fixed bottom nav.
-  // When it is open, align the sheet directly above the keyboard instead.
-  const bottomClearance = keyboardOpen ? keyboardInset + 8 : navHeight + safeBottom + 12;
 
   sheet.style.position = 'absolute';
-  sheet.style.removeProperty('top');
-  sheet.style.bottom = bottomClearance + 'px';
-  sheet.style.maxHeight = Math.max(180, Math.min(visibleHeight - 16, appRect.height - bottomClearance - 16)) + 'px';
+  if (keyboardOpen) {
+    // Pin both edges to the visible viewport so the whole sheet rises above
+    // the keyboard, not merely its bottom edge.
+    sheet.style.top = Math.max(0, visibleTop - appRect.top + 8) + 'px';
+    sheet.style.bottom = (keyboardInset + 8) + 'px';
+    sheet.style.maxHeight = 'none';
+  } else {
+    sheet.style.removeProperty('top');
+    sheet.style.bottom = (navHeight + safeBottom + 12) + 'px';
+    sheet.style.maxHeight = Math.max(180, Math.min(visibleHeight - 16, appRect.height - navHeight - safeBottom - 28)) + 'px';
+  }
 }
 let activitySheetRaf = 0;
 function refreshActivitySheetPosition() {
