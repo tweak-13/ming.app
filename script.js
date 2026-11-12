@@ -2147,7 +2147,10 @@ function acceptFix(pos, announce) {
          Publishing and discovery loading happen in the background.
          The UI is already usable while these network calls complete.
       */
-      publishMingApproxLocation().then(() => {
+      publishMingApproxLocation().then(published => {
+        // Do not refresh server-backed Nearby profiles when the server rejects
+        // a suspicious location update.
+        if (!published) return false;
         return loadMingDiscoverableProfiles(state.loaded.nearby ? state.radius : null);
       }).then(() => {
         refreshLocationUI();
@@ -3792,7 +3795,13 @@ async function publishMingApproxLocation() {
   if (key === mingLocationPublishKey) return true;
   try {
     const { error } = await supabaseClient.rpc('set_my_discovery_location', { p_latitude: lat, p_longitude: lng, p_accuracy_m: Number(state.userLocation.accuracy) });
-    if (error) { console.warn('Tweaklr: approximate discovery location could not be published.', error.message); return false; }
+    if (error) {
+      console.warn('Tweaklr: approximate discovery location could not be published.', error.message);
+      if (/location jump rejected/i.test(error.message || '')) {
+        toast('Location update blocked: movement could not be verified', 'shield');
+      }
+      return false;
+    }
     mingLocationPublishKey = key;
     mingLastPublishedAt = now();
     return true;
