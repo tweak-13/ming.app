@@ -9525,7 +9525,7 @@ document.addEventListener('click', async e => {
       const loaded = await loadMingDailyUpdates();
       renderYourLiveUpdatesScreen();
       pushStack('your-live-updates');
-      if (!loaded) toast('Your Live Updates could not be refreshed. Showing available updates.', 'alert');
+      if (!loaded) toast('Your Live Updates could not be refreshed. Please try again.', 'alert');
       break;
     }
 
