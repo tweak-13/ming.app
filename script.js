@@ -8578,11 +8578,11 @@ function openComposer(type) {
       <div class="field"><label for="nu-body">Details</label>
         <textarea id="nu-body" maxlength="280" placeholder="A couple of lines is plenty."></textarea>
         <div class="count"><span id="nu-count">0</span>/280</div></div>
-      <div class="field"><label>Photos & videos</label>
+      ${type !== 'activity' ? `      <div class="field"><label>Photos & videos</label>
         <input id="nu-media" type="file" accept="image/*,video/*" multiple hidden />
         <button type="button" class="btn btn--soft btn--block" id="nu-media-pick">${icon('spark')} Add photos or videos</button>
         <div id="nu-media-preview" style="display:grid;gap:8px;margin-top:9px"></div>
-        <div class="count">Up to 4 files · photos 15 MB each · videos 50 MB each</div></div>
+        <div class="count">Up to 4 files · photos 15 MB each · videos 50 MB each</div></div>` : ''}
       ${type === 'activity' ? `<div class="field"><label for="nu-when">When</label>
         <input id="nu-when" type="datetime-local" /></div>
       <div class="field"><label for="nu-place">Place</label>
