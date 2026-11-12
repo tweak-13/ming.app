@@ -4388,20 +4388,30 @@ if (!document.documentElement.dataset.publicProfileScrollOnlyReady) {
 
 // Route the public-profile Connections control at window capture phase,
 // ahead of document-level handlers that may intercept or swallow clicks.
+// Route member taps inside another user's Connections list before avatar/profile
+// handlers can intercept them. Close the elevated Connections layer first so the
+// selected member's profile is brought to the front instead of opening behind it.
 if (!window.__tweaklrPublicConnectionsClickReady) {
   window.__tweaklrPublicConnectionsClickReady = true;
   window.addEventListener('click', event => {
     const target = event.target;
     const button = target && typeof target.closest === 'function'
-      ? target.closest('#screen-person button[data-action^="public-connections:"]')
+      ? target.closest('#screen-connections .conn-card button[data-action^="person:"]')
       : null;
     if (!button) return;
-    const personId = (button.getAttribute('data-action') || '')
-      .slice('public-connections:'.length);
+    const personId = (button.getAttribute('data-action') || '').slice('person:'.length);
     if (!personId) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    void openPublicConnections(personId);
+    // The Connections screen is stacked over the public profile. Pop it before
+    // rendering the selected member, otherwise the new profile remains obscured.
+    if (state.stack[state.stack.length - 1] === 'connections') popStack();
+    const person = mingConnectionProfiles.get(personId) || byId(personId);
+    if (!person) {
+      toast('This member’s profile is not available. Please refresh and try again.', 'alert');
+      return;
+    }
+    openPerson(personId);
   }, true);
 }
 
