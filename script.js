@@ -8405,6 +8405,7 @@ function openSheet({ title, sub, body, foot, activityKeyboard = false }) {
   sheet.style.removeProperty('top');
   sheet.style.removeProperty('bottom');
   sheet.style.removeProperty('max-height');
+  sheet.style.removeProperty('position');
   $('#sheet-head').innerHTML = `<h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}`;
   $('#sheet-body').innerHTML = body || '';
   $('#sheet-foot').innerHTML = foot || '';
@@ -8418,6 +8419,7 @@ function closeSheet() {
   sheet.style.removeProperty('top');
   sheet.style.removeProperty('bottom');
   sheet.style.removeProperty('max-height');
+  sheet.style.removeProperty('position');
   if (!modal.classList.contains('is-open')) scrim.classList.remove('is-open');
 }
 
