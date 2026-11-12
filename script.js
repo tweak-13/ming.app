@@ -4141,9 +4141,6 @@ async function openPublicConnections(personId) {
                 <span class="m"><span class="n" style="display:block">${esc(profile.name)}</span>
                 <span class="s" style="display:block">${esc(profile.tag)}</span></span>
               </button>
-              <div class="acts">
-                <button class="round" data-action="message:${profile.id}" aria-label="Message ${esc(profile.short)}">${icon('chat')}</button>
-              </div>
             </div>`).join('') + '</div>'
         : '<div class="section">' + sectionHead(person.short + "'s connections", '0 people') +
           emptyState('No public connections to show', 'This member has no connections currently visible to you.') + '</div>';
