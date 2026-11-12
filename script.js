@@ -8400,66 +8400,56 @@ function setupMingNotificationAudioUnlock() {
 ------------------------------------------------------------ */
 const sheet = $('#sheet'), scrim = $('#scrim'), modal = $('#modal');
 
+function restoreSheetToApp() {
+  if (sheet.parentElement !== appShellForSheets) appShellForSheets.appendChild(sheet);
+  ['top', 'bottom', 'left', 'right', 'width', 'max-height', 'position'].forEach(prop => sheet.style.removeProperty(prop));
+}
+const appShellForSheets = sheet.parentElement;
+
 function openSheet({ title, sub, body, foot, activityKeyboard = false }) {
+  restoreSheetToApp();
   sheet.classList.remove('sheet--activity-keyboard');
-  sheet.style.removeProperty('top');
-  sheet.style.removeProperty('bottom');
-  sheet.style.removeProperty('max-height');
-  sheet.style.removeProperty('position');
+  ['top', 'bottom', 'left', 'right', 'width', 'max-height', 'position'].forEach(prop => sheet.style.removeProperty(prop));
   $('#sheet-head').innerHTML = `<h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}`;
   $('#sheet-body').innerHTML = body || '';
   $('#sheet-foot').innerHTML = foot || '';
-  if (activityKeyboard) sheet.classList.add('sheet--activity-keyboard');
+  if (activityKeyboard) {
+    sheet.classList.add('sheet--activity-keyboard');
+    // Move only this sheet outside the clipped app shell so Android's
+    // visual viewport can position it independently of the fixed nav.
+    document.body.appendChild(sheet);
+  }
   sheet.classList.add('is-open');
   scrim.classList.add('is-open');
   if (activityKeyboard) refreshActivitySheetPosition();
 }
 function closeSheet() {
   sheet.classList.remove('is-open', 'sheet--activity-keyboard');
-  sheet.style.removeProperty('top');
-  sheet.style.removeProperty('bottom');
-  sheet.style.removeProperty('max-height');
-  sheet.style.removeProperty('position');
+  restoreSheetToApp();
   if (!modal.classList.contains('is-open')) scrim.classList.remove('is-open');
 }
 
-// Keep the entire Activity discussion sheet inside the visible area above
-// Android's keyboard. The sheet remains absolute inside #app to avoid clipping
-// and containing-block problems caused by fixed positioning in the app shell.
+// Position the Activity discussion sheet against the actual visible viewport.
+// It is temporarily mounted under <body>, avoiding #app's overflow:hidden clip.
 function positionActivitySheet() {
   if (!sheet?.classList.contains('sheet--activity-keyboard') || !sheet.classList.contains('is-open')) return;
-  const app = sheet.parentElement;
-  const appRect = app?.getBoundingClientRect();
-  if (!appRect) return;
-
+  const appRect = appShellForSheets.getBoundingClientRect();
   const viewport = window.visualViewport;
   const visibleTop = viewport ? viewport.offsetTop : 0;
   const visibleHeight = viewport ? viewport.height : window.innerHeight;
   const visibleBottom = visibleTop + visibleHeight;
+  const keyboardGap = Math.max(0, window.innerHeight - visibleBottom);
+  const keyboardOpen = !!(document.activeElement?.id === 'activity-comment-input' && (keyboardGap > 80 || visibleHeight < window.innerHeight - 80));
+  const safeBottom = parseFloat(getComputedStyle(appShellForSheets).getPropertyValue('--safe-b')) || 0;
+  const navHeight = parseFloat(getComputedStyle(appShellForSheets).getPropertyValue('--nav-h')) || 62;
 
-  // Support both Android keyboard modes: visual-viewport-only resizing and
-  // layout/app-shell resizing. Use whichever measurement detects the larger gap.
-  const keyboardInset = Math.max(
-    0,
-    appRect.bottom - visibleBottom,
-    window.innerHeight - visibleBottom
-  );
-  const keyboardOpen = keyboardInset > 100;
-  const safeBottom = parseFloat(getComputedStyle(app).getPropertyValue('--safe-b')) || 0;
-  const navHeight = parseFloat(getComputedStyle(app).getPropertyValue('--nav-h')) || 62;
-
-  sheet.style.position = 'absolute';
-  if (keyboardOpen) {
-    // Pin both edges to the visible viewport so the whole sheet rises above
-    // the keyboard, not merely its bottom edge.
-    sheet.style.top = Math.max(0, visibleTop - appRect.top + 8) + 'px';
-    sheet.style.bottom = (keyboardInset + 8) + 'px';
-    sheet.style.maxHeight = 'none';
-  } else {
-    sheet.style.removeProperty('top');
-    sheet.style.bottom = (navHeight + safeBottom + 12) + 'px';
-    sheet.style.maxHeight = Math.max(180, Math.min(visibleHeight - 16, appRect.height - navHeight - safeBottom - 28)) + 'px';
-  }
+  sheet.style.position = 'fixed';
+  sheet.style.left = appRect.left + 'px';
+  sheet.style.right = 'auto';
+  sheet.style.width = appRect.width + 'px';
+  sheet.style.top = (visibleTop + 8) + 'px';
+  sheet.style.bottom = (keyboardOpen ? keyboardGap + 8 : navHeight + safeBottom + 12) + 'px';
+  sheet.style.maxHeight = 'none';
 }
 let activitySheetRaf = 0;
 function refreshActivitySheetPosition() {
@@ -8475,7 +8465,11 @@ if (!window.__tweaklrActivitySheetViewportReady) {
   window.visualViewport?.addEventListener('scroll', refreshActivitySheetPosition);
   window.addEventListener('resize', refreshActivitySheetPosition);
   document.addEventListener('focusin', event => {
-    if (event.target?.id === 'activity-comment-input') refreshActivitySheetPosition();
+    if (event.target?.id === 'activity-comment-input') {
+      refreshActivitySheetPosition();
+      setTimeout(refreshActivitySheetPosition, 120);
+      setTimeout(refreshActivitySheetPosition, 320);
+    }
   });
   document.addEventListener('focusout', event => {
     if (event.target?.id === 'activity-comment-input') refreshActivitySheetPosition();
