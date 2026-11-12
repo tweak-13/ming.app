@@ -9465,7 +9465,13 @@ document.addEventListener('click', async e => {
   switch (verb) {
     case 'tweak-connect': await beginTweakSetup(); break;
     case 'tweak-refresh': await loadTweakTikTokData(true); break;
-    case 'person': openPerson(arg); break;
+    case 'person': {
+      // A member selected from a Connections list must be opened after that
+      // list is dismissed, otherwise the profile can remain underneath it.
+      if (state.stack[state.stack.length - 1] === 'connections') popStack();
+      openPerson(arg);
+      break;
+    }
     case 'public-connections': await openPublicConnections(arg); break;
     case 'public-likes': {
       // Statistics are in-page shortcuts only: never open or rebuild another profile/update screen.
