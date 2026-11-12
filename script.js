@@ -3958,6 +3958,8 @@ async function loadPublicConnectionCount(personId) {
 function openPerson(id) {
   const p = byId(id);
   if (!p) return;
+  // Keep the currently opened public profile resolvable by its Connections action.
+  mingConnectionProfiles.set(id, p);
   state.activePerson = id;
   $('#person-title').textContent = p.short;
   const status = connectionStatus(id);
@@ -4139,6 +4141,22 @@ async function openPublicConnections(personId) {
     if (body) body.innerHTML = '<div class="section">' + emptyState('Connections unavailable', 'Please try again in a moment.') + '</div>';
     toast('Could not load this member’s connections.', 'alert');
   }
+}
+
+// Reliable capture-phase routing for the public-profile Connections button.
+// This runs before other screen-level click handlers can swallow the action.
+if (!document.documentElement.dataset.publicConnectionsActionReady) {
+  document.documentElement.dataset.publicConnectionsActionReady = '1';
+  document.addEventListener('click', event => {
+    const button = event.target && event.target.closest
+      ? event.target.closest('#screen-person [data-action^="public-connections:"]')
+      : null;
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const personId = button.getAttribute('data-action').slice('public-connections:'.length);
+    openPublicConnections(personId);
+  }, true);
 }
 
 function connectWith(id) {
