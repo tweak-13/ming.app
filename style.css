@@ -6960,3 +6960,57 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 #modal .ep-avatar-preview .av { position:relative; display:grid; width:56px; height:56px; min-width:56px; min-height:56px; max-width:56px; max-height:56px; overflow:visible; box-sizing:border-box; }
 #modal .ep-avatar-preview .av > img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
 #modal .ep-avatar-preview .av .status { position:absolute; right:2px; bottom:2px; width:12px; height:12px; border:2px solid var(--surface); border-radius:50%; z-index:2; }
+
+/* Composer back control — shared by every composer sheet. */
+.sheet-head--with-back {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.sheet-head--with-back .composer-back {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.sheet-head--with-back .composer-back svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sheet-head--with-back .composer-back:active {
+  transform: scale(.94);
+  background: var(--surface);
+}
+.sheet-head--with-back .composer-back:focus-visible {
+  outline: 2px solid var(--coffee-light);
+  outline-offset: 2px;
+}
+.sheet-head--with-back .sheet-head-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 1px;
+}
+@media (hover: hover) {
+  .sheet-head--with-back .composer-back:hover {
+    background: var(--surface);
+    border-color: var(--coffee-light);
+  }
+}
+
