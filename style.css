@@ -6953,7 +6953,8 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 
 /* Edit Profile — compact avatar with presence anchored to its edge. */
 #modal .ep-avatar-row { display:flex; align-items:center; gap:14px; min-width:0; }
-#modal .ep-avatar-change { display:flex; flex:1 1 auto; align-self:stretch; align-items:center; justify-content:center; min-width:0; box-sizing:border-box; text-align:center; }
+#modal .ep-avatar-change { display:flex; flex:1 1 auto; align-self:stretch; align-items:center; justify-content:center; min-width:0; box-sizing:border-box; text-align:center; padding:0 12px; }
+#modal .ep-avatar-change-text { display:grid; place-items:center; width:100%; min-height:100%; line-height:1.25; text-align:center; }
 #modal .ep-avatar-preview { display:grid; place-items:center; flex:0 0 60px; width:60px; height:60px; }
 #modal .ep-avatar-preview .av-ring { display:block; flex:0 0 60px; width:60px; height:60px; padding:2px; box-sizing:border-box; }
 #modal .ep-avatar-preview .av { position:relative; display:grid; width:56px; height:56px; min-width:56px; min-height:56px; max-width:56px; max-height:56px; overflow:visible; box-sizing:border-box; }
