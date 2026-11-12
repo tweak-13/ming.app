@@ -8406,6 +8406,7 @@ function restoreSheetToApp() {
 }
 const appShellForSheets = sheet.parentElement;
 let activitySheetBaseViewportHeight = window.innerHeight;
+let activitySheetBaseOuterHeight = window.outerHeight || window.innerHeight;
 
 function openSheet({ title, sub, body, foot, activityKeyboard = false }) {
   restoreSheetToApp();
@@ -8416,6 +8417,7 @@ function openSheet({ title, sub, body, foot, activityKeyboard = false }) {
   $('#sheet-foot').innerHTML = foot || '';
   if (activityKeyboard) {
     activitySheetBaseViewportHeight = window.innerHeight;
+    activitySheetBaseOuterHeight = window.outerHeight || window.innerHeight;
     sheet.classList.add('sheet--activity-keyboard');
     // Move only this sheet outside the clipped app shell so Android's
     // visual viewport can position it independently of the fixed nav.
@@ -8441,7 +8443,16 @@ function positionActivitySheet() {
   const visibleHeight = viewport ? viewport.height : window.innerHeight;
   const visibleBottom = visibleTop + visibleHeight;
   const keyboardGap = Math.max(0, window.innerHeight - visibleBottom);
-  const keyboardOpen = !!(document.activeElement?.id === 'activity-comment-input' && (keyboardGap > 80 || visibleHeight < activitySheetBaseViewportHeight - 100 || window.innerHeight < activitySheetBaseViewportHeight - 100));
+  const layoutViewportShrink = Math.max(0, activitySheetBaseViewportHeight - window.innerHeight);
+  const visualViewportShrink = Math.max(0, activitySheetBaseViewportHeight - visibleHeight);
+  const outerViewportShrink = Math.max(0, activitySheetBaseOuterHeight - (window.outerHeight || window.innerHeight));
+  const inputFocused = document.activeElement?.id === 'activity-comment-input';
+  const reportedKeyboardHeight = Math.max(keyboardGap, layoutViewportShrink, visualViewportShrink, outerViewportShrink);
+  // Firefox Android can be configured to overlay the keyboard without resizing
+  // the page viewport. When the Activity composer is focused, use a conservative
+  // keyboard inset if Firefox reports no viewport change at all.
+  const keyboardOpen = !!(inputFocused && (reportedKeyboardHeight > 80 || document.activeElement === document.getElementById('activity-comment-input')));
+  const keyboardInset = keyboardOpen ? Math.max(reportedKeyboardHeight, 300) : 0;
   const safeBottom = parseFloat(getComputedStyle(appShellForSheets).getPropertyValue('--safe-b')) || 0;
   const navHeight = parseFloat(getComputedStyle(appShellForSheets).getPropertyValue('--nav-h')) || 62;
 
@@ -8450,7 +8461,7 @@ function positionActivitySheet() {
   sheet.style.right = 'auto';
   sheet.style.width = appRect.width + 'px';
   sheet.style.top = (visibleTop + 8) + 'px';
-  sheet.style.bottom = (keyboardOpen ? keyboardGap + 8 : navHeight + safeBottom + 12) + 'px';
+  sheet.style.bottom = (keyboardOpen ? keyboardInset + 8 : navHeight + safeBottom + 12) + 'px';
   sheet.style.maxHeight = 'none';
 }
 let activitySheetRaf = 0;
