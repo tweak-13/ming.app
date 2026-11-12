@@ -8637,28 +8637,50 @@ function closeModal() {
   modal.classList.remove('is-open', 'modal--connect-note');
   modal.style.removeProperty('top');
   modal.style.removeProperty('max-height');
+  modal.style.removeProperty('position');
+  modal.style.removeProperty('left');
+  modal.style.removeProperty('right');
+  modal.style.removeProperty('transform');
   if (!sheet.classList.contains('is-open')) scrim.classList.remove('is-open');
 }
-// Keep the connection-note modal inside the visible area when the mobile keyboard opens.
+// Keep the Connect-note modal and its textarea above Android's on-screen keyboard.
 function positionConnectNoteModal() {
   if (!modal?.classList.contains('modal--connect-note') || !modal.classList.contains('is-open')) return;
   const viewport = window.visualViewport;
-  if (!viewport) return;
-  const visibleHeight = Math.max(180, viewport.height);
-  modal.style.top = (viewport.offsetTop + visibleHeight / 2) + 'px';
-  modal.style.maxHeight = Math.max(150, visibleHeight - 24) + 'px';
+  const visibleTop = viewport ? viewport.offsetTop : 0;
+  const visibleHeight = viewport ? viewport.height : window.innerHeight;
+  modal.style.position = 'fixed';
+  modal.style.left = '16px';
+  modal.style.right = '16px';
+  modal.style.top = (visibleTop + 10) + 'px';
+  modal.style.transform = 'none';
+  modal.style.maxHeight = Math.max(140, visibleHeight - 20) + 'px';
+
+  const field = modal.querySelector('#conn-note');
+  if (field) {
+    const fieldRect = field.getBoundingClientRect();
+    const visibleBottom = visibleTop + visibleHeight - 12;
+    if (fieldRect.bottom > visibleBottom) {
+      modal.scrollTop += fieldRect.bottom - visibleBottom;
+    } else if (fieldRect.top < visibleTop + 8) {
+      modal.scrollTop -= (visibleTop + 8) - fieldRect.top;
+    }
+  }
 }
-if (window.visualViewport && !window.__tweaklrConnectNoteViewportReady) {
+function refreshConnectNoteModalPosition() {
+  requestAnimationFrame(() => {
+    positionConnectNoteModal();
+    requestAnimationFrame(positionConnectNoteModal);
+  });
+}
+if (!window.__tweaklrConnectNoteViewportReady) {
   window.__tweaklrConnectNoteViewportReady = true;
-  window.visualViewport.addEventListener('resize', positionConnectNoteModal);
-  window.visualViewport.addEventListener('scroll', positionConnectNoteModal);
-  window.addEventListener('resize', positionConnectNoteModal);
+  window.visualViewport?.addEventListener('resize', refreshConnectNoteModalPosition);
+  window.visualViewport?.addEventListener('scroll', refreshConnectNoteModalPosition);
+  window.addEventListener('resize', refreshConnectNoteModalPosition);
   document.addEventListener('focusin', event => {
     if (event.target?.id !== 'conn-note') return;
-    requestAnimationFrame(() => {
-      positionConnectNoteModal();
-      event.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    });
+    refreshConnectNoteModalPosition();
   });
 }
 
