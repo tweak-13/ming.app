@@ -6964,8 +6964,14 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 /* Composer back control — shared by every composer sheet. */
 .sheet-head--with-back {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+}
+
+/* Keep the branded header ornament from pushing the back control out of place. */
+.sheet-head--with-back::before {
+  content: none;
+  display: none;
 }
 .sheet-head--with-back .composer-back {
   width: 42px;
