@@ -1354,6 +1354,108 @@ async function loadMingNotifications() {
       console.warn('Tweaklr: post activity notifications failed.', postNotificationError);
     }
 
+    /* Comment activity notifications: replies and likes on the current user's own comments. */
+    try {
+      const cutoff = new Date(Date.now() - TWEAKLR_NOTIFICATION_RETENTION_MS).toISOString();
+      const { data: myComments, error: myCommentsError } = await supabaseClient
+        .from('daily_update_comments')
+        .select('id, update_id, created_at, is_anonymous')
+        .eq('author_id', session.user.id)
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (myCommentsError) {
+        console.warn('Tweaklr: your comment activity could not be loaded.', myCommentsError.message);
+      } else if (myComments?.length) {
+        const commentIds = myComments.map(row => row.id);
+        const commentById = new Map(myComments.map(row => [row.id, row]));
+        const [repliesResult, likesResult] = await Promise.all([
+          supabaseClient
+            .from('daily_update_comments')
+            .select('id, parent_comment_id, update_id, author_id, created_at, is_anonymous')
+            .in('parent_comment_id', commentIds)
+            .neq('author_id', session.user.id)
+            .gte('created_at', cutoff)
+            .order('created_at', { ascending: false })
+            .limit(100),
+          supabaseClient
+            .from('daily_update_comment_likes')
+            .select('comment_id, user_id, created_at')
+            .in('comment_id', commentIds)
+            .neq('user_id', session.user.id)
+            .gte('created_at', cutoff)
+            .order('created_at', { ascending: false })
+            .limit(100)
+        ]);
+
+        if (repliesResult.error) {
+          console.warn('Tweaklr: replies to your comments could not be loaded.', repliesResult.error.message);
+        }
+        if (likesResult.error) {
+          console.warn('Tweaklr: likes on your comments could not be loaded.', likesResult.error.message);
+        }
+
+        const replyRows = repliesResult.error ? [] : (repliesResult.data || []);
+        const commentLikeRows = likesResult.error ? [] : (likesResult.data || []);
+        const actorIds = [...new Set([
+          ...replyRows.filter(row => !row.is_anonymous).map(row => row.author_id),
+          ...commentLikeRows.map(row => row.user_id)
+        ].filter(id => id && id !== session.user.id))];
+
+        const actorMap = new Map();
+        if (actorIds.length) {
+          const { data: actors, error: actorsError } = await supabaseClient
+            .from('profiles')
+            .select('id, display_name, username')
+            .in('id', actorIds);
+          if (!actorsError) (actors || []).forEach(actor => actorMap.set(actor.id, actor));
+          else console.warn('Tweaklr: comment activity profiles could not be loaded.', actorsError.message);
+        }
+
+        const actorName = id => {
+          const actor = actorMap.get(id);
+          return actor?.display_name || (actor?.username ? '@' + String(actor.username).replace(/^@/, '') : 'Someone');
+        };
+
+        replyRows.forEach(row => {
+          const parent = commentById.get(row.parent_comment_id);
+          if (!parent) return;
+          const id = 'comment_reply_' + row.id;
+          next.push({
+            id,
+            type: 'comment',
+            ...(row.is_anonymous ? {} : { personId: row.author_id }),
+            updateId: row.update_id,
+            commentId: row.id,
+            text: row.is_anonymous
+              ? 'Someone replied to your comment.'
+              : '<b>' + esc(actorName(row.author_id)) + '</b> replied to your comment.',
+            at: new Date(row.created_at).getTime(),
+            read: notificationReadIds.has(id)
+          });
+        });
+
+        commentLikeRows.forEach(row => {
+          const parent = commentById.get(row.comment_id);
+          if (!parent) return;
+          const id = 'comment_like_' + row.comment_id + '_' + row.user_id + '_' + new Date(row.created_at).getTime();
+          next.push({
+            id,
+            type: 'comment',
+            personId: row.user_id,
+            updateId: parent.update_id,
+            commentId: row.comment_id,
+            text: '<b>' + esc(actorName(row.user_id)) + '</b> liked your comment.',
+            at: new Date(row.created_at).getTime(),
+            read: notificationReadIds.has(id)
+          });
+        });
+      }
+    } catch (commentActivityError) {
+      console.warn('Tweaklr: comment reply/like notifications failed.', commentActivityError);
+    }
+
     /* Anonymous Spaces: notifications must never contain author identity,
        username, avatar, post body, or any identifying post metadata. */
     try {
@@ -1406,7 +1508,7 @@ async function loadMingNotifications() {
     const { error: syncError } = await supabaseClient.rpc('sync_tweaklr_notifications', {
       p_notifications: next.map(n => ({
         id: n.id, type: n.type, personId: n.personId || null,
-        updateId: n.updateId || null, text: n.text, at: n.at
+        updateId: n.updateId || null, commentId: n.commentId || null, text: n.text, at: n.at
       }))
     });
     if (syncError) {
@@ -5976,7 +6078,7 @@ function scheduleMingAppRealtimeRefresh(tableName, eventType) {
 
     try {
       const has = name => changed.has(name);
-      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments');
+      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments') || has('daily_update_comment_likes');
       const feedChanged = has('daily_updates') || has('daily_update_likes') || has('daily_update_comments') || has('daily_update_participants');
       const connectionChanged = has('connections');
       const profileChanged = has('profiles');
@@ -6045,6 +6147,7 @@ async function subscribeMingAppRealtime() {
   watch('daily_updates');
   watch('daily_update_likes');
   watch('daily_update_comments');
+  watch('daily_update_comment_likes');
   watch('daily_update_participants');
   watch('profiles', ['UPDATE']);
   watch('ming_space_content');
@@ -6061,6 +6164,7 @@ async function subscribeMingAppRealtime() {
       // Reconcile once after joining so events missed while offline are recovered.
       scheduleMingAppRealtimeRefresh('daily_updates', 'SYNC');
       scheduleMingAppRealtimeRefresh('daily_update_likes', 'SYNC');
+      scheduleMingAppRealtimeRefresh('daily_update_comment_likes', 'SYNC');
       scheduleMingAppRealtimeRefresh('connections', 'SYNC');
       scheduleMingAppRealtimeRefresh('ming_space_content', 'SYNC');
     } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
