@@ -2438,7 +2438,8 @@ function renderHomePeople() {
 }
 
 function renderHomeFeed() {
-  const list = liveUpdates().slice(0, 6);
+  // Activity posts belong in Discover's Activities section, not the Daily Updates feed.
+  const list = liveUpdates().filter(update => update.kind !== 'activity').slice(0, 6);
   $('#home-feed').innerHTML = sectionHead('Daily Updates', 'Gone in 24 hours') +
     (list.length ? list.map(updateCard).join('') :
       emptyState('Nothing shared yet today', 'Daily Updates disappear after 24 hours. Be the first to say what you are up to.', { t: 'Share an update', a: 'create:update' }));
