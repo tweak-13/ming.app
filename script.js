@@ -1175,6 +1175,38 @@ async function loadMingNotifications() {
       });
     });
 
+    /* Right now changes are delivered by a database trigger to accepted,
+       unblocked connections. Keep the inbox entry private and open the actor's profile. */
+    try {
+      const cutoff = new Date(Date.now() - TWEAKLR_NOTIFICATION_RETENTION_MS).toISOString();
+      const { data: activityRows, error: activityError } = await supabaseClient
+        .from('profile_activity_notifications')
+        .select('id, actor_id, created_at')
+        .eq('recipient_id', session.user.id)
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (activityError) {
+        console.warn('Tweaklr: Right now notifications could not be loaded.', activityError.message);
+      } else {
+        (activityRows || []).forEach(row => {
+          const person = byId(row.actor_id);
+          const name = person?.short || person?.name || 'A connection';
+          const id = 'right_now_' + row.id;
+          next.push({
+            id,
+            type: 'activity',
+            personId: row.actor_id,
+            text: '<b>' + esc(name) + '</b> updated their Right now.',
+            at: new Date(row.created_at).getTime(),
+            read: notificationReadIds.has(id)
+          });
+        });
+      }
+    } catch (activityNotificationError) {
+      console.warn('Tweaklr: Right now notifications failed to load.', activityNotificationError);
+    }
     // Publishing a Daily Update is feed activity, not a personal notification.
     // Notifications are generated from direct interactions below.
     
@@ -9153,6 +9185,8 @@ document.addEventListener('click', async e => {
           const post = document.getElementById('upd-' + n.updateId);
           if (post) post.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 80);
+      } else if (n.type === 'activity' && n.personId) {
+        await handleAction('person:' + n.personId);
       }
       break;
     }
