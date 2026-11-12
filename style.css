@@ -1377,6 +1377,10 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 -20px 50px -30px rgba(73, 50, 36, .6);
 }
 .sheet.is-open { transform: none; }
+/* Activity discussion sheet follows the visible viewport when the Android keyboard opens. */
+.sheet.sheet--activity-keyboard { transition: none; max-height: none; }
+.sheet.sheet--activity-keyboard .sheet-body { min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.sheet.sheet--activity-keyboard #activity-comment-input { min-height: 48px; max-height: 120px; line-height: 1.4; }
 .sheet .grab {
   width: 38px; height: 4px;
   border-radius: 2px;
