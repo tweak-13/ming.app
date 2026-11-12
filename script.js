@@ -8400,16 +8400,64 @@ function setupMingNotificationAudioUnlock() {
 ------------------------------------------------------------ */
 const sheet = $('#sheet'), scrim = $('#scrim'), modal = $('#modal');
 
-function openSheet({ title, sub, body, foot }) {
+function openSheet({ title, sub, body, foot, activityKeyboard = false }) {
+  sheet.classList.remove('sheet--activity-keyboard');
+  sheet.style.removeProperty('top');
+  sheet.style.removeProperty('bottom');
+  sheet.style.removeProperty('max-height');
   $('#sheet-head').innerHTML = `<h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}`;
   $('#sheet-body').innerHTML = body || '';
   $('#sheet-foot').innerHTML = foot || '';
+  if (activityKeyboard) sheet.classList.add('sheet--activity-keyboard');
   sheet.classList.add('is-open');
   scrim.classList.add('is-open');
+  if (activityKeyboard) refreshActivitySheetPosition();
 }
 function closeSheet() {
-  sheet.classList.remove('is-open');
+  sheet.classList.remove('is-open', 'sheet--activity-keyboard');
+  sheet.style.removeProperty('top');
+  sheet.style.removeProperty('bottom');
+  sheet.style.removeProperty('max-height');
   if (!modal.classList.contains('is-open')) scrim.classList.remove('is-open');
+}
+
+// Keep the joined-activity discussion composer visible above Android's keyboard.
+function positionActivitySheet() {
+  if (!sheet?.classList.contains('sheet--activity-keyboard') || !sheet.classList.contains('is-open')) return;
+  const viewport = window.visualViewport;
+  const visibleTop = viewport ? viewport.offsetTop : 0;
+  const visibleHeight = viewport ? viewport.height : window.innerHeight;
+  sheet.style.position = 'fixed';
+  sheet.style.top = (visibleTop + 8) + 'px';
+  sheet.style.bottom = Math.max(0, window.innerHeight - visibleTop - visibleHeight + 8) + 'px';
+  sheet.style.maxHeight = Math.max(180, visibleHeight - 16) + 'px';
+
+  const input = document.getElementById('activity-comment-input');
+  if (input && document.activeElement === input) {
+    requestAnimationFrame(() => {
+      const body = document.getElementById('sheet-body');
+      if (!body || !input.isConnected) return;
+      const inputRect = input.getBoundingClientRect();
+      const bodyRect = body.getBoundingClientRect();
+      if (inputRect.bottom > bodyRect.bottom - 12) body.scrollTop += inputRect.bottom - bodyRect.bottom + 12;
+      else if (inputRect.top < bodyRect.top + 8) body.scrollTop -= bodyRect.top + 8 - inputRect.top;
+    });
+  }
+}
+function refreshActivitySheetPosition() {
+  requestAnimationFrame(() => {
+    positionActivitySheet();
+    requestAnimationFrame(positionActivitySheet);
+  });
+}
+if (!window.__tweaklrActivitySheetViewportReady) {
+  window.__tweaklrActivitySheetViewportReady = true;
+  window.visualViewport?.addEventListener('resize', refreshActivitySheetPosition);
+  window.visualViewport?.addEventListener('scroll', refreshActivitySheetPosition);
+  window.addEventListener('resize', refreshActivitySheetPosition);
+  document.addEventListener('focusin', event => {
+    if (event.target?.id === 'activity-comment-input') refreshActivitySheetPosition();
+  });
 }
 const CREATE_OPTIONS = [
   { k: 'update', ic: 'spark', t: 'Daily Update', s: 'Share something happening now' },
@@ -8589,6 +8637,7 @@ async function openActivitySheet(id) {
         '<div style="display:flex;gap:8px;align-items:flex-end;margin-top:12px"><textarea id="activity-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…" style="flex:1;min-width:0;resize:vertical;border:1px solid var(--line,#ddd);border-radius:14px;padding:11px;font:inherit;background:var(--surface,#fff);color:inherit"></textarea><button class="btn btn--primary" data-action="activity-comment-send:' + a.id + '" style="min-height:42px">Send</button></div>')
     : '<div class="privacy-note" style="margin:18px 0 0">' + icon('lock') + '<p>Join this activity to unlock its private discussion and talk with the people attending.</p></div>';
   openSheet({
+    activityKeyboard: true,
     title: a.title,
     sub: (a.startsAt ? new Date(a.startsAt).toLocaleString([], { weekday: 'long', hour: 'numeric', minute: '2-digit' }) : timeAgo(a.createdAt)) + ' · ' + (a.going || 0) + ' going',
     body: '<div style="display:flex;align-items:center;gap:12px;padding:6px 0 14px">' +
