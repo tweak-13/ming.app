@@ -1751,7 +1751,6 @@ function pushStack(id) {
   if (!scr) return;
   if (!state.stack.includes(id)) state.stack.push(id);
   scr.classList.add('is-active');
-  nav.classList.toggle('hidden', !scr.classList.contains('has-nav'));
   fab.classList.add('hidden');
   const sc = scr.querySelector('.scroll');
   if (sc) sc.scrollTop = 0;
@@ -1762,7 +1761,6 @@ function popStack() {
   if (id) document.getElementById('screen-' + id).classList.remove('is-active');
   const top = state.stack[state.stack.length - 1];
   const topScreen = top ? document.getElementById('screen-' + top) : null;
-  nav.classList.toggle('hidden', !!topScreen && !topScreen.classList.contains('has-nav'));
   fab.classList.toggle('hidden', !!top || state.tab === 'moonflower' || state.tab === 'profile');
 }
 function closeAllStacks() {
