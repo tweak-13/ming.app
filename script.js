@@ -7922,7 +7922,7 @@ function renderSearch(mode, q = '') {
 /* ------------------------------------------------------------
    NOTIFICATIONS
 ------------------------------------------------------------ */
-const NOTIF_ICON = { connect: 'users', update: 'spark', message: 'chat', nearby: 'pin', expiry: 'clock', request: 'users', like: 'heart', comment: 'chat' };
+const NOTIF_ICON = { connect: 'users', update: 'spark', activity: 'spark', message: 'chat', nearby: 'pin', expiry: 'clock', request: 'users', like: 'heart', comment: 'chat' };
 
 function renderNotifications() {
   const host = $('#notif-body');
@@ -9186,7 +9186,7 @@ document.addEventListener('click', async e => {
           if (post) post.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 80);
       } else if (n.type === 'activity' && n.personId) {
-        await handleAction('person:' + n.personId);
+        openPerson(n.personId);
       }
       break;
     }
