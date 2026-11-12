@@ -8451,7 +8451,7 @@ function positionActivitySheet() {
   // Firefox Android can be configured to overlay the keyboard without resizing
   // the page viewport. When the Activity composer is focused, use a conservative
   // keyboard inset if Firefox reports no viewport change at all.
-  const keyboardOpen = !!(inputFocused && (reportedKeyboardHeight > 80 || document.activeElement === document.getElementById('activity-comment-input')));
+  const keyboardOpen = inputFocused;
   const keyboardInset = keyboardOpen ? Math.max(reportedKeyboardHeight, 300) : 0;
   const safeBottom = parseFloat(getComputedStyle(appShellForSheets).getPropertyValue('--safe-b')) || 0;
   const navHeight = parseFloat(getComputedStyle(appShellForSheets).getPropertyValue('--nav-h')) || 62;
