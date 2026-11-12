@@ -4143,6 +4143,29 @@ async function openPublicConnections(personId) {
   }
 }
 
+// STRICT PUBLIC-PROFILE STAT RULE:
+// Likes received and Live updates are scroll-only controls. Intercept them
+// before any other click handler; never allow them to trigger navigation,
+// sheets, modals, or separate update views.
+if (!document.documentElement.dataset.publicProfileScrollOnlyReady) {
+  document.documentElement.dataset.publicProfileScrollOnlyReady = '1';
+  document.addEventListener('click', event => {
+    const button = event.target && event.target.closest
+      ? event.target.closest('#screen-person [data-action^="public-likes:"], #screen-person [data-action^="public-updates:"]')
+      : null;
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const [action, personId] = button.getAttribute('data-action').split(':');
+    if (!personId || state.activePerson !== personId) return;
+    const targetId = action === 'public-likes' ? 'public-profile-likes' : 'public-profile-updates';
+    const target = document.getElementById(targetId);
+    if (target && document.getElementById('person-body')?.contains(target)) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, true);
+}
+
 // Reliable capture-phase routing for the public-profile Connections button.
 // This runs before other screen-level click handlers can swallow the action.
 if (!document.documentElement.dataset.publicConnectionsActionReady) {
