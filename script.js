@@ -4224,6 +4224,7 @@ function connectWith(id) {
       { t: 'Send request', cls: 'btn--primary', a: 'send-conn:' + id }
     ]
   });
+  modal.classList.add('modal--connect-note');
 }
 
 async function sendConnection(id) {
@@ -8633,9 +8634,34 @@ function openModal({ title, lede, fields, actions }) {
   if (first) setTimeout(() => first.focus(), 240);
 }
 function closeModal() {
-  modal.classList.remove('is-open');
+  modal.classList.remove('is-open', 'modal--connect-note');
+  modal.style.removeProperty('top');
+  modal.style.removeProperty('max-height');
   if (!sheet.classList.contains('is-open')) scrim.classList.remove('is-open');
 }
+// Keep the connection-note modal inside the visible area when the mobile keyboard opens.
+function positionConnectNoteModal() {
+  if (!modal?.classList.contains('modal--connect-note') || !modal.classList.contains('is-open')) return;
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  const visibleHeight = Math.max(180, viewport.height);
+  modal.style.top = (viewport.offsetTop + visibleHeight / 2) + 'px';
+  modal.style.maxHeight = Math.max(150, visibleHeight - 24) + 'px';
+}
+if (window.visualViewport && !window.__tweaklrConnectNoteViewportReady) {
+  window.__tweaklrConnectNoteViewportReady = true;
+  window.visualViewport.addEventListener('resize', positionConnectNoteModal);
+  window.visualViewport.addEventListener('scroll', positionConnectNoteModal);
+  window.addEventListener('resize', positionConnectNoteModal);
+  document.addEventListener('focusin', event => {
+    if (event.target?.id !== 'conn-note') return;
+    requestAnimationFrame(() => {
+      positionConnectNoteModal();
+      event.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  });
+}
+
 
 let pendingAvatarObjectUrl = null;
 let pendingAvatarImage = null;
