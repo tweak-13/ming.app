@@ -7977,6 +7977,13 @@ function editProfile() {
       </div>`,
     actions: [{ t: 'Cancel', cls: 'btn--soft', a: 'close-modal' }, { t: 'Save changes', cls: 'btn--primary', a: 'save-profile' }]
   });
+  const avatarPreview = $('#modal .ep-avatar-preview .av');
+  if (avatarPreview) {
+    avatarPreview.style.cursor = currentUser.avatarUrl ? 'zoom-in' : 'default';
+    avatarPreview.setAttribute('role', 'button');
+    avatarPreview.setAttribute('aria-label', 'View and zoom your profile photo');
+    avatarPreview.addEventListener('click', () => viewAvatar());
+  }
 }
 
 /* ------------------------------------------------------------
@@ -9023,15 +9030,30 @@ function openAvatarMenu() {
 }
 
 function viewAvatar() {
-  if (!currentUser.avatarUrl) return;
+  if (!currentUser.avatarUrl) {
+    toast('Add a profile photo first.', 'alert');
+    return;
+  }
   openModal({
     title: 'Your photo',
-    fields: `<div class="profile-photo-preview"><img src="${esc(currentUser.avatarUrl)}" alt="Your profile photo"></div>`,
+    fields: `<div class="public-profile-photo-viewer"><img id="public-profile-photo-zoom" src="${esc(currentUser.avatarUrl)}" alt="Your profile photo" data-zoom="1"></div><p class="public-profile-photo-hint">Tap the photo to zoom in or out, or use the controls below. Pinch to zoom on supported touch screens.</p>`,
     actions: [
+      { t: '−', cls: 'btn--soft', a: 'photo-zoom-out' },
+      { t: 'Reset', cls: 'btn--soft', a: 'photo-zoom-reset' },
+      { t: '+', cls: 'btn--soft', a: 'photo-zoom-in' },
       { t: 'Edit photo', cls: 'btn--soft', a: 'pick-avatar' },
       { t: 'Close', cls: 'btn--primary', a: 'close-modal' }
     ]
   });
+  const photo = $('#public-profile-photo-zoom');
+  if (!photo) return;
+  let scale = 1;
+  const applyZoom = value => {
+    scale = Math.max(1, Math.min(4, value));
+    photo.dataset.zoom = String(scale);
+    photo.style.transform = `scale(${scale})`;
+  };
+  photo.addEventListener('click', () => applyZoom(scale === 1 ? 2 : 1));
 }
 
 function viewPublicAvatar(personId) {
