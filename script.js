@@ -1659,6 +1659,8 @@ const nav = $('#nav');
 const fab = $('#fab');
 
 function setTab(tab, opts = {}) {
+  // A sheet must never survive a navigation change or sit beneath the main navigation.
+  if (sheet?.classList.contains('is-open')) closeSheet();
   if (state.stack.length) closeAllStacks();
   state.tab = tab;
   $$('.screen[data-tab]').forEach(s => s.classList.toggle('is-active', s.dataset.tab === tab));
@@ -1743,6 +1745,8 @@ function ensureLoaded(tab) {
 }
 
 function pushStack(id) {
+  // Stack navigation dismisses transient sheets before changing screens.
+  if (sheet?.classList.contains('is-open')) closeSheet();
   const scr = document.getElementById('screen-' + id);
   if (!scr) return;
   if (!state.stack.includes(id)) state.stack.push(id);
