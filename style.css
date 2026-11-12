@@ -1376,7 +1376,8 @@ input[type="range"]::-moz-range-thumb {
   flex-direction: column;
   box-shadow: 0 -20px 50px -30px rgba(73, 50, 36, .6);
 }
-.sheet.is-open { transform: none; }
+.sheet:not(.is-open) { display: none !important; }
+.sheet.is-open { display: flex; transform: none; }
 /* Activity discussion: keep the composer in the sheet footer, above the keyboard. */
 .sheet.sheet--activity-keyboard { max-height: 88%; transition: none; }
 .sheet.sheet--activity-keyboard .sheet-body { min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
