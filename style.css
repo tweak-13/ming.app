@@ -7021,3 +7021,17 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
   }
 }
 
+
+
+/* Tweaklr voice-note hold interaction — cocoa waveform and gesture feedback. */
+.chat-recording-panel { gap:9px; }
+.chat-recording-wave { display:flex;align-items:center;justify-content:center;gap:3px;height:34px;overflow:hidden;padding:0 3px;border-radius:12px;background:linear-gradient(90deg,rgba(139,53,67,.055),rgba(177,132,104,.10),rgba(139,53,67,.055)); }
+.chat-recording-wave i { display:block;flex:1 1 0;max-width:4px;min-width:2px;height:var(--voice-bar);border-radius:5px;background:linear-gradient(180deg,#d9b28f,#8b3543);opacity:.62;transform-origin:center;animation:twVoiceWave 850ms ease-in-out infinite alternate;animation-delay:calc(var(--voice-bar) * -9ms); }
+.chat-recording-panel.is-paused .chat-recording-wave i,.chat-recording-panel:not(.is-recording) .chat-recording-wave i { animation-play-state:paused;opacity:.42; }
+.chat-recording-hint { margin:0;color:var(--muted);font-size:10px;line-height:1.35;text-align:center; }
+@keyframes twVoiceWave { from { transform:scaleY(.42);opacity:.48; } to { transform:scaleY(1);opacity:1; } }
+#chat-voice { touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none; }
+#chat-voice.is-recording { background:linear-gradient(145deg,#9b3545,#632632);box-shadow:0 0 0 5px rgba(139,53,67,.13); }
+.tw-vo-voice.is-active .tw-vo-foot { color:#d5b18f; }
+.chat-view-once-state { display:inline-flex;align-items:center;gap:7px;font-style:normal; }
+@media(prefers-reduced-motion:reduce) { .chat-recording-wave i { animation:none!important; } }
