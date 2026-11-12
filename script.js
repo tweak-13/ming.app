@@ -2418,7 +2418,7 @@ function renderDailyUpdateMedia(u) {
     const m = media[0];
     return `<div class="upd-media upd-media--single">
       ${m.mime.startsWith('video/')
-        ? `<video src="${esc(m.url)}" controls muted playsinline preload="metadata" data-daily-update-preview="true" aria-label="Post video"></video>`
+        ? `<video src="${esc(m.url)}" controls muted playsinline preload="metadata" aria-label="Post video"></video>`
         : `<a href="${esc(m.url)}" target="_blank" rel="noopener noreferrer" aria-label="View image"><img src="${esc(m.url)}" alt="${esc(m.name || 'Post image')}" loading="lazy" /></a>`}
     </div>`;
   }
@@ -2427,7 +2427,7 @@ function renderDailyUpdateMedia(u) {
     ${media.map((m, index) => `
       <button type="button" class="upd-media__tile" data-action="open-update-media:${esc(u.id)}:${index}" aria-label="Open ${m.mime.startsWith('video/') ? 'video' : 'photo'} ${index + 1}">
         ${m.mime.startsWith('video/')
-          ? `<video src="${esc(m.url)}" muted playsinline preload="metadata" data-daily-update-preview="true" aria-hidden="true"></video>`
+          ? `<video src="${esc(m.url)}" muted playsinline preload="metadata" aria-hidden="true"></video>`
           : `<img src="${esc(m.url)}" alt="${esc(m.name || 'Post image')}" loading="lazy" />`}
       </button>`).join('')}
   </div>`;
@@ -2495,114 +2495,7 @@ function openDailyUpdateMedia(id, index) {
   renderViewer();
 }
 
-/* ------------------------------------------------------------
-   DAILY UPDATE VIDEO PREVIEWS
-   Show a paused still frame from around the five-second point.
-   The first deliberate play starts the original video at 0 seconds.
------------------------------------------------------------- */
-(function initDailyUpdateVideoPreviews() {
-  if (window.__tweaklrDailyUpdatePreviewsReady) return;
-  window.__tweaklrDailyUpdatePreviewsReady = true;
 
-  const PREVIEW_SECONDS = 5;
-  const bound = new WeakSet();
-
-  function showPreviewFrame(video) {
-    if (!video || video.dataset.previewFrameReady === 'true') return;
-    if (video.readyState < 1) return;
-
-    const duration = Number(video.duration);
-    const target = Number.isFinite(duration) && duration > 0
-      ? Math.min(PREVIEW_SECONDS, Math.max(0, duration - 0.1))
-      : 0;
-
-    video.pause();
-    if (Math.abs(video.currentTime - target) < 0.05) {
-      video.dataset.previewFrameReady = 'true';
-      return;
-    }
-
-    const markReady = () => {
-      video.pause();
-      video.dataset.previewFrameReady = 'true';
-      video.removeEventListener('seeked', markReady);
-    };
-    video.addEventListener('seeked', markReady);
-    try {
-      video.currentTime = target;
-    } catch (_) {
-      video.removeEventListener('seeked', markReady);
-    }
-  }
-
-  function bindPreview(video) {
-    if (bound.has(video)) return;
-    bound.add(video);
-    video.muted = true;
-    video.playsInline = true;
-    video.addEventListener('loadedmetadata', () => showPreviewFrame(video), { once: true });
-
-    // Native play controls remain available. The preview is only a still;
-    // the first play request rewinds to the beginning before full playback.
-    video.addEventListener('play', () => {
-      if (video.dataset.previewFrameReady !== 'true') return;
-      if (video.dataset.previewResetting === 'true') {
-        delete video.dataset.previewResetting;
-        delete video.dataset.previewFrameReady;
-        return;
-      }
-
-      video.pause();
-      video.dataset.previewResetting = 'true';
-      const resumeFromStart = () => {
-        video.removeEventListener('seeked', resumeFromStart);
-        if (video.dataset.previewResetting !== 'true') return;
-        video.play().catch(() => {});
-      };
-
-      if (video.currentTime <= 0.05) {
-        delete video.dataset.previewResetting;
-        delete video.dataset.previewFrameReady;
-        video.play().catch(() => {});
-        return;
-      }
-
-      video.addEventListener('seeked', resumeFromStart, { once: true });
-      try {
-        video.currentTime = 0;
-      } catch (_) {
-        video.removeEventListener('seeked', resumeFromStart);
-        delete video.dataset.previewResetting;
-      }
-    });
-
-    if (video.readyState >= 1) showPreviewFrame(video);
-  }
-
-  function scan(root) {
-    if (!root) return;
-    if (root.matches?.('[data-daily-update-preview]')) bindPreview(root);
-    root.querySelectorAll?.('[data-daily-update-preview]').forEach(bindPreview);
-  }
-
-  function mount() {
-    scan(document);
-    if ('MutationObserver' in window && document.body) {
-      const mutations = new MutationObserver(records => {
-        records.forEach(record => record.addedNodes.forEach(node => {
-          if (node.nodeType === 1) scan(node);
-        }));
-      });
-      mutations.observe(document.body, { childList: true, subtree: true });
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mount, { once: true });
-  } else {
-    mount();
-  }
-})();
 function updateCard(u) {
   const p = u.authorId === currentUser.id ? currentUser : byId(u.authorId);
   const h = hoursLeft(u);
