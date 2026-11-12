@@ -1380,8 +1380,10 @@ input[type="range"]::-moz-range-thumb {
 /* Activity discussion: keep the composer in the sheet footer, above the keyboard. */
 .sheet.sheet--activity-keyboard { max-height: 88%; }
 .sheet.sheet--activity-keyboard .sheet-body { min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.sheet.sheet--activity-keyboard .sheet-foot { padding-top: 10px; padding-bottom: 8px; }
+.sheet.sheet--activity-keyboard .sheet-foot { padding-top: 10px; padding-bottom: 8px; flex: 0 0 auto; }
 .sheet.sheet--activity-keyboard .activity-comment-composer { width: 100%; margin-bottom: 10px; }
+.sheet.sheet--activity-keyboard .sheet-foot > div:last-child { padding-bottom: 4px; }
+.sheet.sheet--activity-keyboard .sheet-body { flex: 1 1 0; }
 .sheet.sheet--activity-keyboard #activity-comment-input { min-height: 48px; max-height: 120px; line-height: 1.4; }
 .sheet .grab {
   width: 38px; height: 4px;
