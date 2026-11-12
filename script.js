@@ -8474,11 +8474,15 @@ const appShellForSheets = sheet.parentElement;
 let activitySheetBaseViewportHeight = window.innerHeight;
 let activitySheetBaseOuterHeight = window.outerHeight || window.innerHeight;
 
-function openSheet({ title, sub, body, foot, activityKeyboard = false }) {
+function openSheet({ title, sub, body, foot, activityKeyboard = false, composerBack = false }) {
   restoreSheetToApp();
+  $('#sheet-head').classList.toggle('sheet-head--with-back', !!composerBack);
   sheet.classList.remove('sheet--activity-keyboard');
   ['top', 'bottom', 'left', 'right', 'width', 'max-height', 'position'].forEach(prop => sheet.style.removeProperty(prop));
-  $('#sheet-head').innerHTML = `<h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}`;
+  $('#sheet-head').innerHTML = composerBack
+    ? `<button type="button" class="composer-back" data-composer-back aria-label="Back" title="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6" /></svg></button><div class="sheet-head-copy"><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</div>`
+    : `<h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}`;
+  if (composerBack) $('#sheet-head [data-composer-back]')?.addEventListener('click', closeSheet);
   $('#sheet-body').innerHTML = body || '';
   $('#sheet-foot').innerHTML = foot || '';
   if (activityKeyboard) {
@@ -8588,6 +8592,7 @@ function openComposer(type) {
   const preset = CREATE_PRESETS[type] || CREATE_PRESETS.update;
   state.sheetCtx = { type: 'compose', kind: preset.kind };
   openSheet({
+    composerBack: true,
     title: preset.title,
     sub: preset.body,
     body: `
@@ -12521,6 +12526,7 @@ function openRoleComposer(roleId = null) {
   const role = roleId ? Server.db.openRoles.find(r => r.id === roleId && r.spaceId === space.id) : null;
   if (roleId && !role) { toast('This role is no longer available. Refresh and try again.', 'x'); return; }
   openSheet({
+    composerBack: true,
     title: role ? 'Edit open role' : 'Create an open role',
     sub: 'Publish a clear opportunity and tell applicants what you need.',
     body: `
@@ -12550,6 +12556,7 @@ function openRoleApplicationSheet(role) {
   if (!role || role.status !== 'open') { toast('This role is closed.', 'x'); return; }
   if (role.myApplicationStatus) { toast('You have already applied. Your status is ' + role.myApplicationStatus + '.', 'check'); return; }
   openSheet({
+    composerBack: true,
     title: 'Apply · ' + role.title,
     sub: 'Your application goes to the Business Space hiring team.',
     body: `
@@ -12849,6 +12856,7 @@ function openBusinessUpdateComposer() {
   ];
   let selectedKind = 'general', selectedMedia = [];
   openSheet({
+    composerBack: true,
     title:'Daily Update',
     sub:'Share something with the people in this Business Space.',
     body:'<div class="field"><label for="biz-update-title">Headline</label><input id="biz-update-title" type="text" maxlength="70" placeholder="What is happening right now?" /></div>' +
@@ -14502,7 +14510,8 @@ function taskStatus(t){return t.status||(t.done?'completed':'todo');}
 function openTaskComposer(taskId=null){
  const task=taskId?Server.db.content.find(t=>t.id===taskId&&t.spaceId===sp.activeId):null;if(taskId&&!task){toast('Task not found. Refresh the Space and try again.','x');return;}
  const statuses=[['todo','To do'],['in_progress','In progress'],['in_review','In review'],['completed','Completed']];
- openSheet({title:task?'Edit task':'Create a task',sub:task?'Make the brief clearer and keep ownership up to date.':'Set the work up properly before it enters the team queue.',body:'<div class="sp-task-form"><div class="sp-task-form-banner"><span class="sp-task-form-symbol">✳</span><div><b>'+(task?'Update the task brief':'Give the work a clear starting point')+'</b><p>Good tasks make the next action, owner and expected outcome easy to understand.</p></div></div>'+
+ openSheet({
+    composerBack: true,title:task?'Edit task':'Create a task',sub:task?'Make the brief clearer and keep ownership up to date.':'Set the work up properly before it enters the team queue.',body:'<div class="sp-task-form"><div class="sp-task-form-banner"><span class="sp-task-form-symbol">✳</span><div><b>'+(task?'Update the task brief':'Give the work a clear starting point')+'</b><p>Good tasks make the next action, owner and expected outcome easy to understand.</p></div></div>'+
  '<div class="sp-task-form-block"><span class="sp-task-form-label">01 · THE BRIEF</span><div class="field"><label for="cx-title">Task name <em>*</em></label><input id="cx-title" maxlength="100" placeholder="e.g. Prepare the launch campaign" value="'+esc(task?.title||'')+'"/></div><div class="field"><label for="cx-description">Description &amp; success criteria</label><textarea id="cx-description" maxlength="1200" rows="4" placeholder="What needs to happen? What does a successful result look like?">'+esc(task?.description||'')+'</textarea></div></div>'+
  '<div class="sp-task-form-block"><span class="sp-task-form-label">02 · OWNERSHIP &amp; TIMING</span><div class="field"><label for="cx-assignee">Assign to</label><select id="cx-assignee"><option value="">Unassigned</option>'+taskMemberOptions(sp.activeId,task?.assigneeId||'')+'</select></div><div class="field"><label for="cx-due">Due date</label><input id="cx-due" type="date" value="'+esc(task?.due||'')+'"/></div></div>'+
  '<div class="sp-task-form-block"><span class="sp-task-form-label">03 · WORKFLOW</span><div class="sp-task-form-row"><div class="field"><label for="cx-priority">Priority</label><select id="cx-priority">'+[['low','Low'],['medium','Medium'],['high','High'],['urgent','Urgent']].map(([v,l])=>'<option value="'+v+'"'+((task?.priority||'medium')===v?' selected':'')+'>'+l+'</option>').join('')+'</select></div><div class="field"><label for="cx-status">Status</label><select id="cx-status">'+statuses.map(([v,l])=>'<option value="'+v+'"'+((taskStatus(task||{})===v)?' selected':'')+'>'+l+'</option>').join('')+'</select></div></div></div></div>',foot:'<button type="button" class="btn btn--soft" data-sp="task-cancel">Cancel</button><button type="button" class="btn btn--primary" data-sp="'+(task?'task-save:'+task.id:'post:task')+'">'+(task?'Save changes':'Create task')+'</button>'});
@@ -14551,6 +14560,7 @@ document.addEventListener('change',async e=>{const input=e.target.closest('[data
 function openComposerFor(key) {
   const c = COMPOSERS[key];
   openSheet({
+    composerBack: true,
     title: c.title,
     sub: '',
     body: c.fields.map(([k, label, type]) => `
@@ -14597,6 +14607,7 @@ async function startSpaceMediaRecording(kind) {
 function openProductComposer() {
   sp.pendingMedia = [];
   openSheet({
+    composerBack: true,
     title: 'List an item',
     sub: 'The price you set here is the price the server charges. It cannot be changed by the buyer.',
     body: `
