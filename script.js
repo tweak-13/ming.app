@@ -7749,6 +7749,15 @@ function profileLikedUpdateCard(u) {
   </article>`;
 }
 
+function renderYourLiveUpdatesScreen() {
+  const host = document.getElementById('your-live-updates-body');
+  if (!host) return;
+  const mine = liveUpdates().filter(update => update.authorId === currentUser.id);
+  host.innerHTML = mine.length
+    ? mine.map(updateCard).join('')
+    : emptyState('No live updates right now', 'Your Daily Updates will appear here after you publish them. They remain visible for 24 hours.');
+}
+
 function renderProfile() {
   const mine = liveUpdates().filter(u => u.authorId === currentUser.id);
   $('#profile-body').innerHTML = `
@@ -7771,7 +7780,7 @@ function renderProfile() {
     </div>
     <div class="stats">
       <button data-action="go-connections"><div class="v">${connections.length}</div><div class="l">Connections</div></button>
-      <button data-action="go-updates"><div class="v">${mine.length}</div><div class="l">Live updates</div></button>
+      <button type="button" data-action="go-updates" aria-label="View your live updates"><div class="v">${mine.length}</div><div class="l">Live updates</div></button>
       <button class="profile-messages-stat" data-action="go-messages">
         <div class="v">${conversations.reduce((n, c) => n + c.unread, 0)}</div>
         <span class="profile-message-unread-badge" id="profile-message-unread-badge" aria-label="Unread messages">${Math.min(99, conversations.reduce((n, c) => n + c.unread, 0))}</span>
@@ -9511,7 +9520,14 @@ document.addEventListener('click', async e => {
       pushStack('notifications');
       break;
     }
-    case 'go-updates': $('#my-updates').scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
+    case 'go-updates': {
+      closeSheet();
+      const loaded = await loadMingDailyUpdates();
+      renderYourLiveUpdatesScreen();
+      pushStack('your-live-updates');
+      if (!loaded) toast('Your Live Updates could not be refreshed. Showing available updates.', 'alert');
+      break;
+    }
 
     case 'profile-content': {
       profileContentTab = arg === 'likes' ? 'likes' : 'posts';
