@@ -2537,8 +2537,8 @@ function renderHomeOpps() {
    DAILY UPDATES
 ------------------------------------------------------------ */
 function liveUpdates() {
-  // Live Updates contains only Daily Update posts; Activities have their own Discover section.
-  return dailyUpdates.filter(u => u.kind !== 'activity' && hoursLeft(u) > 0).sort((a, b) => b.createdAt - a.createdAt);
+  // Live Updates includes both Daily Updates and Activities; kindPill labels each post correctly.
+  return dailyUpdates.filter(u => hoursLeft(u) > 0).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 function renderDailyUpdateMedia(u) {
