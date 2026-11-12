@@ -8690,8 +8690,34 @@ async function openActivitySheet(id) {
     mingNearbyActivities.find(x => String(x.id) === String(id)) ||
     dailyUpdates.find(x => String(x.id) === String(id) && x.kind === 'activity');
   if (!a) return;
-  const p = byId(a.authorId) || mingConnectionProfiles.get(a.authorId);
-  if (!p) return;
+  let p = byId(a.authorId) || mingConnectionProfiles.get(a.authorId);
+  // The Activity card can outlive the cached host profile (for example after
+  // leaving and returning to Live Updates). Resolve the host from profiles
+  // instead of silently making the card stop responding.
+  if (!p && a.authorId) {
+    const { data: hostProfile, error: hostProfileError } = await supabaseClient
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .eq('id', a.authorId)
+      .maybeSingle();
+    if (!hostProfileError && hostProfile) {
+      const displayName = hostProfile.display_name || hostProfile.username || 'Tweaklr member';
+      p = {
+        ...hostProfile,
+        name: displayName,
+        short: displayName,
+        username: hostProfile.username ? '@' + String(hostProfile.username).replace(/^@/, '') : '',
+        avatarUrl: hostProfile.avatar_url || '',
+        km: null
+      };
+      mingConnectionProfiles.set(p.id, p);
+    }
+  }
+  if (!p) {
+    console.warn('Tweaklr: Activity host profile could not be resolved.', a.authorId);
+    toast('This Activity could not be opened right now. Please try again.', 'alert');
+    return;
+  }
   const { data: { session } } = await supabaseClient.auth.getSession();
   const userId = session?.user?.id;
   const isHost = !!userId && a.authorId === userId;
