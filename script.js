@@ -2497,84 +2497,87 @@ function openDailyUpdateMedia(id, index) {
 
 /* ------------------------------------------------------------
    DAILY UPDATE VIDEO PREVIEWS
-   Autoplay a muted five-second teaser while a post is visible.
-   Full playback remains available when the viewer interacts with
-   the inline player or opens the media viewer.
+   Show a paused still frame from around the five-second point.
+   The first deliberate play starts the original video at 0 seconds.
 ------------------------------------------------------------ */
 (function initDailyUpdateVideoPreviews() {
   if (window.__tweaklrDailyUpdatePreviewsReady) return;
   window.__tweaklrDailyUpdatePreviewsReady = true;
 
   const PREVIEW_SECONDS = 5;
-  const observed = new WeakSet();
-  let previewObserver = null;
+  const bound = new WeakSet();
 
-  function startPreview(video) {
-    if (!video || video.dataset.previewManual === 'true') return;
-    video.muted = true;
-    video.playsInline = true;
-    if (video.readyState >= 1) {
-      try { video.currentTime = 0; } catch (_) {}
-    }
-    const result = video.play();
-    if (result && typeof result.catch === 'function') result.catch(() => {});
-  }
+  function showPreviewFrame(video) {
+    if (!video || video.dataset.previewFrameReady === 'true') return;
+    if (video.readyState < 1) return;
 
-  function stopPreview(video) {
-    if (!video) return;
+    const duration = Number(video.duration);
+    const target = Number.isFinite(duration) && duration > 0
+      ? Math.min(PREVIEW_SECONDS, Math.max(0, duration - 0.1))
+      : 0;
+
     video.pause();
-    try { video.currentTime = 0; } catch (_) {}
-    delete video.dataset.previewManual;
+    if (Math.abs(video.currentTime - target) < 0.05) {
+      video.dataset.previewFrameReady = 'true';
+      return;
+    }
+
+    const markReady = () => {
+      video.pause();
+      video.dataset.previewFrameReady = 'true';
+      video.removeEventListener('seeked', markReady);
+    };
+    video.addEventListener('seeked', markReady);
+    try {
+      video.currentTime = target;
+    } catch (_) {
+      video.removeEventListener('seeked', markReady);
+    }
   }
 
   function bindPreview(video) {
-    if (observed.has(video)) return;
-    observed.add(video);
+    if (bound.has(video)) return;
+    bound.add(video);
     video.muted = true;
     video.playsInline = true;
+    video.addEventListener('loadedmetadata', () => showPreviewFrame(video), { once: true });
 
-    // Deliberate interaction switches to normal full-length playback
-    // until the person scrolls away from this post.
-    video.addEventListener('pointerdown', () => {
-      video.dataset.previewManual = 'true';
-    }, { passive: true });
-    video.addEventListener('keydown', () => {
-      video.dataset.previewManual = 'true';
-    });
+    // Native play controls remain available. The preview is only a still;
+    // the first play request rewinds to the beginning before full playback.
+    video.addEventListener('play', () => {
+      if (video.dataset.previewFrameReady !== 'true') return;
+      if (video.dataset.previewResetting === 'true') {
+        delete video.dataset.previewResetting;
+        delete video.dataset.previewFrameReady;
+        return;
+      }
 
-    video.addEventListener('timeupdate', () => {
-      if (video.dataset.previewManual === 'true' || video.paused) return;
-      const duration = Number.isFinite(video.duration) ? video.duration : PREVIEW_SECONDS;
-      const limit = Math.min(PREVIEW_SECONDS, duration);
-      if (limit > 0 && video.currentTime >= limit - 0.08) {
-        try { video.currentTime = 0; } catch (_) {}
-        const result = video.play();
-        if (result && typeof result.catch === 'function') result.catch(() => {});
+      video.pause();
+      video.dataset.previewResetting = 'true';
+      const resumeFromStart = () => {
+        video.removeEventListener('seeked', resumeFromStart);
+        if (video.dataset.previewResetting !== 'true') return;
+        video.play().catch(() => {});
+      };
+
+      if (video.currentTime <= 0.05) {
+        delete video.dataset.previewResetting;
+        delete video.dataset.previewFrameReady;
+        video.play().catch(() => {});
+        return;
+      }
+
+      video.addEventListener('seeked', resumeFromStart, { once: true });
+      try {
+        video.currentTime = 0;
+      } catch (_) {
+        video.removeEventListener('seeked', resumeFromStart);
+        delete video.dataset.previewResetting;
       }
     });
 
-    video.addEventListener('ended', () => {
-      if (video.dataset.previewManual === 'true') return;
-      try { video.currentTime = 0; } catch (_) {}
-      const result = video.play();
-      if (result && typeof result.catch === 'function') result.catch(() => {});
-    });
-
-    if (previewObserver) previewObserver.observe(video);
+    if (video.readyState >= 1) showPreviewFrame(video);
   }
-
-  previewObserver = 'IntersectionObserver' in window
-    ? new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-          const video = entry.target;
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-            startPreview(video);
-          } else {
-            stopPreview(video);
-          }
-        });
-      }, { threshold: [0, 0.6, 1] })
-    : null;
 
   function scan(root) {
     if (!root) return;
@@ -2600,7 +2603,6 @@ function openDailyUpdateMedia(id, index) {
     mount();
   }
 })();
-
 function updateCard(u) {
   const p = u.authorId === currentUser.id ? currentUser : byId(u.authorId);
   const h = hoursLeft(u);
