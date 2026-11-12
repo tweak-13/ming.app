@@ -2297,7 +2297,9 @@ async function loadMingDailyUpdates() {
         likes: Number(row.likes || 0),
         liked: !!row.liked,
         comments: [],
-        commentsCount: Number(row.comments_count || 0)
+        commentsCount: Number(row.comments_count || 0),
+        startsAt: row.activity_starts_at ? new Date(row.activity_starts_at).getTime() : null,
+        place: row.activity_place || ''
       };
     }));
 
@@ -2632,7 +2634,14 @@ function updateCard(u) {
   const h = hoursLeft(u);
   const pct = Math.max(2, Math.round((h / 24) * 100));
   const mine = u.authorId === currentUser.id;
-  return `<article class="upd" id="upd-${u.id}">
+  const isActivity = u.kind === 'activity';
+  const activityWhen = u.startsAt
+    ? new Date(u.startsAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+    : '';
+  const activityDetails = isActivity
+    ? `<div class="upd-activity-details"><span>${icon('calendar')}<span>${esc(activityWhen || 'Time to be confirmed')}</span></span><span>${icon('pin')}<span>${esc(u.place || 'Nearby location')}</span></span></div>`
+    : '';
+  return `<article class="upd${isActivity ? ' upd--activity' : ''}" id="upd-${u.id}">
     <div class="upd-top">
       ${avatar(p, 36)}
       <div class="who">
@@ -2641,8 +2650,10 @@ function updateCard(u) {
       </div>
       ${kindPill(u.kind)}
     </div>
+    ${isActivity ? '<div class="upd-activity-kicker"><span>✦</span> TWEAKLR ACTIVITY</div>' : ''}
     <h3>${esc(u.title)}</h3>
     <p>${esc(u.body)}</p>
+    ${activityDetails}
     ${renderDailyUpdateMedia(u)}
     <div class="upd-foot">
       <span class="like-control">
@@ -8044,7 +8055,9 @@ async function loadMingSearchData() {
             title: row.title, body: row.body,
             createdAt: new Date(row.created_at).getTime(),
             likes: Number(row.likes || 0), liked: !!row.liked,
-            comments: [], commentsCount: Number(row.comments_count || 0)
+            comments: [], commentsCount: Number(row.comments_count || 0),
+            startsAt: row.activity_starts_at ? new Date(row.activity_starts_at).getTime() : null,
+            place: row.activity_place || ''
           };
         });
       }
