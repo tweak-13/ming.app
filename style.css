@@ -4096,6 +4096,8 @@ html.theme-transitioning *::after {
 .search-result-query{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:var(--text)}
 .search-result-count,.search-group-count{color:var(--muted);font-size:11px;font-weight:600}
 .search-group-count{display:inline-flex;margin-left:6px;padding:2px 6px;border-radius:999px;background:var(--surface-2)}
+/* Search people use a 46px avatar; define the matching size so photos cannot expand to their intrinsic dimensions. */
+.av--46{width:46px;height:46px;font-size:16px;}
 .search-person-row .meta{min-width:0}
 .search-person-row .meta .s{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
