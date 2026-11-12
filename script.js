@@ -951,6 +951,8 @@ let connectionRequests = [
   { id: 'r2', personId: 'p10', message: 'Visiting for two weeks and trying to find a running route. Any advice welcome.', at: now() - 26 * HOUR }
 ];
 let connectionOutgoingRequests = [];
+let connectionSentRequests = [];
+let connectionAcceptedRequests = [];
 
 async function loadMingConnections() {
   try {
@@ -960,7 +962,7 @@ async function loadMingConnections() {
 
     const { data: rows, error } = await supabaseClient
       .from('connections')
-      .select('id, requester_id, recipient_id, status, note, created_at')
+      .select('id, requester_id, recipient_id, status, note, created_at, responded_at')
       .or(`requester_id.eq.${session.user.id},recipient_id.eq.${session.user.id}`)
       .order('created_at', { ascending: false });
 
@@ -1023,6 +1025,25 @@ async function loadMingConnections() {
         message: row.note || '',
         at: new Date(row.created_at).getTime()
       }));
+
+    const notificationCutoff = Date.now() - TWEAKLR_NOTIFICATION_RETENTION_MS;
+    connectionSentRequests = (rows || [])
+      .filter(row => row.requester_id === uid && ['pending', 'accepted'].includes(row.status))
+      .filter(row => new Date(row.created_at).getTime() > notificationCutoff)
+      .map(row => ({
+        id: row.id,
+        personId: row.recipient_id,
+        at: new Date(row.created_at).getTime()
+      }));
+
+    connectionAcceptedRequests = (rows || [])
+      .filter(row => row.requester_id === uid && row.status === 'accepted' && row.responded_at)
+      .map(row => ({
+        id: row.id,
+        personId: row.recipient_id,
+        at: new Date(row.responded_at).getTime()
+      }))
+      .filter(row => Number.isFinite(row.at) && row.at > notificationCutoff);
 
     return true;
   } catch (error) {
@@ -1150,16 +1171,40 @@ async function loadMingNotifications() {
 
     const next = [];
 
-    if (connectionsLoaded) connectionRequests.forEach(r => {
-      const p = byId(r.personId);
-      const name = p?.short || p?.name || 'Someone';
-      const id = 'connreq_' + r.id;
-      next.push({
-        id, type: 'request', personId: r.personId,
-        text: '<b>' + esc(name) + '</b> wants to connect with you.',
-        at: r.at, read: notificationReadIds.has(id)
+    if (connectionsLoaded) {
+      connectionRequests.forEach(r => {
+        const p = byId(r.personId);
+        const name = p?.short || p?.name || 'Someone';
+        const id = 'connreq_' + r.id;
+        next.push({
+          id, type: 'request', personId: r.personId,
+          text: '<b>' + esc(name) + '</b> wants to connect with you.',
+          at: r.at, read: notificationReadIds.has(id)
+        });
       });
-    });
+
+      connectionSentRequests.forEach(r => {
+        const p = byId(r.personId);
+        const name = p?.short || p?.name || 'Someone';
+        const id = 'conn_sent_' + r.id;
+        next.push({
+          id, type: 'connect', personId: r.personId,
+          text: 'Your connection request to <b>' + esc(name) + '</b> was sent.',
+          at: r.at, read: notificationReadIds.has(id)
+        });
+      });
+
+      connectionAcceptedRequests.forEach(r => {
+        const p = byId(r.personId);
+        const name = p?.short || p?.name || 'Someone';
+        const id = 'conn_accepted_' + r.id;
+        next.push({
+          id, type: 'connect', personId: r.personId,
+          text: '<b>' + esc(name) + '</b> accepted your connection request.',
+          at: r.at, read: notificationReadIds.has(id)
+        });
+      });
+    }
 
     if (messagesLoaded) conversations.forEach(c => {
       const unread = c.messages.filter(m => !m.me && !m.read);
@@ -4257,6 +4302,7 @@ async function sendConnection(id) {
     closeModal();
     toast(`Connection request sent to ${p.short}`, 'check');
     await loadMingConnections();
+    await loadMingNotifications();
     if (state.activePerson === id) openPersonRefresh(id);
     renderConnections();
     return;
