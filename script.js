@@ -2418,7 +2418,7 @@ function renderDailyUpdateMedia(u) {
     const m = media[0];
     return `<div class="upd-media upd-media--single">
       ${m.mime.startsWith('video/')
-        ? `<video src="${esc(m.url)}" controls playsinline preload="none" aria-label="Post video"></video>`
+        ? `<video src="${esc(m.url)}" controls muted playsinline preload="metadata" data-daily-update-preview="true" aria-label="Post video"></video>`
         : `<a href="${esc(m.url)}" target="_blank" rel="noopener noreferrer" aria-label="View image"><img src="${esc(m.url)}" alt="${esc(m.name || 'Post image')}" loading="lazy" /></a>`}
     </div>`;
   }
@@ -2427,7 +2427,7 @@ function renderDailyUpdateMedia(u) {
     ${media.map((m, index) => `
       <button type="button" class="upd-media__tile" data-action="open-update-media:${esc(u.id)}:${index}" aria-label="Open ${m.mime.startsWith('video/') ? 'video' : 'photo'} ${index + 1}">
         ${m.mime.startsWith('video/')
-          ? `<video src="${esc(m.url)}" muted playsinline preload="metadata" aria-hidden="true"></video>`
+          ? `<video src="${esc(m.url)}" muted playsinline preload="metadata" data-daily-update-preview="true" aria-hidden="true"></video>`
           : `<img src="${esc(m.url)}" alt="${esc(m.name || 'Post image')}" loading="lazy" />`}
       </button>`).join('')}
   </div>`;
@@ -2494,6 +2494,112 @@ function openDailyUpdateMedia(id, index) {
 
   renderViewer();
 }
+
+/* ------------------------------------------------------------
+   DAILY UPDATE VIDEO PREVIEWS
+   Autoplay a muted five-second teaser while a post is visible.
+   Full playback remains available when the viewer interacts with
+   the inline player or opens the media viewer.
+------------------------------------------------------------ */
+(function initDailyUpdateVideoPreviews() {
+  if (window.__tweaklrDailyUpdatePreviewsReady) return;
+  window.__tweaklrDailyUpdatePreviewsReady = true;
+
+  const PREVIEW_SECONDS = 5;
+  const observed = new WeakSet();
+  let previewObserver = null;
+
+  function startPreview(video) {
+    if (!video || video.dataset.previewManual === 'true') return;
+    video.muted = true;
+    video.playsInline = true;
+    if (video.readyState >= 1) {
+      try { video.currentTime = 0; } catch (_) {}
+    }
+    const result = video.play();
+    if (result && typeof result.catch === 'function') result.catch(() => {});
+  }
+
+  function stopPreview(video) {
+    if (!video) return;
+    video.pause();
+    try { video.currentTime = 0; } catch (_) {}
+    delete video.dataset.previewManual;
+  }
+
+  function bindPreview(video) {
+    if (observed.has(video)) return;
+    observed.add(video);
+    video.muted = true;
+    video.playsInline = true;
+
+    // Deliberate interaction switches to normal full-length playback
+    // until the person scrolls away from this post.
+    video.addEventListener('pointerdown', () => {
+      video.dataset.previewManual = 'true';
+    }, { passive: true });
+    video.addEventListener('keydown', () => {
+      video.dataset.previewManual = 'true';
+    });
+
+    video.addEventListener('timeupdate', () => {
+      if (video.dataset.previewManual === 'true' || video.paused) return;
+      const duration = Number.isFinite(video.duration) ? video.duration : PREVIEW_SECONDS;
+      const limit = Math.min(PREVIEW_SECONDS, duration);
+      if (limit > 0 && video.currentTime >= limit - 0.08) {
+        try { video.currentTime = 0; } catch (_) {}
+        const result = video.play();
+        if (result && typeof result.catch === 'function') result.catch(() => {});
+      }
+    });
+
+    video.addEventListener('ended', () => {
+      if (video.dataset.previewManual === 'true') return;
+      try { video.currentTime = 0; } catch (_) {}
+      const result = video.play();
+      if (result && typeof result.catch === 'function') result.catch(() => {});
+    });
+
+    if (previewObserver) previewObserver.observe(video);
+  }
+
+  previewObserver = 'IntersectionObserver' in window
+    ? new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          const video = entry.target;
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            startPreview(video);
+          } else {
+            stopPreview(video);
+          }
+        });
+      }, { threshold: [0, 0.6, 1] })
+    : null;
+
+  function scan(root) {
+    if (!root) return;
+    if (root.matches?.('[data-daily-update-preview]')) bindPreview(root);
+    root.querySelectorAll?.('[data-daily-update-preview]').forEach(bindPreview);
+  }
+
+  function mount() {
+    scan(document);
+    if ('MutationObserver' in window && document.body) {
+      const mutations = new MutationObserver(records => {
+        records.forEach(record => record.addedNodes.forEach(node => {
+          if (node.nodeType === 1) scan(node);
+        }));
+      });
+      mutations.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mount, { once: true });
+  } else {
+    mount();
+  }
+})();
 
 function updateCard(u) {
   const p = u.authorId === currentUser.id ? currentUser : byId(u.authorId);
