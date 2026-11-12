@@ -4069,8 +4069,13 @@ function renderConnections() {
 }
 
 async function openPublicConnections(personId) {
-  const person = byId(personId);
-  if (!person || !isUuidPerson(personId)) {
+  // Resolve from the profile cache first: the public profile itself is the
+  // authoritative source for the member currently being viewed.
+  const person = mingConnectionProfiles.get(personId) || byId(personId) || {
+    id: personId,
+    short: 'This member'
+  };
+  if (!personId || !isUuidPerson(personId)) {
     toast('This member’s connections are not available.', 'alert');
     return;
   }
@@ -4166,19 +4171,22 @@ if (!document.documentElement.dataset.publicProfileScrollOnlyReady) {
   }, true);
 }
 
-// Reliable capture-phase routing for the public-profile Connections button.
-// This runs before other screen-level click handlers can swallow the action.
-if (!document.documentElement.dataset.publicConnectionsActionReady) {
-  document.documentElement.dataset.publicConnectionsActionReady = '1';
-  document.addEventListener('click', event => {
-    const button = event.target && event.target.closest
-      ? event.target.closest('#screen-person [data-action^="public-connections:"]')
+// Route the public-profile Connections control at window capture phase,
+// ahead of document-level handlers that may intercept or swallow clicks.
+if (!window.__tweaklrPublicConnectionsClickReady) {
+  window.__tweaklrPublicConnectionsClickReady = true;
+  window.addEventListener('click', event => {
+    const target = event.target;
+    const button = target && typeof target.closest === 'function'
+      ? target.closest('#screen-person button[data-action^="public-connections:"]')
       : null;
     if (!button) return;
+    const personId = (button.getAttribute('data-action') || '')
+      .slice('public-connections:'.length);
+    if (!personId) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    const personId = button.getAttribute('data-action').slice('public-connections:'.length);
-    openPublicConnections(personId);
+    void openPublicConnections(personId);
   }, true);
 }
 
