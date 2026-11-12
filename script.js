@@ -7749,6 +7749,15 @@ function profileLikedUpdateCard(u) {
   </article>`;
 }
 
+function renderMyPostsScreen() {
+  const host = document.getElementById('my-posts-body');
+  if (!host) return;
+  const mine = liveUpdates().filter(update => update.authorId === currentUser.id);
+  host.innerHTML = mine.length
+    ? mine.map(updateCard).join('')
+    : emptyState('No active Daily Updates', 'Daily Updates disappear after 24 hours. When you publish one, it will appear here.');
+}
+
 function renderProfile() {
   const mine = liveUpdates().filter(u => u.authorId === currentUser.id);
   $('#profile-body').innerHTML = `
@@ -7794,6 +7803,7 @@ function renderProfile() {
       <div class="menu-list">
         <button class="menu-item profile-account-messages" data-action="go-messages">${icon('chat')}<span class="t">Messages</span><span class="profile-account-message-dot" id="profile-account-message-dot" aria-label="Unread messages"></span><span class="go">${icon('chev')}</span></button>
         <button class="menu-item" data-action="go-notifications">${icon('bell')}<span class="t">Notifications</span><span class="go">${icon('chev')}</span></button>
+        <button type="button" class="menu-item" data-action="go-my-posts">${icon('file-text')}<span class="t">My Posts</span><span class="go">${icon('chev')}</span></button>
         <button type="button" class="menu-item" data-action="go-spaces">${icon('sp-store')}<span class="t">Your Spaces</span><span class="go">${icon('chev')}</span></button>
         <button class="menu-item" data-action="go-wallet">${icon('sp-wallet')}<span class="t">Tweaklr Wallet</span><span class="go">${icon('chev')}</span></button>
         <button class="menu-item" data-action="privacy">${icon('shield')}<span class="t">Location and privacy</span><span class="go">${icon('chev')}</span></button>
@@ -9511,6 +9521,12 @@ document.addEventListener('click', async e => {
       pushStack('notifications');
       break;
     }
+    case 'go-my-posts': {
+      renderMyPostsScreen();
+      pushStack('my-posts');
+      break;
+    }
+
     case 'go-updates': $('#my-updates').scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
 
     case 'profile-content': {
