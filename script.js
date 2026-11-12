@@ -6457,8 +6457,8 @@ function renderChatAttachment(m) {
   const ext=(name||'').toLowerCase().split('.').pop();
   if(!path)return '';
   if(m.viewOnce){
-    if(m.viewedAt) return '<div class="chat-view-once-state">Opened</div>';
-    return '<button type="button" class="chat-view-once-button" data-view-once="attachment" data-message-id="'+esc(m.id)+'">◉ View once · Tap to open</button>';
+    if(m.viewedAt) return '<div class="chat-view-once-state"><span aria-hidden="true">✓</span><span><strong>Opened</strong><small>This media is no longer available</small></span></div>';
+    return '<button type="button" class="chat-view-once-button" data-view-once="attachment" data-message-id="'+esc(m.id)+'"><span class="chat-view-once-symbol" aria-hidden="true">1×</span><span class="chat-view-once-copy"><strong>View once</strong><small>Tap to open · Cannot be opened again</small></span><span class="chat-view-once-open">Open</span></button>';
   }
   const isVideo=mime.startsWith('video/')||['mp4','webm','mov','m4v'].includes(ext);
   const isImage=!isVideo&&(m.type==='image'||mime.startsWith('image/')||['jpg','jpeg','png','webp','gif','heic','heif'].includes(ext));
