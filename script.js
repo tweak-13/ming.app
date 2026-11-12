@@ -2654,7 +2654,6 @@ function updateCard(u) {
         <div class="n">${esc(p.short || p.name)}</div>
         <div class="m">${esc(mine ? 'You' : distLabel(p.km))} · ${esc(timeAgo(u.createdAt))}</div>
       </div>
-      ${kindPill(u.kind)}
     </div>
     <h3>${esc(u.title)}</h3>
     <p>${esc(u.body)}</p>
