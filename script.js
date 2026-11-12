@@ -8684,7 +8684,11 @@ function openComposer(type) {
 }
 
 async function openActivitySheet(id) {
-  const a = discoverActivities.find(x => x.id === id) || mingNearbyActivities.find(x => x.id === id);
+  // Live Updates can contain Activities that have not been loaded into Discover/Nearby.
+  // Resolve those from the shared Daily Updates feed as a final fallback.
+  const a = discoverActivities.find(x => String(x.id) === String(id)) ||
+    mingNearbyActivities.find(x => String(x.id) === String(id)) ||
+    dailyUpdates.find(x => String(x.id) === String(id) && x.kind === 'activity');
   if (!a) return;
   const p = byId(a.authorId) || mingConnectionProfiles.get(a.authorId);
   if (!p) return;
