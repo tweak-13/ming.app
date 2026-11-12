@@ -5242,6 +5242,10 @@ html.theme-transitioning *::after {
 #screen-person .public-profile-stat { display:flex; min-width:0; min-height:72px; flex-direction:column; align-items:center; justify-content:center; gap:5px; padding:10px 5px; border:1px solid var(--border); border-radius:16px; background:radial-gradient(ellipse at 90% 0%,color-mix(in srgb,var(--coffee-light,#b68a70) 12%,transparent),transparent 62%),var(--surface); text-align:center; }
 #screen-person .public-profile-stat strong { max-width:100%; color:var(--text); font-size:clamp(12px,3.6vw,17px); font-weight:800; line-height:1.2; overflow-wrap:anywhere; }
 #screen-person .public-profile-stat span { color:var(--muted); font-size:10px; line-height:1.35; }
+#screen-person button.public-profile-stat { width:100%; appearance:none; -webkit-appearance:none; color:inherit; font:inherit; cursor:pointer; transition:border-color .18s ease,transform .18s ease,background .18s ease; }
+#screen-person button.public-profile-stat:active { transform:scale(.98); }
+#screen-person button.public-profile-stat:focus-visible { outline:2px solid var(--coffee); outline-offset:3px; }
+#screen-person .section[hidden] { display:none !important; }
 @media (max-width:350px) { #screen-person .public-profile-stats { gap:5px; margin-right:12px; margin-left:12px; } #screen-person .public-profile-stat { padding:9px 3px; } #screen-person .public-profile-stat span { font-size:9px; } }
 @media (prefers-reduced-motion:reduce) { #screen-chat .chat-profile-name span, #screen-chat .chat-profile-avatar .av { transition:none; } }
 
