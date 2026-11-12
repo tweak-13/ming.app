@@ -1309,7 +1309,7 @@ input[type="range"]::-moz-range-thumb {
   border-top: 1px solid var(--border);
   transition: transform var(--t) var(--ease);
 }
-.nav.hidden { transform: translateY(calc(100% + 4px)); }
+.nav.hidden { display: none !important; transform: translateY(calc(100% + 4px)); }
 
 .nav button {
   flex: 1 1 0;
