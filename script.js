@@ -7424,7 +7424,10 @@ async function recordVoiceNote() {
       toast('The voice note could not be recorded.', 'alert');
     };
     recorder.start(250);
-    if (chatVoiceHoldMode && chatVoiceHoldReleased && !chatVoiceHoldLocked) finishChatVoiceRecording(chatVoiceHoldCancelled);
+    if (chatVoiceHoldMode && chatVoiceHoldReleased && !chatVoiceHoldLocked) {
+      finishChatVoiceRecording(chatVoiceHoldCancelled);
+      chatVoiceHoldMode = false;
+    }
     if (chatRecordTimer) clearInterval(chatRecordTimer);
     chatRecordTimer = setInterval(updateChatVoicePanel, 250);
     updateChatVoicePanel();
@@ -10312,23 +10315,22 @@ chatVoiceButton.addEventListener('pointerup', event => {
   if (!chatVoiceHoldMode || chatVoiceHoldPointerId !== event.pointerId) return;
   chatVoiceHoldReleased = true;
   chatVoiceHoldPointerId = null;
-  if (!chatVoiceHoldLocked && chatRecording && chatRecording.state !== 'inactive') finishChatVoiceRecording(chatVoiceHoldCancelled);
+  if (!chatVoiceHoldLocked && chatRecording && chatRecording.state !== 'inactive') {
+    finishChatVoiceRecording(chatVoiceHoldCancelled);
+    chatVoiceHoldMode = false;
+  }
 });
 chatVoiceButton.addEventListener('pointercancel', event => {
   if (!chatVoiceHoldMode || chatVoiceHoldPointerId !== event.pointerId) return;
   chatVoiceHoldReleased = true;
   chatVoiceHoldCancelled = true;
   chatVoiceHoldPointerId = null;
-  if (chatRecording && chatRecording.state !== 'inactive') finishChatVoiceRecording(true);
+  if (chatRecording && chatRecording.state !== 'inactive') {
+    finishChatVoiceRecording(true);
+    chatVoiceHoldMode = false;
+  }
 });
 chatVoiceButton.addEventListener('click', event => {
-  if (chatVoiceHoldMode) {
-    chatVoiceHoldMode = false;
-    chatVoiceHoldReleased = false;
-    chatVoiceHoldLocked = false;
-    chatVoiceHoldCancelled = false;
-    return;
-  }
   if (event.detail === 0) recordVoiceNote();
 });
 $('#chat-recording-pause').addEventListener('click', () => {
