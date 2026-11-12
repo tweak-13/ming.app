@@ -1452,8 +1452,9 @@ input[type="range"]::-moz-range-thumb {
   overflow-y: auto;
 }
 .modal.is-open { opacity: 1; visibility: visible; transform: translateY(-50%) scale(1); }
-/* The Connect Request note modal is repositioned against the live visual viewport by JS. */
-.modal.modal--connect-note { scroll-behavior: smooth; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+/* The Connect Request note modal uses fixed positioning while the Android keyboard is open. */
+.modal.modal--connect-note { scroll-behavior: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.modal.modal--connect-note.is-open { transform: none; }
 .modal h2 { font-size: 18px; font-weight: 620; letter-spacing: -.026em; }
 .modal p.lede { font-size: 13.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 .modal .row { display: flex; gap: 10px; margin-top: 20px; }
