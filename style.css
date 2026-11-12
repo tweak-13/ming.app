@@ -1378,7 +1378,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .sheet.is-open { transform: none; }
 /* Activity discussion: keep the composer in the sheet footer, above the keyboard. */
-.sheet.sheet--activity-keyboard { max-height: 88%; }
+.sheet.sheet--activity-keyboard { max-height: 88%; transition: none; }
 .sheet.sheet--activity-keyboard .sheet-body { min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .sheet.sheet--activity-keyboard .sheet-foot { padding-top: 10px; padding-bottom: 8px; flex: 0 0 auto; }
 .sheet.sheet--activity-keyboard .activity-comment-composer { width: 100%; margin-bottom: 10px; }
