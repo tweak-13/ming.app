@@ -8428,14 +8428,28 @@ function closeSheet() {
 // would be clipped by that app shell and use the wrong containing block.
 function positionActivitySheet() {
   if (!sheet?.classList.contains('sheet--activity-keyboard') || !sheet.classList.contains('is-open')) return;
+  const app = sheet.parentElement;
+  const appRect = app?.getBoundingClientRect();
+  if (!appRect) return;
+
   const viewport = window.visualViewport;
   const visibleTop = viewport ? viewport.offsetTop : 0;
   const visibleHeight = viewport ? viewport.height : window.innerHeight;
-  const keyboardInset = Math.max(0, window.innerHeight - visibleTop - visibleHeight);
+  const visibleBottom = visibleTop + visibleHeight;
+  // Measure the gap against the app shell itself, not window.innerHeight:
+  // Android may resize the visual viewport without resizing the layout viewport.
+  const keyboardInset = Math.max(0, appRect.bottom - visibleBottom);
+  const keyboardOpen = keyboardInset > 100;
+  const safeBottom = parseFloat(getComputedStyle(app).getPropertyValue('--safe-b')) || 0;
+  const navHeight = parseFloat(getComputedStyle(app).getPropertyValue('--nav-h')) || 62;
+  // When the keyboard is closed, lift the action row above the fixed bottom nav.
+  // When it is open, align the sheet directly above the keyboard instead.
+  const bottomClearance = keyboardOpen ? keyboardInset + 8 : navHeight + safeBottom + 12;
+
   sheet.style.position = 'absolute';
   sheet.style.removeProperty('top');
-  sheet.style.bottom = (keyboardInset + 8) + 'px';
-  sheet.style.maxHeight = Math.max(180, Math.min(visibleHeight - 16, sheet.parentElement.clientHeight - 16)) + 'px';
+  sheet.style.bottom = bottomClearance + 'px';
+  sheet.style.maxHeight = Math.max(180, Math.min(visibleHeight - 16, appRect.height - bottomClearance - 16)) + 'px';
 }
 let activitySheetRaf = 0;
 function refreshActivitySheetPosition() {
@@ -8450,6 +8464,12 @@ if (!window.__tweaklrActivitySheetViewportReady) {
   window.visualViewport?.addEventListener('resize', refreshActivitySheetPosition);
   window.visualViewport?.addEventListener('scroll', refreshActivitySheetPosition);
   window.addEventListener('resize', refreshActivitySheetPosition);
+  document.addEventListener('focusin', event => {
+    if (event.target?.id === 'activity-comment-input') refreshActivitySheetPosition();
+  });
+  document.addEventListener('focusout', event => {
+    if (event.target?.id === 'activity-comment-input') refreshActivitySheetPosition();
+  });
 }
 const CREATE_OPTIONS = [
   { k: 'update', ic: 'spark', t: 'Daily Update', s: 'Share something happening now' },
