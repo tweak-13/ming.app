@@ -8423,33 +8423,26 @@ function closeSheet() {
   if (!modal.classList.contains('is-open')) scrim.classList.remove('is-open');
 }
 
-// Keep the joined-activity discussion composer visible above Android's keyboard.
+// Keep only the Activity sheet's bottom edge aligned with the visible keyboard.
+// The sheet stays absolute inside .app (which clips overflow); fixed positioning
+// would be clipped by that app shell and use the wrong containing block.
 function positionActivitySheet() {
   if (!sheet?.classList.contains('sheet--activity-keyboard') || !sheet.classList.contains('is-open')) return;
   const viewport = window.visualViewport;
   const visibleTop = viewport ? viewport.offsetTop : 0;
   const visibleHeight = viewport ? viewport.height : window.innerHeight;
-  sheet.style.position = 'fixed';
-  sheet.style.top = (visibleTop + 8) + 'px';
-  sheet.style.bottom = Math.max(0, window.innerHeight - visibleTop - visibleHeight + 8) + 'px';
-  sheet.style.maxHeight = Math.max(180, visibleHeight - 16) + 'px';
-
-  const input = document.getElementById('activity-comment-input');
-  if (input && document.activeElement === input) {
-    requestAnimationFrame(() => {
-      const body = document.getElementById('sheet-body');
-      if (!body || !input.isConnected) return;
-      const inputRect = input.getBoundingClientRect();
-      const bodyRect = body.getBoundingClientRect();
-      if (inputRect.bottom > bodyRect.bottom - 12) body.scrollTop += inputRect.bottom - bodyRect.bottom + 12;
-      else if (inputRect.top < bodyRect.top + 8) body.scrollTop -= bodyRect.top + 8 - inputRect.top;
-    });
-  }
+  const keyboardInset = Math.max(0, window.innerHeight - visibleTop - visibleHeight);
+  sheet.style.position = 'absolute';
+  sheet.style.removeProperty('top');
+  sheet.style.bottom = (keyboardInset + 8) + 'px';
+  sheet.style.maxHeight = Math.max(180, Math.min(visibleHeight - 16, sheet.parentElement.clientHeight - 16)) + 'px';
 }
+let activitySheetRaf = 0;
 function refreshActivitySheetPosition() {
-  requestAnimationFrame(() => {
+  if (activitySheetRaf) cancelAnimationFrame(activitySheetRaf);
+  activitySheetRaf = requestAnimationFrame(() => {
+    activitySheetRaf = 0;
     positionActivitySheet();
-    requestAnimationFrame(positionActivitySheet);
   });
 }
 if (!window.__tweaklrActivitySheetViewportReady) {
@@ -8457,9 +8450,6 @@ if (!window.__tweaklrActivitySheetViewportReady) {
   window.visualViewport?.addEventListener('resize', refreshActivitySheetPosition);
   window.visualViewport?.addEventListener('scroll', refreshActivitySheetPosition);
   window.addEventListener('resize', refreshActivitySheetPosition);
-  document.addEventListener('focusin', event => {
-    if (event.target?.id === 'activity-comment-input') refreshActivitySheetPosition();
-  });
 }
 const CREATE_OPTIONS = [
   { k: 'update', ic: 'spark', t: 'Daily Update', s: 'Share something happening now' },
@@ -8636,7 +8626,7 @@ async function openActivitySheet(id) {
       ? '<div class="privacy-note" style="margin:12px 0"><p>Activity discussion is not ready yet. Please apply the activity discussion database migration.</p></div>'
       : '<div style="margin-top:20px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><b style="font-size:14px">Discussion</b><span style="font-size:12px;color:var(--muted)">' + comments.length + ' comments</span></div>' +
         (comments.map(c => '<div style="display:flex;gap:9px;padding:10px 0;border-bottom:1px solid var(--line,#eee)"><div style="width:30px;height:30px;border-radius:50%;background:#eee;overflow:hidden;flex:0 0 30px">' + (c.author_avatar_url ? '<img src="' + esc(c.author_avatar_url) + '" alt="" style="width:100%;height:100%;object-fit:cover">' : '<span style="display:grid;place-items:center;height:100%;font-size:12px">' + esc((c.author_display_name || 'T').slice(0,1)) + '</span>') + '</div><div style="min-width:0;flex:1"><div style="font-size:12px;font-weight:650">' + esc(c.author_display_name || 'Tweaklr member') + '<span style="font-weight:400;color:var(--muted);margin-left:7px">' + esc(timeAgo(new Date(c.created_at).getTime())) + '</span></div><div style="font-size:13px;line-height:1.45;margin-top:3px;overflow-wrap:anywhere">' + esc(c.body) + '</div></div></div>').join('') || '<div style="padding:14px 0;color:var(--muted);font-size:13px">No comments yet. Start the conversation.</div>') +
-        '<div style="display:flex;gap:8px;align-items:flex-end;margin-top:12px"><textarea id="activity-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…" style="flex:1;min-width:0;resize:vertical;border:1px solid var(--line,#ddd);border-radius:14px;padding:11px;font:inherit;background:var(--surface,#fff);color:inherit"></textarea><button class="btn btn--primary" data-action="activity-comment-send:' + a.id + '" style="min-height:42px">Send</button></div>')
+        '<div id="activity-comment-composer" class="activity-comment-composer"><div style="display:flex;gap:8px;align-items:flex-end"><textarea id="activity-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…" style="flex:1;min-width:0;resize:vertical;border:1px solid var(--line,#ddd);border-radius:14px;padding:11px;font:inherit;background:var(--surface,#fff);color:inherit"></textarea><button class="btn btn--primary" data-action="activity-comment-send:' + a.id + '" style="min-height:42px">Send</button></div></div>')
     : '<div class="privacy-note" style="margin:18px 0 0">' + icon('lock') + '<p>Join this activity to unlock its private discussion and talk with the people attending.</p></div>';
   openSheet({
     activityKeyboard: true,
@@ -8653,6 +8643,9 @@ async function openActivitySheet(id) {
     foot: '<div style="display:flex;gap:10px">' + (!joined ? '<button class="btn btn--primary" style="flex:1" data-action="join:' + a.id + '">Join activity</button>' : '<button class="btn btn--primary" style="flex:1" disabled>Joined · ' + (comments.length) + ' comments</button>') +
       '<button class="btn btn--soft" style="flex:1" data-action="person:' + p.id + '">View host</button></div>'
   });
+  const activityComposer = document.getElementById('activity-comment-composer');
+  if (activityComposer) $('#sheet-foot').insertBefore(activityComposer, $('#sheet-foot').firstChild);
+  refreshActivitySheetPosition();
 }
 
 
