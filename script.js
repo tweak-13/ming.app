@@ -2497,20 +2497,20 @@ async function loadMingPossibilityProfiles() {
 }
 
 function renderHomeOpps() {
-  const myTerms = normalisePossibilityTerms([
-    ...(Array.isArray(currentUser.tags) ? currentUser.tags : []),
-    ...(Array.isArray(currentUser.interests) ? currentUser.interests : [])
-  ]);
+  // Possibilities are based only on the profile's "Interests and services" field.
+  // General profile tags/headline labels must never qualify someone for this section.
+  const myTerms = normalisePossibilityTerms(
+    Array.isArray(currentUser.interests) ? currentUser.interests : []
+  );
 
   const list = myTerms.size
     ? liveUpdates().filter(update => {
         if (!update.authorId || update.authorId === currentUser.id) return false;
         const profile = possibilityProfiles.get(update.authorId);
         if (!profile) return false;
-        const theirTerms = normalisePossibilityTerms([
-          ...(Array.isArray(profile.tags) ? profile.tags : []),
-          ...(Array.isArray(profile.interests) ? profile.interests : [])
-        ]);
+        const theirTerms = normalisePossibilityTerms(
+          Array.isArray(profile.interests) ? profile.interests : []
+        );
         return [...theirTerms].some(term => myTerms.has(term));
       }).slice(0, 6)
     : [];
@@ -2528,10 +2528,10 @@ function renderHomeOpps() {
           </button>`;
         }).join('')}</div>`
       : emptyState(
-          myTerms.size ? 'No matching Daily Updates yet' : 'Add your interests and tags',
+          myTerms.size ? 'No matching Daily Updates yet' : 'Add your interests and services',
           myTerms.size
-            ? 'Daily Updates from people who share your interests or tags will appear here.'
-            : 'Add tags and interests to your profile so Tweaklr can find Daily Updates from like-minded people.'
+            ? 'Daily Updates from people who share at least one of your interests or services will appear here.'
+            : 'Add interests and services to your profile so Tweaklr can find relevant Daily Updates.'
         ));
 }
 
