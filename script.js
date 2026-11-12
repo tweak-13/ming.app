@@ -4008,7 +4008,7 @@ function openPerson(id) {
       <button class="btn btn--soft" style="flex:1" data-action="message:${p.id}">${icon('chat')}Message</button>
     </div>
     <div style="padding:10px 18px 0">
-      <button class="btn btn--soft btn--block" data-action="${isBlocked ? 'unblock-user:' + p.id : 'block-user:' + p.id}">${isBlocked ? 'Unblock this person' : 'Block this person privately'}</button>
+      <button class="btn btn--soft btn--block" data-action="${isUuidPerson(p.id) ? 'block-status-pending:' + p.id : (isBlocked ? 'unblock-user:' + p.id : 'block-user:' + p.id)}" ${isUuidPerson(p.id) ? 'disabled aria-busy="true"' : ''}>${isUuidPerson(p.id) ? 'Checking block status…' : (isBlocked ? 'Unblock this person' : 'Block this person privately')}</button>
     </div>
     <div class="section">${sectionHead('Interests')}
       <div class="tags">${(Array.isArray(p.interests) ? p.interests : []).map(i => `<span class="tag-pill">${esc(i)}</span>`).join('') || '<span class="u">No interests added yet.</span>'}</div>
@@ -4024,7 +4024,23 @@ function openPerson(id) {
       <p>You are seeing an approximate distance. ${esc(p.short)} cannot see your exact location either.</p>
     </div>`;
   pushStack('person');
-  if (isUuidPerson(id)) loadPublicConnectionCount(id);
+  if (isUuidPerson(id)) {
+    loadPublicConnectionCount(id);
+    refreshTweaklrBlocks().then(ok => {
+      if (!ok || state.activePerson !== id) return;
+      const blockButton = $('#person-body button[data-action^="block-status-pending:"]');
+      if (!blockButton) return;
+      const blocked = tweaklrBlockedUserIds.has(id);
+      blockButton.disabled = false;
+      blockButton.removeAttribute('aria-busy');
+      blockButton.dataset.action = (blocked ? 'unblock-user:' : 'block-user:') + id;
+      blockButton.textContent = blocked ? 'Unblock this person' : 'Block this person privately';
+    }).catch(error => {
+      console.warn('Tweaklr: public profile block status could not be refreshed.', error);
+      const blockButton = $('#person-body button[data-action^="block-status-pending:"]');
+      if (blockButton) blockButton.textContent = 'Block status unavailable';
+    });
+  }
 }
 
 /* ------------------------------------------------------------
@@ -9066,19 +9082,36 @@ document.addEventListener('click', async e => {
     }
     case 'remove-conn': {
       if (isUuidPerson(arg)) {
-        const { error } = await supabaseClient
+        const connection = connections.find(c => c.personId === arg);
+        if (!connection?.id) {
+          console.warn('Tweaklr: no cached connection record was found for removal.', arg);
+          toast('Could not verify this connection. Refresh Connections and try again.', 'alert');
+          break;
+        }
+
+        const { data: deletedRows, error } = await supabaseClient
           .from('connections')
           .delete()
-          .eq('id', connections.find(c => c.personId === arg)?.id || '');
+          .eq('id', connection.id)
+          .select('id');
 
         if (error) {
           console.error('Tweaklr: removing connection failed:', error.message);
           toast('Could not remove connection.', 'alert');
           break;
         }
+        if (!Array.isArray(deletedRows) || deletedRows.length !== 1) {
+          console.warn('Tweaklr: Supabase did not confirm deletion of the connection.', { connectionId: connection.id, deletedRows });
+          toast('The connection was not removed. Refresh Connections and try again.', 'alert');
+          break;
+        }
 
         closeModal();
-        await loadMingConnections();
+        const refreshed = await loadMingConnections();
+        if (!refreshed) {
+          toast('Connection removed, but the list could not be refreshed.', 'alert');
+          break;
+        }
         renderConnections();
         if (state.loaded.profile) renderProfile();
         if (state.activePerson === arg && state.stack[state.stack.length - 1] === 'person') openPersonRefresh(arg);
