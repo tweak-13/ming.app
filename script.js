@@ -4008,7 +4008,7 @@ function openPerson(id) {
       <div class="tags">${(Array.isArray(p.interests) ? p.interests : []).map(i => `<span class="tag-pill">${esc(i)}</span>`).join('') || '<span class="u">No interests added yet.</span>'}</div>
     </div>
     ${Array.isArray(p.tags) && p.tags.length ? `<div class="section">${sectionHead('Likes & preferences')}<div class="tags">${p.tags.map(tag => `<span class="tag-pill">${esc(tag)}</span>`).join('')}</div></div>` : ''}
-    <div class="section" id="public-profile-likes" hidden>${sectionHead('Updates with likes', 'Most liked first')}
+    <div class="section" id="public-profile-likes">${sectionHead('Updates with likes', 'Most liked first')}
       ${theirUpdates.filter(update => Math.max(0, Number(update.likes) || 0) > 0).sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0)).map(updateCard).join('') || emptyState('No likes received yet', `${p.short} has no active updates with likes right now.`)}
     </div>
     <div class="section" id="public-profile-updates">${sectionHead('Daily Updates', 'Gone in 24 hours')}
@@ -8953,19 +8953,17 @@ document.addEventListener('click', async e => {
     case 'person': openPerson(arg); break;
     case 'public-connections': await openPublicConnections(arg); break;
     case 'public-likes': {
-      if (state.activePerson !== arg) openPerson(arg);
+      // Statistics are in-page shortcuts only: never open or rebuild another profile/update screen.
+      if (state.activePerson !== arg) break;
       const likes = $('#person-body #public-profile-likes');
-      const updates = $('#person-body #public-profile-updates');
-      if (likes) { likes.hidden = false; likes.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-      if (updates) updates.hidden = true;
+      if (likes) likes.scrollIntoView({ behavior: 'smooth', block: 'start' });
       break;
     }
     case 'public-updates': {
-      if (state.activePerson !== arg) openPerson(arg);
-      const likes = $('#person-body #public-profile-likes');
+      // Keep the visitor on this public profile and scroll to its existing live updates.
+      if (state.activePerson !== arg) break;
       const updates = $('#person-body #public-profile-updates');
-      if (likes) likes.hidden = true;
-      if (updates) { updates.hidden = false; updates.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      if (updates) updates.scrollIntoView({ behavior: 'smooth', block: 'start' });
       break;
     }
     case 'block-user': confirmBlockTweaklrUser(arg); break;
