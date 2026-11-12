@@ -4115,16 +4115,23 @@ async function openPublicConnections(personId) {
 
     if (subtitle) subtitle.textContent = profiles.length + ' public connections';
     if (body) {
+      // Match the current user's Connections list presentation, while keeping
+      // actions appropriate to someone else's connection list.
       body.innerHTML = profiles.length
-        ? '<div class="section">' + profiles.map(profile => `
+        ? '<div class="section">' + sectionHead(person.short + "'s connections", profiles.length + ' people') +
+          profiles.map(profile => `
             <div class="conn-card">
               <button type="button" style="display:flex;gap:13px;flex:1;align-items:center;text-align:left" data-action="person:${profile.id}">
                 ${avatar(profile, 48)}
                 <span class="m"><span class="n" style="display:block">${esc(profile.name)}</span>
                 <span class="s" style="display:block">${esc(profile.tag)}</span></span>
               </button>
+              <div class="acts">
+                <button class="round" data-action="message:${profile.id}" aria-label="Message ${esc(profile.short)}">${icon('chat')}</button>
+              </div>
             </div>`).join('') + '</div>'
-        : '<div class="section">' + emptyState('No public connections to show', 'This member has no connections currently visible to you.') + '</div>';
+        : '<div class="section">' + sectionHead(person.short + "'s connections", '0 people') +
+          emptyState('No public connections to show', 'This member has no connections currently visible to you.') + '</div>';
     }
   } catch (error) {
     console.error('Tweaklr: public connections could not be loaded:', error.message || error);
