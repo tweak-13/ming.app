@@ -1918,6 +1918,12 @@ function ensureLoaded(tab) {
   if (tab === 'moonflower') renderMoonflower();
 }
 
+function syncStackNavigationVisibility() {
+  // Keep the primary tabs out of the inbox and conversation views.
+  const messageViewOpen = state.stack.some(id => id === 'messages' || id === 'chat');
+  nav?.classList.toggle('hidden', messageViewOpen);
+}
+
 function pushStack(id) {
   // Stack navigation dismisses transient sheets before changing screens.
   if (sheet?.classList.contains('is-open')) closeSheet();
@@ -1925,6 +1931,7 @@ function pushStack(id) {
   if (!scr) return;
   if (!state.stack.includes(id)) state.stack.push(id);
   scr.classList.add('is-active');
+  syncStackNavigationVisibility();
   fab.classList.add('hidden');
   const sc = scr.querySelector('.scroll');
   if (sc) sc.scrollTop = 0;
@@ -1937,6 +1944,7 @@ function popStack() {
     poppedScreen?.classList.remove('is-active');
     if (id === 'connections' && poppedScreen) poppedScreen.style.zIndex = '';
   }
+  syncStackNavigationVisibility();
   const top = state.stack[state.stack.length - 1];
   const topScreen = top ? document.getElementById('screen-' + top) : null;
   fab.classList.toggle('hidden', !!top || state.tab === 'moonflower' || state.tab === 'profile');
