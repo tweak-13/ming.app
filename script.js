@@ -4837,6 +4837,13 @@ let chatRecordSegmentStartedAt = 0;
 let chatVoiceDraft = null;
 let chatVoiceDraftUrl = '';
 let chatVoiceDiscarding = false;
+let chatVoiceHoldMode = false;
+let chatVoiceHoldReleased = false;
+let chatVoiceHoldLocked = false;
+let chatVoiceHoldCancelled = false;
+let chatVoiceHoldPointerId = null;
+let chatVoiceHoldStartX = 0;
+let chatVoiceHoldStartY = 0;
 const MING_CHAT_MAX_FILE_BYTES=50*1024*1024;
 const MING_CHAT_ALLOWED_MIME=new Set(['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif','video/mp4','video/webm','video/quicktime','video/x-m4v','application/pdf','text/plain','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation']);
 let pendingChatAttachment=null;
@@ -6612,30 +6619,19 @@ function bindViewOnceVoicePlayer(audio, player, message) {
     player.classList.remove('is-playing');
   };
   const onEnded = () => {
-    button.innerHTML = '<span class="tw-vo-replay" aria-hidden="true">↻</span>';
-    button.setAttribute('aria-label', 'Replay voice note');
+    message.viewOnceEnded = true;
+    message.viewOnceFinished = true;
+    message.viewOncePlayback = false;
+    message.viewOnceAudio = null;
     player.classList.remove('is-playing');
-    seek.value = '0';
-    player.style.setProperty('--tw-vo-progress', '0%');
-    update();
-    if (!message.viewOnceExpiryAt) {
-      message.viewOnceEnded = true;
-      message.viewOnceExpiryAt = Date.now() + 30000;
-      message.viewOnceExpiryTimer = setTimeout(() => {
-        message.viewOnceFinished = true;
-        message.viewOncePlayback = false;
-        message.viewOnceAudio = null;
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
-        if (message._viewOnceObjectUrl) {
-          URL.revokeObjectURL(message._viewOnceObjectUrl);
-          message._viewOnceObjectUrl = '';
-        }
-        message.viewOnceExpiryAt = null;
-        renderThread();
-      }, 30000);
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+    if (message._viewOnceObjectUrl) {
+      URL.revokeObjectURL(message._viewOnceObjectUrl);
+      message._viewOnceObjectUrl = '';
     }
+    renderThread();
   };
   const onError = () => {
     button.innerHTML = '<span class="tw-vo-play-icon" aria-hidden="true">▶</span>';
@@ -6676,8 +6672,8 @@ function renderVoiceMessage(m) {
   const rawSeconds = Number(m.voiceDuration);
   const seconds = Number.isFinite(rawSeconds) && rawSeconds > 0 ? rawSeconds : 0;
   if (m.viewOnce) {
-    const active = !!m.viewOncePlayback;
-    if (m.viewedAt && !active) return '<div class="chat-view-once-state">Opened</div>';
+    const active = !!m.viewOncePlayback && !m.viewOnceFinished;
+    if (m.viewOnceFinished || (m.viewedAt && !active)) return '<div class="chat-view-once-state"><span aria-hidden="true">✓</span> Opened · No replay available</div>';
     const bars = Array.from({length:36}, (_, i) => {
       const wave = 18 + ((i * 17 + (i % 5) * 11 + 9) % 74);
       return '<i style="--tw-vo-bar-height:' + wave + '%"></i>';
@@ -6698,7 +6694,7 @@ function renderVoiceMessage(m) {
         '<div class="tw-vo-wave-wrap"><div class="tw-vo-wave" aria-hidden="true">' + bars + '</div>' + seek + '</div>' +
         speed +
       '</div>' +
-      '<div class="tw-vo-foot"><span class="tw-vo-foot-mark" aria-hidden="true">◉</span>' + (active ? 'Replay is available during the 30-second listening window' : 'This voice note can be opened and listened to once') + '</div>' +
+      '<div class="tw-vo-foot"><span class="tw-vo-foot-mark" aria-hidden="true">◉</span>' + (active ? 'Listen once · playback ends permanently' : 'Opens once · no replay after listening') + '</div>' +
     '</div>';
   }
   if (!m.voicePath) {
@@ -7323,7 +7319,9 @@ function updateChatVoicePanel() {
   panel.hidden = !recording && !hasDraft;
   panel.classList.toggle('is-recording', recording && !paused);
   panel.classList.toggle('is-paused', paused);
-  if (label) label.textContent = hasDraft ? 'Voice note ready to send' : (paused ? 'Recording paused' : 'Recording voice note');
+  if (label) label.textContent = hasDraft ? 'Voice note ready to send' : (paused ? 'Recording paused' : (chatVoiceHoldLocked ? 'Recording locked' : 'Recording voice note'));
+  const hint = $('#chat-recording-hint');
+  if (hint) hint.textContent = hasDraft ? 'Preview your recording before sending' : (chatVoiceHoldLocked ? 'Tap Finish when you are ready' : 'Slide up to lock · slide left to cancel');
   if (time) time.textContent = formatChatVoiceTime(hasDraft ? chatVoiceElapsed() : chatVoiceElapsed());
   if (pause) { pause.hidden = !recording; pause.textContent = paused ? 'Resume' : 'Pause'; }
   if (finish) finish.hidden = !recording;
@@ -7347,6 +7345,11 @@ function clearChatVoiceDraft() {
   chatRecordElapsedMs = 0;
   chatRecordSegmentStartedAt = 0;
   chatVoiceDiscarding = false;
+  chatVoiceHoldMode = false;
+  chatVoiceHoldReleased = false;
+  chatVoiceHoldLocked = false;
+  chatVoiceHoldCancelled = false;
+  chatVoiceHoldPointerId = null;
   updateChatVoicePanel();
 }
 
@@ -7421,6 +7424,7 @@ async function recordVoiceNote() {
       toast('The voice note could not be recorded.', 'alert');
     };
     recorder.start(250);
+    if (chatVoiceHoldMode && chatVoiceHoldReleased && !chatVoiceHoldLocked) finishChatVoiceRecording(chatVoiceHoldCancelled);
     if (chatRecordTimer) clearInterval(chatRecordTimer);
     chatRecordTimer = setInterval(updateChatVoicePanel, 250);
     updateChatVoicePanel();
@@ -10274,7 +10278,59 @@ $('#chat-form').addEventListener('submit', async e => {
   chatInput.value = ''; chatInput.style.height = 'auto'; chatSend.disabled = true;
   sendMessage(v, { replyToId: chatReplyTarget?.id || null });
 });
-$('#chat-voice').addEventListener('click', recordVoiceNote);
+const chatVoiceButton = $('#chat-voice');
+chatVoiceButton.addEventListener('pointerdown', event => {
+  if (event.button !== undefined && event.button !== 0) return;
+  if (chatVoiceDraft || chatRecording) return;
+  event.preventDefault();
+  chatVoiceHoldMode = true;
+  chatVoiceHoldReleased = false;
+  chatVoiceHoldLocked = false;
+  chatVoiceHoldCancelled = false;
+  chatVoiceHoldPointerId = event.pointerId;
+  chatVoiceHoldStartX = event.clientX;
+  chatVoiceHoldStartY = event.clientY;
+  try { chatVoiceButton.setPointerCapture(event.pointerId); } catch (_) {}
+  void recordVoiceNote();
+});
+chatVoiceButton.addEventListener('pointermove', event => {
+  if (!chatVoiceHoldMode || chatVoiceHoldPointerId !== event.pointerId || chatVoiceHoldLocked) return;
+  const dx = event.clientX - chatVoiceHoldStartX;
+  const dy = event.clientY - chatVoiceHoldStartY;
+  if (dx < -78) {
+    chatVoiceHoldCancelled = true;
+    chatVoiceHoldReleased = true;
+    if (chatRecording && chatRecording.state !== 'inactive') finishChatVoiceRecording(true);
+    return;
+  }
+  if (dy < -68) {
+    chatVoiceHoldLocked = true;
+    updateChatVoicePanel();
+  }
+});
+chatVoiceButton.addEventListener('pointerup', event => {
+  if (!chatVoiceHoldMode || chatVoiceHoldPointerId !== event.pointerId) return;
+  chatVoiceHoldReleased = true;
+  chatVoiceHoldPointerId = null;
+  if (!chatVoiceHoldLocked && chatRecording && chatRecording.state !== 'inactive') finishChatVoiceRecording(chatVoiceHoldCancelled);
+});
+chatVoiceButton.addEventListener('pointercancel', event => {
+  if (!chatVoiceHoldMode || chatVoiceHoldPointerId !== event.pointerId) return;
+  chatVoiceHoldReleased = true;
+  chatVoiceHoldCancelled = true;
+  chatVoiceHoldPointerId = null;
+  if (chatRecording && chatRecording.state !== 'inactive') finishChatVoiceRecording(true);
+});
+chatVoiceButton.addEventListener('click', event => {
+  if (chatVoiceHoldMode) {
+    chatVoiceHoldMode = false;
+    chatVoiceHoldReleased = false;
+    chatVoiceHoldLocked = false;
+    chatVoiceHoldCancelled = false;
+    return;
+  }
+  if (event.detail === 0) recordVoiceNote();
+});
 $('#chat-recording-pause').addEventListener('click', () => {
   if (!chatRecording) return;
   if (chatRecording.state === 'recording') {
