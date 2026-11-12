@@ -6918,3 +6918,34 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
   }
 }
 
+
+
+/* Activity composer — theme-aware date and time control */
+#nu-when {
+  display: block;
+  width: 100%;
+  min-height: 49px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: #FFFDF9;
+  color: #30251E;
+  color-scheme: light;
+  font: inherit;
+  font-size: 15px;
+  transition: border-color var(--t-fast) var(--ease), background var(--t-fast);
+}
+#nu-when:focus {
+  outline: none;
+  border-color: var(--coffee-light);
+}
+[data-theme="dark"] #nu-when {
+  background: #17120F;
+  color: var(--text);
+  border-color: var(--border-strong);
+  color-scheme: dark;
+}
+[data-theme="dark"] #nu-when:focus {
+  background: #1C1511;
+  border-color: var(--coffee);
+}
