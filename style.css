@@ -6877,3 +6877,30 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
     z-index: 80;
   }
 }
+
+
+/* ============================================================
+   PERMANENT MOBILE NAVIGATION
+   The five primary navigation buttons occupy one fixed bottom
+   position at all times. Stack screens, sheets and scroll events
+   cannot hide, slide, resize or reposition this navigation.
+============================================================ */
+@media (max-width: 899px) {
+  .app > .nav,
+  .app > .nav.hidden {
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: var(--nav-h) !important;
+    min-height: var(--nav-h) !important;
+    transform: none !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 100 !important;
+    transition: none !important;
+  }
+}
