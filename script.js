@@ -1924,38 +1924,6 @@ function syncStackNavigationVisibility() {
   nav?.classList.toggle('hidden', messageViewOpen);
 }
 
-let tweaklrChatViewportRaf = 0;
-function refreshChatScreenViewport() {
-  if (tweaklrChatViewportRaf) cancelAnimationFrame(tweaklrChatViewportRaf);
-  tweaklrChatViewportRaf = requestAnimationFrame(() => {
-    tweaklrChatViewportRaf = 0;
-    const screen = document.getElementById('screen-chat');
-    if (!screen) return;
-    const inputFocused = document.activeElement?.id === 'chat-input';
-    const viewport = window.visualViewport;
-    const viewportHeight = viewport?.height || window.innerHeight;
-    const keyboardInset = inputFocused
-      ? Math.max(0, window.innerHeight - viewportHeight - (viewport?.offsetTop || 0))
-      : 0;
-    // Keep the chat in its normal app position; only lift its bottom edge
-    // by the space occupied by the on-screen keyboard.
-    screen.style.bottom = keyboardInset + 'px';
-  });
-}
-if (!window.__tweaklrChatKeyboardViewportReady) {
-  window.__tweaklrChatKeyboardViewportReady = true;
-  window.visualViewport?.addEventListener('resize', refreshChatScreenViewport);
-  window.visualViewport?.addEventListener('scroll', refreshChatScreenViewport);
-  window.addEventListener('resize', refreshChatScreenViewport);
-  document.addEventListener('focusin', event => {
-    if (event.target?.id === 'chat-input') refreshChatScreenViewport();
-  });
-  document.addEventListener('focusout', event => {
-    if (event.target?.id === 'chat-input') {
-      requestAnimationFrame(refreshChatScreenViewport);
-    }
-  });
-}
 
 function pushStack(id) {
   // Stack navigation dismisses transient sheets before changing screens.
