@@ -3949,7 +3949,7 @@ async function loadMingDiscoverContent() {
     const lng = hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null;
     const { data: placeRows, error: placeError } = await supabaseClient.rpc('get_discover_places_v2', { p_latitude: lat, p_longitude: lng, p_radius_km: 5 });
     if (placeError) console.warn('Tweaklr: Discover places could not be loaded.', placeError.message);
-    else discoverPlaces = (placeRows || []).map(row => ({ id: row.id, name: row.name, kind: row.kind, note: row.note || '', hue: 26, km: row.distance_km == null ? null : Number(row.distance_km), saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps', audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [], isMine: !!row.is_mine }));
+    else discoverPlaces = (placeRows || []).map(row => ({ id: row.id, name: row.name, kind: row.kind, note: row.note || '', hue: 26, km: row.distance_km == null ? null : Number(row.distance_km), saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps', audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [], isMine: !!row.is_mine, imagePath: row.image_path || '', imageUrl: row.image_path ? supabaseClient.storage.from('discover-place-images').getPublicUrl(row.image_path).data.publicUrl : '' }));
     return true;
   } catch (error) { console.warn('Tweaklr: Discover content load failed.', error); return false; }
 }
@@ -8768,7 +8768,7 @@ async function loadPlacesScreen() {
   try {
     const lat = hasLocation() ? Number(state.userLocation.latitude.toFixed(7)) : null;
     const lng = hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null;
-    const { data, error } = await supabaseClient.rpc('get_discover_places', {
+    const { data, error } = await supabaseClient.rpc('get_discover_places_v2', {
       p_latitude: lat, p_longitude: lng, p_radius_km: 5
     });
     if (error) throw error;
