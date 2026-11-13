@@ -1621,7 +1621,7 @@ async function loadMingNotifications() {
       const cutoff = new Date(Date.now() - TWEAKLR_NOTIFICATION_RETENTION_MS).toISOString();
       const { data: targetedRows, error: targetedError } = await supabaseClient
         .from('tweaklr_targeted_notifications')
-        .select('id, actor_id, event_type, place_id, post_type, post_id, comment_id, match_reason, created_at')
+        .select('id, actor_id, event_type, place_id, place_name, post_type, post_id, comment_id, match_reason, created_at')
         .eq('recipient_id', session.user.id)
         .gte('created_at', cutoff)
         .order('created_at', { ascending: false })
@@ -1646,7 +1646,7 @@ async function loadMingNotifications() {
             const text = reason === 'interests_and_gps'
               ? 'A new Place matches your interests and is near your GPS location.'
               : (reason === 'interests' ? 'A new Place matches your interests.' : 'A new Place is available near your GPS location.');
-            next.push({ id, type: 'place_match', placeId: row.place_id, text: text + ' Tap to explore it.', at: new Date(row.created_at).getTime(), read: notificationReadIds.has(id) });
+            next.push({ id, type: 'place_match', placeId: row.place_id, text: text + (row.place_name ? ' “' + esc(row.place_name) + '”.' : '') + ' Tap to explore it.', at: new Date(row.created_at).getTime(), read: notificationReadIds.has(id) });
           } else {
             const edited = row.event_type === 'private_reply_edited';
             next.push({
