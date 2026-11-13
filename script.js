@@ -8712,6 +8712,31 @@ function openComposer(type) {
   setTimeout(() => title.focus(), 260);
 }
 
+function renderPostDiscussionComment(c, privateReply, isCreator, postType, postId) {
+  const commentId = String(c.id || '');
+  const canReply = !!isCreator && !!c.user_id && c.user_id !== (window.__tweaklrCurrentUserId || '');
+  const replyHtml = privateReply
+    ? '<div class="creator-private-reply"><div class="creator-private-reply-label"><span>🔒</span> ' +
+        (isCreator ? 'Private reply sent to ' + esc(c.author_display_name || 'commenter') : 'Private reply from ' + esc(privateReply.creator_display_name || 'post creator')) +
+      '</div><p>' + esc(privateReply.body || '') + '</p></div>'
+    : '';
+  const composer = canReply
+    ? '<div class="creator-private-reply-wrap">' +
+        '<button type="button" class="creator-private-reply-trigger" data-action="creator-reply-open" data-post-type="' + postType + '" data-post-id="' + esc(postId) + '" data-comment-id="' + esc(commentId) + '" data-recipient-id="' + esc(c.user_id) + '">' +
+          (privateReply ? 'Edit private reply' : 'Reply privately') +
+        '</button>' +
+        '<div class="creator-private-reply-composer" style="display:none">' +
+          '<textarea id="creator-private-reply-input-' + esc(commentId) + '" maxlength="1000" rows="2" placeholder="Write a private reply…">' + (privateReply ? esc(privateReply.body || '') : '') + '</textarea>' +
+          '<button type="button" class="btn btn--primary" data-action="creator-reply-send" data-post-type="' + postType + '" data-post-id="' + esc(postId) + '" data-comment-id="' + esc(commentId) + '">Send privately</button>' +
+        '</div></div>'
+    : '';
+  return '<div class="post-discussion-comment"><div class="place-comment-avatar">' +
+    (c.author_avatar_url ? '<img src="' + esc(c.author_avatar_url) + '" alt="">' : '<span>' + esc((c.author_display_name || 'T').slice(0,1)) + '</span>') +
+    '</div><div class="post-discussion-comment-copy"><div class="place-comment-meta"><b>' + esc(c.author_display_name || 'Tweaklr member') +
+    '</b><span>' + esc(timeAgo(new Date(c.created_at).getTime())) + '</span></div><p class="post-discussion-comment-body">' + esc(c.body || '') +
+    '</p>' + replyHtml + composer + '</div></div>';
+}
+
 async function openActivitySheet(id) {
   // Live Updates can contain Activities that have not been loaded into Discover/Nearby.
   // Resolve those from the shared Daily Updates feed as a final fallback.
@@ -8759,17 +8784,23 @@ async function openActivitySheet(id) {
   }
   a.joined = joined;
   let comments = [];
+  let privateReplies = [];
   let commentsError = null;
   if (joined) {
     const { data, error } = await supabaseClient.rpc('get_daily_update_activity_comments', { p_update_id: a.id });
     commentsError = error;
     if (!error) comments = data || [];
+    const { data: privateData, error: privateError } = await supabaseClient.rpc('get_creator_comment_private_replies', { p_post_type: 'activity', p_post_id: a.id });
+    if (!privateError) privateReplies = privateData || [];
+    else console.warn('Tweaklr: private Activity replies could not be loaded.', privateError.message);
   }
+  const privateReplyByComment = new Map(privateReplies.map(reply => [reply.comment_id, reply]));
+  window.__tweaklrCurrentUserId = userId || '';
   const discussion = joined
     ? (commentsError
       ? '<div class="privacy-note" style="margin:12px 0"><p>Activity discussion is not ready yet. Please apply the activity discussion database migration.</p></div>'
       : '<div style="margin-top:20px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><b style="font-size:14px">Discussion</b><span style="font-size:12px;color:var(--muted)">' + comments.length + ' comments</span></div>' +
-        (comments.map(c => '<div style="display:flex;gap:9px;padding:10px 0;border-bottom:1px solid var(--line,#eee)"><div style="width:30px;height:30px;border-radius:50%;background:#eee;overflow:hidden;flex:0 0 30px">' + (c.author_avatar_url ? '<img src="' + esc(c.author_avatar_url) + '" alt="" style="width:100%;height:100%;object-fit:cover">' : '<span style="display:grid;place-items:center;height:100%;font-size:12px">' + esc((c.author_display_name || 'T').slice(0,1)) + '</span>') + '</div><div style="min-width:0;flex:1"><div style="font-size:12px;font-weight:650">' + esc(c.author_display_name || 'Tweaklr member') + '<span style="font-weight:400;color:var(--muted);margin-left:7px">' + esc(timeAgo(new Date(c.created_at).getTime())) + '</span></div><div style="font-size:13px;line-height:1.45;margin-top:3px;overflow-wrap:anywhere">' + esc(c.body) + '</div></div></div>').join('') || '<div style="padding:14px 0;color:var(--muted);font-size:13px">No comments yet. Start the conversation.</div>') +
+        (comments.map(c => renderPostDiscussionComment(c, privateReplyByComment.get(c.id), isHost, 'activity', a.id)).join('') || '<div style="padding:14px 0;color:var(--muted);font-size:13px">No comments yet. Start the conversation.</div>') +
         '<div id="activity-comment-composer" class="activity-comment-composer"><div style="display:flex;gap:8px;align-items:flex-end"><textarea id="activity-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…" style="flex:1;min-width:0;resize:vertical;border:1px solid var(--line,#ddd);border-radius:14px;padding:11px;font:inherit;background:var(--surface,#fff);color:inherit"></textarea><button class="btn btn--primary" data-action="activity-comment-send:' + a.id + '" style="min-height:42px">Send</button></div></div>')
     : '<div class="privacy-note" style="margin:18px 0 0">' + icon('lock') + '<p>Join this activity to unlock its private discussion and talk with the people attending.</p></div>';
   openSheet({
@@ -9055,17 +9086,23 @@ async function openPlaceSheet(id) {
   const userId = session?.user?.id;
   const canDiscuss = !!userId && (!!pl.saved || pl.isMine === true);
   let comments = [];
+  let privateReplies = [];
   let commentsError = null;
   if (canDiscuss) {
     const { data, error } = await supabaseClient.rpc('get_discover_place_comments', { p_place_id: pl.id });
     commentsError = error;
     if (!error) comments = data || [];
+    const { data: privateData, error: privateError } = await supabaseClient.rpc('get_creator_comment_private_replies', { p_post_type: 'place', p_post_id: pl.id });
+    if (!privateError) privateReplies = privateData || [];
+    else console.warn('Tweaklr: private Places replies could not be loaded.', privateError.message);
   }
+  const privateReplyByComment = new Map(privateReplies.map(reply => [reply.comment_id, reply]));
+  window.__tweaklrCurrentUserId = userId || '';
   const discussion = canDiscuss
     ? (commentsError
       ? '<div class="privacy-note" style="margin:14px 0">Place discussion is temporarily unavailable. Please try again.</div>'
       : '<section class="place-discussion"><div class="place-discussion-head"><b>Discussion</b><span>' + comments.length + (comments.length === 1 ? ' comment' : ' comments') + '</span></div>' +
-        (comments.map(c => '<div class="place-comment"><div class="place-comment-avatar">' + (c.author_avatar_url ? '<img src="' + esc(c.author_avatar_url) + '" alt="">' : '<span>' + esc((c.author_display_name || 'T').slice(0,1)) + '</span>') + '</div><div class="place-comment-copy"><div class="place-comment-meta"><b>' + esc(c.author_display_name || 'Tweaklr member') + '</b><span>' + esc(timeAgo(new Date(c.created_at).getTime())) + '</span></div><p>' + esc(c.body) + '</p></div></div>').join('') ||
+        (comments.map(c => renderPostDiscussionComment(c, privateReplyByComment.get(c.id), pl.isMine === true, 'place', pl.id)).join('') ||
         '<div class="place-discussion-empty">No comments yet. Start the conversation.</div>') +
         '<div class="place-comment-composer"><textarea id="place-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…"></textarea><button class="btn btn--primary" data-action="place-comment-send:' + pl.id + '">Send</button></div></section>')
     : '<div class="place-discussion-locked"><span>✦</span><div><b>Join the conversation</b><p>Save this place to unlock its discussion and leave a comment.</p></div></div>';
@@ -9992,6 +10029,41 @@ document.addEventListener('click', async e => {
       toast('You joined the activity.', 'check');
       if (state.loaded.discover) renderDiscover();
       await openActivitySheet(a.id);
+      break;
+    }
+    case 'creator-reply-open': {
+      const wrap = host.closest('.creator-private-reply-wrap');
+      const composer = wrap?.querySelector('.creator-private-reply-composer');
+      if (composer) {
+        composer.style.display = 'block';
+        composer.querySelector('textarea')?.focus();
+      }
+      break;
+    }
+    case 'creator-reply-send': {
+      const postType = host.dataset.postType;
+      const postId = host.dataset.postId;
+      const commentId = host.dataset.commentId;
+      const wrap = host.closest('.creator-private-reply-wrap');
+      const input = wrap?.querySelector('textarea');
+      const body = String(input?.value || '').trim();
+      if (!body) { toast('Write a private reply first.', 'alert'); break; }
+      if (body.length > 1000) { toast('Replies must be 1,000 characters or fewer.', 'alert'); break; }
+      host.disabled = true;
+      host.textContent = 'Sending…';
+      const { error } = await supabaseClient.rpc('add_creator_comment_private_reply', {
+        p_post_type: postType, p_post_id: postId, p_comment_id: commentId, p_body: body
+      });
+      if (error) {
+        console.warn('Tweaklr: private comment reply failed:', error.message);
+        toast(error.message || 'Could not send the private reply.', 'alert');
+        host.disabled = false;
+        host.textContent = 'Send privately';
+        break;
+      }
+      if (postType === 'place') await openPlaceSheet(postId);
+      else await openActivitySheet(postId);
+      toast('Private reply sent.', 'check');
       break;
     }
     case 'activity-comment-send': {
