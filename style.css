@@ -7022,7 +7022,6 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 @keyframes twVoiceWave { from { transform:scaleY(.42);opacity:.48; } to { transform:scaleY(1);opacity:1; } }
 #chat-voice { touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none; }
 #chat-voice.is-recording { background:linear-gradient(145deg,#9b3545,#632632);box-shadow:0 0 0 5px rgba(139,53,67,.13); }
-.tw-vo-voice.is-active .tw-vo-foot { color:#d5b18f; }
 /* Waveform playback layout for ordinary chat voice notes. */
 .chat-voice-player .chat-voice-track { position:relative;gap:4px; }
 .chat-voice-player .chat-voice-wave {
