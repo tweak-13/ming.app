@@ -3949,7 +3949,7 @@ async function loadMingDiscoverContent() {
     const lng = hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null;
     const { data: placeRows, error: placeError } = await supabaseClient.rpc('get_discover_places', { p_latitude: lat, p_longitude: lng, p_radius_km: 5 });
     if (placeError) console.warn('Tweaklr: Discover places could not be loaded.', placeError.message);
-    else discoverPlaces = (placeRows || []).map(row => ({ id: row.id, name: row.name, kind: row.kind, note: row.note || '', hue: 26, km: row.distance_km == null ? null : Number(row.distance_km), saved: !!row.saved_by_me }));
+    else discoverPlaces = (placeRows || []).map(row => ({ id: row.id, name: row.name, kind: row.kind, note: row.note || '', hue: 26, km: row.distance_km == null ? null : Number(row.distance_km), saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps', audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [] }));
     return true;
   } catch (error) { console.warn('Tweaklr: Discover content load failed.', error); return false; }
 }
@@ -8721,6 +8721,138 @@ async function openActivitySheet(id) {
 }
 
 
+
+function parsePlaceAudienceTags(value) {
+  const seen = new Set();
+  return String(value || '').split('#').map(part => part.trim())
+    .map(tag => tag.replace(/^[\s,;]+|[\s,;]+$/g, '').replace(/\s+/g, ' '))
+    .filter(tag => /^[\p{L}\p{N}_][\p{L}\p{N}_ -]{1,47}$/u.test(tag))
+    .filter(tag => {
+      const key = tag.toLocaleLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 15);
+}
+
+function renderPlacesScreen() {
+  const host = document.getElementById('places-feed');
+  if (!host) return;
+  const terms = new Set((Array.isArray(currentUser.interests) ? currentUser.interests : [])
+    .map(x => String(x || '').replace(/^#+/, '').trim().toLocaleLowerCase()).filter(Boolean));
+  if (!discoverPlaces.length) {
+    host.innerHTML = emptyState('Your next favourite place is out there', 'Places matched to your interests worldwide will appear here, alongside GPS discoveries near you.', { a: 'add-place', t: 'Add the first place' });
+    return;
+  }
+  host.innerHTML = discoverPlaces.map((pl, index) => {
+    const matches = (pl.audienceTags || []).filter(tag => terms.has(String(tag).replace(/^#+/, '').trim().toLocaleLowerCase()));
+    const nearby = pl.km != null && pl.km <= 5 && ['gps','both'].includes(pl.discoveryMode);
+    const reason = matches.length ? 'Matched to your interests worldwide' : (nearby ? 'GPS discovery near you' : 'Your place on Tweaklr');
+    const tags = (matches.length ? matches : (pl.audienceTags || []).slice(0, 4)).slice(0, 4);
+    return '<button class="place-post" style="animation-delay:' + Math.min(index, 6) * 35 + 'ms" data-action="place:' + pl.id + '">' +
+      '<div class="place-post-art"><span class="place-post-art-label">TWEAKLR · PLACES</span></div>' +
+      '<div class="place-post-copy"><div class="place-post-top"><div><div class="place-post-name">' + esc(pl.name) + '</div><div class="place-post-kind">' + esc(pl.kind) + '</div></div>' +
+      '<span class="place-post-distance">' + esc(pl.km == null ? (pl.discoveryMode === 'interests' ? 'Global match' : 'Explore') : distLabel(pl.km)) + '</span></div>' +
+      (pl.note ? '<p class="place-post-note">' + esc(pl.note) + '</p>' : '') +
+      (tags.length ? '<div class="place-post-tags">' + tags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
+      '<div class="place-post-foot"><span>' + esc(reason) + '</span><b>' + (pl.saved ? 'SAVED' : 'VIEW PLACE') + '</b></div></div></button>';
+  }).join('');
+}
+
+async function loadPlacesScreen() {
+  const host = document.getElementById('places-feed');
+  if (host) host.innerHTML = '<div class="places-loading">Finding places for you…</div>';
+  try {
+    const lat = hasLocation() ? Number(state.userLocation.latitude.toFixed(7)) : null;
+    const lng = hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null;
+    const { data, error } = await supabaseClient.rpc('get_discover_places', {
+      p_latitude: lat, p_longitude: lng, p_radius_km: 5
+    });
+    if (error) throw error;
+    discoverPlaces = (data || []).map(row => ({
+      id: row.id, name: row.name, kind: row.kind, note: row.note || '',
+      hue: 26, km: row.distance_km == null ? null : Number(row.distance_km),
+      saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps',
+      audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : []
+    }));
+    renderPlacesScreen();
+  } catch (error) {
+    console.warn('Tweaklr: Places feed could not be loaded.', error);
+    if (host) host.innerHTML = emptyState('Places could not load', 'Check your connection and try again.', { a: 'refresh-places', t: 'Try again' });
+  }
+}
+
+function openPlaceComposer() {
+  const gpsAvailable = hasLocation();
+  openSheet({
+    composerBack: true,
+    hidePrimaryNav: true,
+    title: 'Add a place',
+    sub: 'Share a place with the people who would love it.',
+    body: '<div class="field"><label for="place-name">Place name</label><input id="place-name" maxlength="70" placeholder="e.g. The Sunday Market" autocomplete="off"></div>' +
+      '<div class="field"><label for="place-kind">Type of place</label><input id="place-kind" maxlength="40" placeholder="e.g. Bakery, Cinema, Sports venue" autocomplete="off"></div>' +
+      '<div class="field"><label for="place-note">A little about this place</label><textarea id="place-note" maxlength="280" placeholder="What makes this place worth discovering?"></textarea></div>' +
+      '<div class="settings-section-title" style="margin-top:18px">How should people discover it?</div>' +
+      '<label class="place-composer-mode"><input id="place-mode-gps" type="checkbox" ' + (gpsAvailable ? '' : 'disabled') + '><span><b>GPS discovery</b><small>' + (gpsAvailable ? 'Show this place to people discovering places near its location.' : 'Turn on device location to use GPS discovery.') + '</small></span></label>' +
+      '<label class="place-composer-mode"><input id="place-mode-interests" type="checkbox" checked><span><b>Interests & likes</b><small>Reach Tweaklr users anywhere in the world whose profile interests match your hashtags.</small></span></label>' +
+      '<div class="field" id="place-tags-field" style="margin-top:15px"><label for="place-audience-tags">Who should this reach?</label><textarea id="place-audience-tags" rows="3" maxlength="800" placeholder="#Basketball #Bakery #Cinema"></textarea><div class="place-hashtag-hint">Type each audience interest with a # sign. One matching interest is enough. Up to 15 hashtags.</div><div id="place-tag-preview" class="place-tag-preview"></div></div>' +
+      '<div class="privacy-note" style="margin-top:15px"><span>✦</span><p>Interest matching is global. It is not limited by distance, city or country. GPS discovery works independently.</p></div>',
+    foot: '<button class="btn btn--primary btn--block" id="place-publish">Publish place</button>'
+  });
+
+  const tagsInput = document.getElementById('place-audience-tags');
+  const tagsPreview = document.getElementById('place-tag-preview');
+  const interestsToggle = document.getElementById('place-mode-interests');
+  const tagsField = document.getElementById('place-tags-field');
+  const gpsToggle = document.getElementById('place-mode-gps');
+  const updateTagPreview = () => {
+    const tags = parsePlaceAudienceTags(tagsInput ? tagsInput.value : '');
+    if (tagsPreview) tagsPreview.innerHTML = tags.map(tag => '<span>#' + esc(tag) + '</span>').join('');
+    if (tagsField) tagsField.hidden = !interestsToggle?.checked;
+  };
+  tagsInput?.addEventListener('input', updateTagPreview);
+  interestsToggle?.addEventListener('change', updateTagPreview);
+  updateTagPreview();
+
+  document.getElementById('place-publish')?.addEventListener('click', async event => {
+    const button = event.currentTarget;
+    const name = document.getElementById('place-name')?.value.trim() || '';
+    const kind = document.getElementById('place-kind')?.value.trim() || '';
+    const note = document.getElementById('place-note')?.value.trim() || '';
+    const useGps = !!gpsToggle?.checked;
+    const useInterests = !!interestsToggle?.checked;
+    const tags = parsePlaceAudienceTags(tagsInput ? tagsInput.value : '');
+    if (!name || !kind) { toast('Add the place name and type first.', 'alert'); return; }
+    if (!useGps && !useInterests) { toast('Choose at least one discovery method.', 'alert'); return; }
+    if (useGps && !hasLocation()) { toast('Turn on location before using GPS discovery.', 'alert'); return; }
+    if (useInterests && !tags.length) { toast('Add at least one hashtag for interest matching.', 'alert'); return; }
+    if (String(tagsInput ? tagsInput.value : '').includes('#') && tags.length === 0 && useInterests) { toast('Check your hashtags and try again.', 'alert'); return; }
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError || !session?.user) { toast('Please sign in again.', 'alert'); return; }
+    const mode = useGps && useInterests ? 'both' : (useGps ? 'gps' : 'interests');
+    const payload = {
+      name, kind, note, created_by: session.user.id, active: true,
+      discovery_mode: mode, audience_tags: useInterests ? tags : [],
+      latitude: useGps ? state.userLocation.latitude : null,
+      longitude: useGps ? state.userLocation.longitude : null
+    };
+    button.disabled = true;
+    button.textContent = 'Publishing…';
+    const { error } = await supabaseClient.from('discover_places').insert(payload);
+    if (error) {
+      console.warn('Tweaklr: place publish failed.', error);
+      button.disabled = false;
+      button.textContent = 'Publish place';
+      toast('This place could not be published. Please try again.', 'alert');
+      return;
+    }
+    closeSheet();
+    toast('Your place is now on Tweaklr.', 'check');
+    await loadPlacesScreen();
+    if (state.loaded.discover) loadMingDiscoverContent().then(renderDiscover);
+  });
+}
+
 function openPlaceSheet(id) {
   const pl = discoverPlaces.find(x => x.id === id);
   if (!pl) return;
@@ -9628,6 +9760,12 @@ document.addEventListener('click', async e => {
       toast('Comment added.', 'check');
       break;
     }
+    case 'open-places':
+      pushStack('places');
+      loadPlacesScreen();
+      break;
+    case 'add-place': openPlaceComposer(); break;
+    case 'refresh-places': loadPlacesScreen(); break;
     case 'place': openPlaceSheet(arg); break;
     case 'save-place': {
       const pl = discoverPlaces.find(x => x.id === arg);
