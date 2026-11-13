@@ -304,6 +304,11 @@
           </div>
         </div>
 
+        <button class="places-header-btn" type="button" data-action="open-places" aria-label="Open Places discovery">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          <span>Places</span>
+        </button>
+
         <button class="icon-btn" data-open="search" aria-label="Search Tweaklr">
           <svg><use href="#i-search"/></svg>
         </button>
@@ -352,6 +357,36 @@
 
       <p class="wordmark-foot"><b>Tweaklr</b></p>
 
+    </div>
+  </section>
+
+
+  <!-- PLACES DISCOVERY -->
+  <section class="screen screen--stack places-screen" id="screen-places" aria-label="Places discovery">
+    <header class="topbar places-topbar">
+      <div class="topbar-row">
+        <button class="places-back" type="button" data-back aria-label="Back to Discover">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="places-heading">
+          <div class="topbar-title">Places</div>
+          <div class="topbar-sub">Discover places that match your world.</div>
+        </div>
+        <button class="places-add-btn" type="button" data-action="add-place">
+          <span>＋</span> Add place
+        </button>
+      </div>
+    </header>
+    <div class="scroll" data-scroll>
+      <div class="places-intro">
+        <div class="places-intro-kicker">THE WORLD, A LITTLE CLOSER</div>
+        <h1>Find your kind of place.</h1>
+        <p>Explore nearby discoveries and places matched to your interests, wherever you are.</p>
+      </div>
+      <div id="places-feed" class="places-feed">
+        <div class="places-loading">Finding places for you…</div>
+      </div>
+      <p class="wordmark-foot"><b>Tweaklr</b> · places with possibility</p>
     </div>
   </section>
 
