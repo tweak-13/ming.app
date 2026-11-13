@@ -8712,9 +8712,9 @@ function openComposer(type) {
   setTimeout(() => title.focus(), 260);
 }
 
-function renderPostDiscussionComment(c, privateReply, isCreator, postType, postId) {
+function renderPostDiscussionComment(c, privateReply, isCreator, postType, postId, viewerId) {
   const commentId = String(c.id || '');
-  const canReply = !!isCreator && !!c.user_id && c.user_id !== (window.__tweaklrCurrentUserId || '');
+  const canReply = !!isCreator && !!c.user_id && c.user_id !== (viewerId || '');
   const replyHtml = privateReply
     ? '<div class="creator-private-reply"><div class="creator-private-reply-label"><span>🔒</span> ' +
         (isCreator ? 'Private reply sent to ' + esc(c.author_display_name || 'commenter') : 'Private reply from ' + esc(privateReply.creator_display_name || 'post creator')) +
@@ -8795,12 +8795,11 @@ async function openActivitySheet(id) {
     else console.warn('Tweaklr: private Activity replies could not be loaded.', privateError.message);
   }
   const privateReplyByComment = new Map(privateReplies.map(reply => [reply.comment_id, reply]));
-  window.__tweaklrCurrentUserId = userId || '';
   const discussion = joined
     ? (commentsError
       ? '<div class="privacy-note" style="margin:12px 0"><p>Activity discussion is not ready yet. Please apply the activity discussion database migration.</p></div>'
       : '<div style="margin-top:20px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><b style="font-size:14px">Discussion</b><span style="font-size:12px;color:var(--muted)">' + comments.length + ' comments</span></div>' +
-        (comments.map(c => renderPostDiscussionComment(c, privateReplyByComment.get(c.id), isHost, 'activity', a.id)).join('') || '<div style="padding:14px 0;color:var(--muted);font-size:13px">No comments yet. Start the conversation.</div>') +
+        (comments.map(c => renderPostDiscussionComment(c, privateReplyByComment.get(c.id), isHost, 'activity', a.id, userId)).join('') || '<div style="padding:14px 0;color:var(--muted);font-size:13px">No comments yet. Start the conversation.</div>') +
         '<div id="activity-comment-composer" class="activity-comment-composer"><div style="display:flex;gap:8px;align-items:flex-end"><textarea id="activity-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…" style="flex:1;min-width:0;resize:vertical;border:1px solid var(--line,#ddd);border-radius:14px;padding:11px;font:inherit;background:var(--surface,#fff);color:inherit"></textarea><button class="btn btn--primary" data-action="activity-comment-send:' + a.id + '" style="min-height:42px">Send</button></div></div>')
     : '<div class="privacy-note" style="margin:18px 0 0">' + icon('lock') + '<p>Join this activity to unlock its private discussion and talk with the people attending.</p></div>';
   openSheet({
@@ -9102,7 +9101,7 @@ async function openPlaceSheet(id) {
     ? (commentsError
       ? '<div class="privacy-note" style="margin:14px 0">Place discussion is temporarily unavailable. Please try again.</div>'
       : '<section class="place-discussion"><div class="place-discussion-head"><b>Discussion</b><span>' + comments.length + (comments.length === 1 ? ' comment' : ' comments') + '</span></div>' +
-        (comments.map(c => renderPostDiscussionComment(c, privateReplyByComment.get(c.id), pl.isMine === true, 'place', pl.id)).join('') ||
+        (comments.map(c => renderPostDiscussionComment(c, privateReplyByComment.get(c.id), pl.isMine === true, 'place', pl.id, userId)).join('') ||
         '<div class="place-discussion-empty">No comments yet. Start the conversation.</div>') +
         '<div class="place-comment-composer"><textarea id="place-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…"></textarea><button class="btn btn--primary" data-action="place-comment-send:' + pl.id + '">Send</button></div></section>')
     : '<div class="place-discussion-locked"><span>✦</span><div><b>Join the conversation</b><p>Save this place to unlock its discussion and leave a comment.</p></div></div>';
