@@ -2981,7 +2981,13 @@ async function sendDailyUpdateToConnection(updateId, personId) {
     return;
   }
 
+  const mediaItems = Array.isArray(data.u.media) ? data.u.media.filter(item => item?.url) : [];
   const files = await getDailyUpdateMediaFiles(data);
+  if (mediaItems.length && files.length !== mediaItems.length) {
+    toast('The post media could not all be prepared. Nothing was sent; please try again.', 'alert');
+    return;
+  }
+
   closeSheet();
   await openChat(personId);
   if (state.activeChat !== personId) {
@@ -2989,7 +2995,10 @@ async function sendDailyUpdateToConnection(updateId, personId) {
     return;
   }
 
-  const message = [data.text, data.url].filter(Boolean).join('\n\n');
+  // When a post has media, send the media as real chat attachments and keep
+  // only its descriptive text in the message. A post URL is used only for
+  // text-only posts.
+  const message = mediaItems.length ? data.text : [data.text, data.url].filter(Boolean).join('\n\n');
   if (message && !(await sendMessage(message, { replyToId: null }))) return;
   if (!files.length) return;
 
@@ -2997,10 +3006,10 @@ async function sendDailyUpdateToConnection(updateId, personId) {
   for (const file of files) {
     if (await sendStoredChatAttachment(file, { replyToId: null })) completed += 1;
   }
-  if (completed) {
-    toast(completed === files.length ? 'Post and media sent' : 'Post sent; ' + completed + ' of ' + files.length + ' media files sent', 'check');
+  if (completed === files.length) {
+    toast('Post and original media files sent', 'check');
   } else {
-    toast('Post link sent, but the media could not be sent.', 'alert');
+    toast('Post text sent, but only ' + completed + ' of ' + files.length + ' media files were sent.', 'alert');
   }
 }
 
@@ -13397,15 +13406,23 @@ async function downloadBusinessPostMedia(postId) {
 async function sendBusinessPostToUser(postId,personId) {
   const data=await getBusinessPostShareData(postId);
   if(!data||!isUuidPerson(personId)||personId===currentUser.id){toast('Choose another Tweaklr user to share this update with.','alert');return;}
+  const mediaItems=Array.isArray(data.post.media)?data.post.media:[];
   const files=await getBusinessPostMediaFiles(data.post);
+  if(mediaItems.length && files.length!==mediaItems.length){
+    toast('The post media could not all be prepared. Nothing was sent; please try again.','alert');
+    return;
+  }
   closeSheet();
   await openChat(personId);
   if(state.activeChat!==personId){toast('Could not open that conversation. Please try again.','alert');return;}
-  if(!(await sendMessage([data.text,data.url].filter(Boolean).join('\n\n'),{replyToId:null})))return;
+  // Attach the original media files to the chat; do not substitute a post URL.
+  // Text-only posts retain their normal link preview.
+  const message=mediaItems.length?data.text:[data.text,data.url].filter(Boolean).join('\n\n');
+  if(message && !(await sendMessage(message,{replyToId:null})))return;
   if(!files.length)return;
   let completed=0;
   for(const file of files)if(await sendStoredChatAttachment(file,{replyToId:null}))completed++;
-  toast(completed?(completed===files.length?'Post and media sent':'Post sent; '+completed+' of '+files.length+' media files sent'):'Post link sent, but the media could not be sent.',completed?'check':'alert');
+  toast(completed===files.length?'Post and original media files sent':'Post text sent, but only '+completed+' of '+files.length+' media files were sent.',completed===files.length?'check':'alert');
 }
 
 let businessPostShareSearchTimer=null,businessPostShareSearchRequest=0;
