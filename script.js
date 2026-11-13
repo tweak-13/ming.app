@@ -10445,8 +10445,14 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
       seek.style.setProperty('--voice-progress',(value/10)+'%');
       if(time)time.textContent=fmt(target)+' / '+fmt(duration);
     };
-    seek.addEventListener('input',()=>seekAudio(false));
-    seek.addEventListener('change',()=>seekAudio(true));
+    let ignorePointerChange=false;
+    seek.addEventListener('input',()=>{
+      if(seek.dataset.userSeeking!=='true'&&!ignorePointerChange)seekAudio(false);
+    });
+    seek.addEventListener('change',()=>{
+      if(ignorePointerChange){ignorePointerChange=false;return;}
+      if(seek.dataset.userSeeking!=='true')seekAudio(true);
+    });
     // Use pointer coordinates rather than native range dragging. This is
     // reliable on mobile browsers where the range thumb may not seek audio.
     const seekFromPointer=event=>{
@@ -10460,6 +10466,7 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
     seek.addEventListener('pointerdown',event=>{
       if(event.pointerType==='mouse'&&event.button!==0)return;
       seek.dataset.userSeeking='true';
+      ignorePointerChange=true;
       try{seek.setPointerCapture(event.pointerId);}catch(_){}
       seekFromPointer(event);
       event.preventDefault();
@@ -10469,13 +10476,22 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
     });
     const finishSeeking=event=>{
       if(seek.dataset.userSeeking!=='true')return;
-      if(event&&Number.isFinite(event.clientX))seekFromPointer(event);
+      // Pointer-up coordinates can be stale on mobile; the latest pointer
+      // move (or pointer-down for a tap) already set the intended position.
+      delete seek.dataset.userSeeking;
+      seekAudio(true);
+      try{if(event&&seek.hasPointerCapture(event.pointerId))seek.releasePointerCapture(event.pointerId);}catch(_){}
+    };
+    const cancelSeeking=event=>{
+      if(seek.dataset.userSeeking!=='true')return;
+      // A browser pointer-cancel is not a new seek position. Keep the last
+      // deliberate position instead of interpreting its often-zero coords.
       delete seek.dataset.userSeeking;
       seekAudio(true);
       try{if(event&&seek.hasPointerCapture(event.pointerId))seek.releasePointerCapture(event.pointerId);}catch(_){}
     };
     seek.addEventListener('pointerup',finishSeeking);
-    seek.addEventListener('pointercancel',finishSeeking);
+    seek.addEventListener('pointercancel',cancelSeeking);
   }
   audio.addEventListener('loadedmetadata',()=>{
     const duration=validDuration();
