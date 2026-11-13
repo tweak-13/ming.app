@@ -9929,10 +9929,10 @@ document.addEventListener('click', async e => {
         break;
       }
       if (pl.saved) {
+        const { error: archiveError } = await supabaseClient.from('archived_discover_places').delete().eq('place_id', pl.id).eq('user_id', session.user.id);
+        if (archiveError) { toast('Could not update this saved place.', 'alert'); break; }
         const { error } = await supabaseClient.from('saved_discover_places').delete().eq('place_id', pl.id).eq('user_id', session.user.id);
         if (error) { toast('Could not remove saved place.', 'alert'); break; }
-        const { error: archiveError } = await supabaseClient.from('archived_discover_places').delete().eq('place_id', pl.id).eq('user_id', session.user.id);
-        if (archiveError) console.warn('Tweaklr: stale place archive record could not be cleared.', archiveError.message);
         archivedDiscoverPlaceIds.delete(pl.id);
         pl.saved = false;
         closeSheet();
