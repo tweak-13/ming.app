@@ -3947,7 +3947,7 @@ async function loadMingDiscoverContent() {
     }
     const lat = hasLocation() ? Number(state.userLocation.latitude.toFixed(7)) : null;
     const lng = hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null;
-    const { data: placeRows, error: placeError } = await supabaseClient.rpc('get_discover_places', { p_latitude: lat, p_longitude: lng, p_radius_km: 5 });
+    const { data: placeRows, error: placeError } = await supabaseClient.rpc('get_discover_places_v2', { p_latitude: lat, p_longitude: lng, p_radius_km: 5 });
     if (placeError) console.warn('Tweaklr: Discover places could not be loaded.', placeError.message);
     else discoverPlaces = (placeRows || []).map(row => ({ id: row.id, name: row.name, kind: row.kind, note: row.note || '', hue: 26, km: row.distance_km == null ? null : Number(row.distance_km), saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps', audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [], isMine: !!row.is_mine }));
     return true;
@@ -8750,7 +8750,10 @@ function renderPlacesScreen() {
     const reason = pl.isMine ? 'Your place on Tweaklr' : (matches.length ? 'Matched to your interests worldwide' : (nearby ? 'GPS discovery near you' : 'Your place on Tweaklr'));
     const tags = (matches.length ? matches : (pl.audienceTags || []).slice(0, 4)).slice(0, 4);
     return '<button class="place-post" style="animation-delay:' + Math.min(index, 6) * 35 + 'ms" data-action="place:' + pl.id + '">' +
-      '<div class="place-post-art"><span class="place-post-art-label">TWEAKLR · PLACES</span></div>' +
+      '<div class="place-post-art ' + (pl.imageUrl ? 'has-image' : 'no-image') + '" ' + (pl.imageUrl ? 'style="--place-image:url(&quot;' + esc(pl.imageUrl) + '&quot;)"' : '') + '>' +
+        '<span class="place-post-art-label">TWEAKLR <i>·</i> PLACES</span>' +
+        (pl.imageUrl ? '<span class="place-post-photo-mark">A PLACE TO DISCOVER</span>' : '<span class="place-post-art-orbit" aria-hidden="true">✦</span>') +
+      '</div>' +
       '<div class="place-post-copy"><div class="place-post-top"><div><div class="place-post-name">' + esc(pl.name) + '</div><div class="place-post-kind">' + esc(pl.kind) + '</div></div>' +
       '<span class="place-post-distance">' + esc(pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global match' : 'Explore') : distLabel(pl.km)) + '</span></div>' +
       (pl.note ? '<p class="place-post-note">' + esc(pl.note) + '</p>' : '') +
@@ -8774,7 +8777,9 @@ async function loadPlacesScreen() {
       hue: 26, km: row.distance_km == null ? null : Number(row.distance_km),
       saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps',
       audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [],
-      isMine: !!row.is_mine
+      isMine: !!row.is_mine,
+      imagePath: row.image_path || '',
+      imageUrl: row.image_path ? supabaseClient.storage.from('discover-place-images').getPublicUrl(row.image_path).data.publicUrl : ''
     }));
     renderPlacesScreen();
   } catch (error) {
@@ -8790,7 +8795,8 @@ function openPlaceComposer() {
     hidePrimaryNav: true,
     title: 'Add a place',
     sub: 'Share a place with the people who would love it.',
-    body: '<div class="field"><label for="place-name">Place name</label><input id="place-name" maxlength="70" placeholder="e.g. The Sunday Market" autocomplete="off"></div>' +
+    body: '<div class="place-image-field"><label class="place-image-picker" for="place-image-file"><span class="place-image-picker-icon">＋</span><span><b>Add a place photo</b><small>One image · JPG, PNG or WebP · up to 5 MB</small></span></label><input id="place-image-file" type="file" accept="image/jpeg,image/png,image/webp" hidden><div id="place-image-preview" class="place-image-preview" hidden><img id="place-image-preview-img" alt="Selected place photo preview"><button type="button" id="place-image-remove" class="place-image-remove" aria-label="Remove photo">×</button></div></div>' +
+      '<div class="field"><label for="place-name">Place name</label><input id="place-name" maxlength="70" placeholder="e.g. The Sunday Market" autocomplete="off"></div>' +
       '<div class="field"><label for="place-kind">Type of place</label><input id="place-kind" maxlength="40" placeholder="e.g. Bakery, Cinema, Sports venue" autocomplete="off"></div>' +
       '<div class="field"><label for="place-note">A little about this place</label><textarea id="place-note" maxlength="280" placeholder="What makes this place worth discovering?"></textarea></div>' +
       '<div class="settings-section-title" style="margin-top:18px">How should people discover it?</div>' +
@@ -8806,6 +8812,36 @@ function openPlaceComposer() {
   const interestsToggle = document.getElementById('place-mode-interests');
   const tagsField = document.getElementById('place-tags-field');
   const gpsToggle = document.getElementById('place-mode-gps');
+  const imageInput = document.getElementById('place-image-file');
+  const imagePreview = document.getElementById('place-image-preview');
+  const imagePreviewImg = document.getElementById('place-image-preview-img');
+  let selectedPlaceImage = null;
+  let placeImagePreviewUrl = '';
+  imageInput?.addEventListener('change', () => {
+    const file = imageInput.files && imageInput.files[0];
+    if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(String(file.type || '').toLowerCase()) || file.size > 5 * 1024 * 1024) {
+      imageInput.value = '';
+      selectedPlaceImage = null;
+      if (imagePreview) imagePreview.hidden = true;
+      toast('Choose one JPG, PNG or WebP image no larger than 5 MB.', 'alert');
+      return;
+    }
+    selectedPlaceImage = file;
+    if (placeImagePreviewUrl) URL.revokeObjectURL(placeImagePreviewUrl);
+    placeImagePreviewUrl = URL.createObjectURL(file);
+    if (imagePreviewImg) imagePreviewImg.src = placeImagePreviewUrl;
+    if (imagePreview) imagePreview.hidden = false;
+  });
+  document.getElementById('place-image-remove')?.addEventListener('click', () => {
+    selectedPlaceImage = null;
+    if (imageInput) imageInput.value = '';
+    if (placeImagePreviewUrl) URL.revokeObjectURL(placeImagePreviewUrl);
+    placeImagePreviewUrl = '';
+    if (imagePreviewImg) imagePreviewImg.removeAttribute('src');
+    if (imagePreview) imagePreview.hidden = true;
+  });
   const updateTagPreview = () => {
     const tags = parsePlaceAudienceTags(tagsInput ? tagsInput.value : '');
     if (tagsPreview) tagsPreview.innerHTML = tags.map(tag => '<span>#' + esc(tag) + '</span>').join('');
@@ -8839,14 +8875,39 @@ function openPlaceComposer() {
     };
     button.disabled = true;
     button.textContent = 'Publishing…';
+    let uploadedImagePath = '';
+    if (selectedPlaceImage) {
+      try {
+        const bytes = new Uint8Array(await selectedPlaceImage.slice(0, 16).arrayBuffer());
+        const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+        const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+        const isWebp = String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP';
+        if (!(isJpeg || isPng || isWebp)) throw new Error('The selected file is not a supported image.');
+        const extension = isJpeg ? 'jpg' : (isPng ? 'png' : 'webp');
+        uploadedImagePath = session.user.id + '/' + crypto.randomUUID() + '.' + extension;
+        const { error: uploadError } = await supabaseClient.storage.from('discover-place-images').upload(uploadedImagePath, selectedPlaceImage, {
+          contentType: selectedPlaceImage.type, upsert: false, cacheControl: '31536000'
+        });
+        if (uploadError) throw uploadError;
+        payload.image_path = uploadedImagePath;
+      } catch (uploadError) {
+        console.warn('Tweaklr: place image upload failed.', uploadError);
+        button.disabled = false;
+        button.textContent = 'Publish place';
+        toast(uploadError.message || 'The place photo could not be uploaded.', 'alert');
+        return;
+      }
+    }
     const { error } = await supabaseClient.from('discover_places').insert(payload);
     if (error) {
+      if (uploadedImagePath) await supabaseClient.storage.from('discover-place-images').remove([uploadedImagePath]);
       console.warn('Tweaklr: place publish failed.', error);
       button.disabled = false;
       button.textContent = 'Publish place';
       toast('This place could not be published. Please try again.', 'alert');
       return;
     }
+    if (placeImagePreviewUrl) URL.revokeObjectURL(placeImagePreviewUrl);
     closeSheet();
     toast('Your place is now on Tweaklr.', 'check');
     await loadPlacesScreen();
@@ -8860,7 +8921,7 @@ function openPlaceSheet(id) {
   openSheet({
     title: pl.name,
     sub: pl.kind + ' · ' + (pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global interest discovery' : 'Distance unavailable') : distLabel(pl.km)),
-    body: '<div style="height:120px;border-radius:var(--r-lg);margin:4px 0 14px;background:' + avatarStyle(pl.hue) + '"></div>' +
+    body: (pl.imageUrl ? '<div class="place-detail-hero"><img src="' + esc(pl.imageUrl) + '" alt="' + esc(pl.name) + '"></div>' : '<div class="place-detail-fallback"><span>✦</span><b>TWEAKLR PLACES</b></div>') +
       '<p style="font-size:14.5px;line-height:1.55">' + esc(pl.note || 'Public place on Tweaklr.') + '</p>' +
       ((pl.audienceTags || []).length ? '<div class="place-post-tags" style="margin-top:14px">' + pl.audienceTags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : ''),
     foot: '<button class="btn btn--soft btn--block" data-action="save-place:' + pl.id + '">' + (pl.saved ? 'Saved' : 'Save this place') + '</button>'
