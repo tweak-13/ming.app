@@ -9780,12 +9780,14 @@ document.addEventListener('click', async e => {
         if (error) { toast('Could not remove saved place.', 'alert'); break; }
         pl.saved = false;
         closeSheet();
+        renderPlacesScreen();
         toast('Place removed from saved places.', 'x');
       } else {
         const { error } = await supabaseClient.from('saved_discover_places').insert({ place_id: pl.id, user_id: session.user.id });
         if (error && error.code !== '23505') { toast('Could not save place.', 'alert'); break; }
         pl.saved = true;
         closeSheet();
+        renderPlacesScreen();
         toast('Place saved.', 'check');
       }
       break;
