@@ -941,7 +941,6 @@ let discoverOpportunities = [];
 let discoverActivities = [];
 let discoverVisitors = [];
 let discoverPlaces = [];
-let archivedDiscoverPlaceIds = new Set();
 let placesSection = 'discover';
 const discoverActivityJoined = new Set();
 
@@ -8771,30 +8770,26 @@ function renderPlacesScreen() {
   if (!host) return;
   const terms = new Set((Array.isArray(currentUser.interests) ? currentUser.interests : [])
     .map(x => String(x || '').replace(/^#+/, '').trim().toLocaleLowerCase()).filter(Boolean));
-  const savedPlaces = discoverPlaces.filter(pl => pl.saved && !archivedDiscoverPlaceIds.has(pl.id));
-  const archivedPlaces = discoverPlaces.filter(pl => pl.saved && archivedDiscoverPlaceIds.has(pl.id));
+  const savedPlaces = discoverPlaces.filter(pl => pl.saved);
   const sections = [
     { id: 'discover', label: 'Discover', count: discoverPlaces.length },
-    { id: 'saved', label: 'Saved Places', count: savedPlaces.length },
-    { id: 'archived', label: 'Archived Places', count: archivedPlaces.length }
+    { id: 'saved', label: 'Saved Places', count: savedPlaces.length }
   ];
   const tabs = '<div class="places-section-switch" role="tablist" aria-label="Places sections">' +
     sections.map(item => '<button type="button" role="tab" aria-selected="' + (placesSection === item.id) + '" class="' + (placesSection === item.id ? 'is-active' : '') + '" data-action="places-section:' + item.id + '">' +
       '<span>' + item.label + '</span><b>' + item.count + '</b></button>').join('') + '</div>';
-  const list = placesSection === 'saved' ? savedPlaces : (placesSection === 'archived' ? archivedPlaces : discoverPlaces);
+  const list = placesSection === 'saved' ? savedPlaces : discoverPlaces;
   if (!list.length) {
     const empty = placesSection === 'saved'
       ? emptyState('No saved places yet', 'Save places you want to come back to. They will be collected here.', { a: 'places-section:discover', t: 'Explore places' })
-      : placesSection === 'archived'
-        ? emptyState('Your archive is clear', 'Places you move out of Saved Places will be kept here until you restore them.')
-        : emptyState('Your next favourite place is out there', 'Places matched to your interests worldwide will appear here, alongside GPS discoveries near you.', { a: 'add-place', t: 'Add the first place' });
+      : emptyState('Your next favourite place is out there', 'Places matched to your interests worldwide will appear here, alongside GPS discoveries near you.', { a: 'add-place', t: 'Add the first place' });
     host.innerHTML = tabs + '<div class="places-section-empty">' + empty + '</div>';
     return;
   }
   host.innerHTML = tabs + list.map((pl, index) => {
     const matches = (pl.audienceTags || []).filter(tag => terms.has(String(tag).replace(/^#+/, '').trim().toLocaleLowerCase()));
     const nearby = pl.km != null && pl.km <= 5 && ['gps','both'].includes(pl.discoveryMode);
-    const reason = placesSection === 'archived' ? 'Kept in your private archive' : (placesSection === 'saved' ? 'Saved by you' : (pl.isMine ? 'Your place on Tweaklr' : (matches.length ? 'Matched to your interests worldwide' : (nearby ? 'GPS discovery near you' : 'Your place on Tweaklr'))));
+    const reason = placesSection === 'saved' ? 'Saved by you' : (pl.isMine ? 'Your place on Tweaklr' : (matches.length ? 'Matched to your interests worldwide' : (nearby ? 'GPS discovery near you' : 'Your place on Tweaklr')));
     const tags = (matches.length ? matches : (pl.audienceTags || []).slice(0, 4)).slice(0, 4);
     return '<button class="place-post" style="animation-delay:' + Math.min(index, 6) * 35 + 'ms" data-action="place:' + pl.id + '">' +
       '<div class="place-post-art ' + (pl.imageUrl ? 'has-image' : 'no-image') + '" ' + (pl.imageUrl ? 'style="--place-image:url(&quot;' + esc(pl.imageUrl) + '&quot;)"' : '') + '>' +
@@ -8805,7 +8800,7 @@ function renderPlacesScreen() {
       '<span class="place-post-distance">' + esc(pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global match' : 'Explore') : distLabel(pl.km)) + '</span></div>' +
       (pl.note ? '<p class="place-post-note">' + esc(pl.note) + '</p>' : '') +
       (tags.length ? '<div class="place-post-tags">' + tags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
-      '<div class="place-post-foot"><span>' + esc(reason) + '</span><b>' + (placesSection === 'archived' ? 'ARCHIVED' : (pl.saved ? 'SAVED' : 'VIEW PLACE')) + '</b></div></div></button>';
+      '<div class="place-post-foot"><span>' + esc(reason) + '</span><b>' + (pl.saved ? 'SAVED' : 'VIEW PLACE') + '</b></div></div></button>';
   }).join('');
 }
 async function loadPlacesScreen() {
@@ -8825,13 +8820,6 @@ async function loadPlacesScreen() {
       imagePath: row.image_path || '',
       imageUrl: row.image_path ? supabaseClient.storage.from('discover-place-images').getPublicUrl(row.image_path).data.publicUrl : ''
     }));
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    archivedDiscoverPlaceIds = new Set();
-    if (session?.user) {
-      const { data: archivedRows, error: archiveError } = await supabaseClient.from('archived_discover_places').select('place_id').eq('user_id', session.user.id);
-      if (archiveError) throw archiveError;
-      archivedDiscoverPlaceIds = new Set((archivedRows || []).map(row => row.place_id));
-    }
     renderPlacesScreen();
   } catch (error) {
     console.warn('Tweaklr: Places feed could not be loaded.', error);
@@ -8978,14 +8966,13 @@ function openPlaceComposer() {
 function openPlaceSheet(id) {
   const pl = discoverPlaces.find(x => x.id === id);
   if (!pl) return;
-  const isArchived = archivedDiscoverPlaceIds.has(pl.id);
   openSheet({
     title: pl.name,
     sub: pl.kind + ' · ' + (pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global interest discovery' : 'Distance unavailable') : distLabel(pl.km)),
     body: (pl.imageUrl ? '<div class="place-detail-hero"><img src="' + esc(pl.imageUrl) + '" alt="' + esc(pl.name) + '"></div>' : '<div class="place-detail-fallback"><span>✦</span><b>TWEAKLR PLACES</b></div>') +
       '<p style="font-size:14.5px;line-height:1.55">' + esc(pl.note || 'Public place on Tweaklr.') + '</p>' +
       ((pl.audienceTags || []).length ? '<div class="place-post-tags" style="margin-top:14px">' + pl.audienceTags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : ''),
-    foot: (pl.saved ? '<button class="btn btn--soft btn--block" data-action="' + (isArchived ? 'restore-place:' : 'archive-place:') + pl.id + '">' + (isArchived ? 'Restore to Saved Places' : 'Move to archive') + '</button><button class="btn btn--ghost btn--block" data-action="save-place:' + pl.id + '">Remove from saved places</button>' : '<button class="btn btn--soft btn--block" data-action="save-place:' + pl.id + '">Save this place</button>')
+    foot: (pl.saved ? '<button class="btn btn--ghost btn--block" data-action="save-place:' + pl.id + '">Remove from saved places</button>' : '<button class="btn btn--soft btn--block" data-action="save-place:' + pl.id + '">Save this place</button>')
   });
 }
 
@@ -9890,36 +9877,8 @@ document.addEventListener('click', async e => {
       break;
     case 'add-place': openPlaceComposer(); break;
     case 'refresh-places': loadPlacesScreen(); break;
-    case 'places-section': placesSection = ['discover','saved','archived'].includes(arg) ? arg : 'discover'; renderPlacesScreen(); break;
+    case 'places-section': placesSection = ['discover','saved'].includes(arg) ? arg : 'discover'; renderPlacesScreen(); break;
     case 'place': openPlaceSheet(arg); break;
-    case 'archive-place': {
-      const pl = discoverPlaces.find(x => x.id === arg);
-      if (!pl?.saved) break;
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session?.user) { toast('Please sign in again.', 'alert'); break; }
-      const { error } = await supabaseClient.from('archived_discover_places').insert({ user_id: session.user.id, place_id: pl.id });
-      if (error && error.code !== '23505') { toast('Could not archive this place.', 'alert'); break; }
-      archivedDiscoverPlaceIds.add(pl.id);
-      closeSheet();
-      placesSection = 'archived';
-      renderPlacesScreen();
-      toast('Place moved to your archive.', 'check');
-      break;
-    }
-    case 'restore-place': {
-      const pl = discoverPlaces.find(x => x.id === arg);
-      if (!pl?.saved) break;
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session?.user) { toast('Please sign in again.', 'alert'); break; }
-      const { error } = await supabaseClient.from('archived_discover_places').delete().eq('user_id', session.user.id).eq('place_id', pl.id);
-      if (error) { toast('Could not restore this place.', 'alert'); break; }
-      archivedDiscoverPlaceIds.delete(pl.id);
-      closeSheet();
-      placesSection = 'saved';
-      renderPlacesScreen();
-      toast('Place restored to Saved Places.', 'check');
-      break;
-    }
     case 'save-place': {
       const pl = discoverPlaces.find(x => x.id === arg);
       if (!pl) break;
@@ -9929,11 +9888,8 @@ document.addEventListener('click', async e => {
         break;
       }
       if (pl.saved) {
-        const { error: archiveError } = await supabaseClient.from('archived_discover_places').delete().eq('place_id', pl.id).eq('user_id', session.user.id);
-        if (archiveError) { toast('Could not update this saved place.', 'alert'); break; }
         const { error } = await supabaseClient.from('saved_discover_places').delete().eq('place_id', pl.id).eq('user_id', session.user.id);
         if (error) { toast('Could not remove saved place.', 'alert'); break; }
-        archivedDiscoverPlaceIds.delete(pl.id);
         pl.saved = false;
         closeSheet();
         renderPlacesScreen();
