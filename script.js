@@ -9275,8 +9275,6 @@ function openPlaceComposer() {
     closeSheet();
     toast('Your place is now on Tweaklr.', 'check');
     await loadPlacesScreen();
-    try { await loadProfilePlaces(currentUser.id); if (state.loaded.profile) renderProfile(); }
-    catch (profilePlaceError) { console.warn('Tweaklr: new Place could not be added to profile Live Updates yet.', profilePlaceError.message || profilePlaceError); }
     if (state.loaded.discover) loadMingDiscoverContent().then(renderDiscover);
   });
 }
