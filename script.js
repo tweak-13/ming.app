@@ -8824,6 +8824,9 @@ function openPlaceComposer() {
     if (!allowed.includes(String(file.type || '').toLowerCase()) || file.size > 5 * 1024 * 1024) {
       imageInput.value = '';
       selectedPlaceImage = null;
+      if (placeImagePreviewUrl) URL.revokeObjectURL(placeImagePreviewUrl);
+      placeImagePreviewUrl = '';
+      if (imagePreviewImg) imagePreviewImg.removeAttribute('src');
       if (imagePreview) imagePreview.hidden = true;
       toast('Choose one JPG, PNG or WebP image no larger than 5 MB.', 'alert');
       return;
@@ -8884,9 +8887,10 @@ function openPlaceComposer() {
         const isWebp = String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP';
         if (!(isJpeg || isPng || isWebp)) throw new Error('The selected file is not a supported image.');
         const extension = isJpeg ? 'jpg' : (isPng ? 'png' : 'webp');
+        const verifiedMime = isJpeg ? 'image/jpeg' : (isPng ? 'image/png' : 'image/webp');
         uploadedImagePath = session.user.id + '/' + crypto.randomUUID() + '.' + extension;
         const { error: uploadError } = await supabaseClient.storage.from('discover-place-images').upload(uploadedImagePath, selectedPlaceImage, {
-          contentType: selectedPlaceImage.type, upsert: false, cacheControl: '31536000'
+          contentType: verifiedMime, upsert: false, cacheControl: '31536000'
         });
         if (uploadError) throw uploadError;
         payload.image_path = uploadedImagePath;
