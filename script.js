@@ -15585,7 +15585,7 @@ document.addEventListener('input', e => {
 function renderHomeSpaces() {
   const host = document.getElementById('home-spaces');
   if (!host) return;
-  const list = mySpaces();
+  const list = mySpaces().filter(space => !sp.archivedIds.has(space.id));
   host.innerHTML = sectionHead('Your Spaces', null, { t: 'All', a: 'noop' }).replace('data-action="noop"', 'data-sp="spaces"') +
     `<div class="rail">
       ${list.map(s => {
