@@ -9943,6 +9943,15 @@ document.addEventListener('click', async e => {
         toast('Could not renew this Places post. Please try again.', 'alert');
         break;
       }
+      const expiryNotificationIds = notifications
+        .filter(item => item.type === 'place_expiry' && item.placeId === arg)
+        .map(item => item.id);
+      if (expiryNotificationIds.length) {
+        await saveNotificationReadState(expiryNotificationIds);
+        notifications = notifications.filter(item => !expiryNotificationIds.includes(item.id));
+        renderNotifications();
+        updateNotifDot();
+      }
       closeSheet();
       toast('Your Places post has been renewed for 7 days.', 'check');
       await loadPlacesScreen();
@@ -10054,6 +10063,11 @@ document.addEventListener('click', async e => {
     case 'notif': {
       const n = notifications.find(x => x.id === arg);
       if (!n) break;
+      // Keep expiry reminders available until the creator renews the post.
+      if (n.type === 'place_expiry' && n.placeId) {
+        await openExpiredPlaceSheet(n.placeId);
+        break;
+      }
       const saved = await saveNotificationReadState([n.id]);
       if (!saved) {
         toast('Could not save read status. Please try again.', 'alert');
@@ -10065,9 +10079,7 @@ document.addEventListener('click', async e => {
       renderNotifications();
       updateNotifDot();
 
-      if (n.type === 'place_expiry' && n.placeId) {
-        await openExpiredPlaceSheet(n.placeId);
-      } else if (n.type === 'message' && n.personId) {
+      if (n.type === 'message' && n.personId) {
         await openChat(n.personId);
       } else if (n.type === 'request') {
         await loadMingConnections();
