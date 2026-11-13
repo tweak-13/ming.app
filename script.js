@@ -11781,6 +11781,8 @@ const sp = {
   activeRoleApplicantsId: null,
   marketTab: 'all',
   indexFilter: 'all',
+  indexSection: 'active',
+  archivedIds: new Set(),
   pendingMedia: []
 };
 
@@ -11792,6 +11794,47 @@ async function loadSpacesFromDatabase() {
     catch (error) { console.error('Tweaklr: Spaces database load failed:', error); return false; }
   }
   return false;
+}
+
+async function loadArchivedSpaceIds() {
+  const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+  if (sessionError || !session?.user?.id) {
+    sp.archivedIds = new Set();
+    return false;
+  }
+  const { data, error } = await supabaseClient
+    .from('ming_space_archives')
+    .select('space_id')
+    .eq('user_id', session.user.id);
+  if (error) {
+    console.warn('Tweaklr: Archived Spaces could not be loaded.', error.message);
+    return false;
+  }
+  sp.archivedIds = new Set((data || []).map(row => row.space_id));
+  return true;
+}
+
+async function setSpaceArchived(spaceId, archived) {
+  const space = spaceById(spaceId);
+  if (!space) { toast('This Space could not be found.', 'alert'); return; }
+  const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+  if (sessionError || !session?.user?.id) {
+    toast('Please sign in again to manage your archived Spaces.', 'alert');
+    return;
+  }
+  const query = supabaseClient.from('ming_space_archives');
+  const result = archived
+    ? await query.insert({ user_id: session.user.id, space_id: spaceId })
+    : await query.delete().eq('user_id', session.user.id).eq('space_id', spaceId);
+  if (result.error && !(archived && result.error.code === '23505')) {
+    console.error('Tweaklr: Space archive update failed.', result.error);
+    toast(archived ? 'This Space could not be archived.' : 'This Space could not be restored.', 'alert');
+    return;
+  }
+  if (archived) sp.archivedIds.add(spaceId);
+  else sp.archivedIds.delete(spaceId);
+  renderSpaces();
+  toast(archived ? 'Space moved to Archived Spaces.' : 'Space restored to Your Spaces.', 'check');
 }
 const mySpaces = () => Server.db.members
   .filter(m => m.userId === Server.session.userId)
@@ -11942,6 +11985,7 @@ async function openSpaces() {
   }
 
   await loadSpacesFromDatabase();
+  await loadArchivedSpaceIds();
 
   try {
     renderSpaces();
@@ -11961,13 +12005,16 @@ function renderSpaces() {
   }
 
   renderHomeSpaces();
-  const list = mySpaces();
+  const allSpaces = mySpaces();
+  const archived = allSpaces.filter(space => sp.archivedIds.has(space.id));
+  const list = allSpaces.filter(space => !sp.archivedIds.has(space.id));
   const filters = [['all', 'All'], ...Object.entries(NATURES).map(([k, n]) => [k, n.label])];
   const visible = sp.indexFilter === 'all' ? list : list.filter(s => s.nature === sp.indexFilter);
   const totalMembers = list.reduce((sum, s) => sum + Server.memberCount(s.id), 0);
   const liveSpaces = list.filter(s => contentOf(s.id, 'now').length > 0).length;
   const owned = list.filter(s => Server.roleOf(s.id) === 'owner').length;
   const selectedNature = sp.indexFilter !== 'all' ? NATURES[sp.indexFilter] : null;
+  const showingArchived = sp.indexSection === 'archived';
 
   body.innerHTML = `
     <div class="spaces-hero spaces-hero--command">
@@ -11992,88 +12039,111 @@ function renderSpaces() {
       </div>
     </div>
 
-    <div class="spaces-quick-launch">
-      <div class="spaces-quick-launch__head">
-        <div><span class="eyebrow">Quick launch</span><h2>Start with an intention.</h2></div>
-        <span class="spaces-owner-count">${owned} owned</span>
-      </div>
-      <div class="spaces-quick-grid">
-        ${Object.entries(NATURES).map(([k, n]) => `
-          <button class="space-quick-card ${selectedNature === n ? 'is-selected' : ''}" data-sp="create-type:${k}" style="--sp-swatch:${n.swatch}">
-            <span class="space-quick-card__icon">${icon(n.icon)}</span>
-            <span class="space-quick-card__copy"><strong>${esc(n.label)}</strong><small>${esc(n.signature)}</small></span>
-            <span class="space-quick-card__go">${icon('chev')}</span>
-          </button>`).join('')}
-      </div>
+    <div class="spaces-archive-switch" role="tablist" aria-label="Space collections">
+      <button class="${!showingArchived ? 'is-active' : ''}" data-sp="section:active" role="tab" aria-selected="${!showingArchived}"><span>Your Spaces</span><b>${list.length}</b></button>
+      <button class="${showingArchived ? 'is-active' : ''}" data-sp="section:archived" role="tab" aria-selected="${showingArchived}"><span>Archived Spaces</span><b>${archived.length}</b></button>
     </div>
 
-    <div class="space-intentions">
-      <div class="space-intentions__head">
-        <div><span class="eyebrow">Explore the system</span><h2>Give the Space a reason to exist.</h2></div>
+    ${!showingArchived ? `
+      <div class="spaces-quick-launch">
+        <div class="spaces-quick-launch__head">
+          <div><span class="eyebrow">Quick launch</span><h2>Start with an intention.</h2></div>
+          <span class="spaces-owner-count">${owned} owned</span>
+        </div>
+        <div class="spaces-quick-grid">
+          ${Object.entries(NATURES).map(([k, n]) => `
+            <button class="space-quick-card ${selectedNature === n ? 'is-selected' : ''}" data-sp="create-type:${k}" style="--sp-swatch:${n.swatch}">
+              <span class="space-quick-card__icon">${icon(n.icon)}</span>
+              <span class="space-quick-card__copy"><strong>${esc(n.label)}</strong><small>${esc(n.signature)}</small></span>
+              <span class="space-quick-card__go">${icon('chev')}</span>
+            </button>`).join('')}
+        </div>
       </div>
-      <div class="space-nature-rail">
-        ${Object.entries(NATURES).map(([k, n]) => `
-          <button class="space-nature-card" data-sp="create-type:${k}" style="--sp-swatch:${n.swatch}" aria-label="Create a ${esc(n.label)} Space">
-            <span class="space-nature-card__glow"></span>
-            <span class="space-nature-card__icon">${icon(n.icon)}</span>
-            <span class="space-nature-card__eyebrow">${esc(n.eyebrow)}</span>
-            <strong>${esc(n.label)}</strong>
-            <span class="space-nature-card__signature">${esc(n.signature)}</span>
-            <span class="space-nature-card__copy">${esc(n.blurb)}</span>
-            <span class="space-nature-card__cta">Explore this kind ${icon('chev')}</span>
-          </button>`).join('')}
+
+      <div class="space-intentions">
+        <div class="space-intentions__head">
+          <div><span class="eyebrow">Explore the system</span><h2>Give the Space a reason to exist.</h2></div>
+        </div>
+        <div class="space-nature-rail">
+          ${Object.entries(NATURES).map(([k, n]) => `
+            <button class="space-nature-card" data-sp="create-type:${k}" style="--sp-swatch:${n.swatch}" aria-label="Create a ${esc(n.label)} Space">
+              <span class="space-nature-card__glow"></span>
+              <span class="space-nature-card__icon">${icon(n.icon)}</span>
+              <span class="space-nature-card__eyebrow">${esc(n.eyebrow)}</span>
+              <strong>${esc(n.label)}</strong>
+              <span class="space-nature-card__signature">${esc(n.signature)}</span>
+              <span class="space-nature-card__copy">${esc(n.blurb)}</span>
+              <span class="space-nature-card__cta">Explore this kind ${icon('chev')}</span>
+            </button>`).join('')}
+        </div>
       </div>
-    </div>
 
-    <div class="space-filter-row">
-      ${filters.map(([k,t]) => `<button class="chip ${sp.indexFilter === k ? 'is-on' : ''}" data-sp="filter:${k}">${esc(t)}</button>`).join('')}
-    </div>
+      <div class="space-filter-row">
+        ${filters.map(([k,t]) => `<button class="chip ${sp.indexFilter === k ? 'is-on' : ''}" data-sp="filter:${k}">${esc(t)}</button>`).join('')}
+      </div>
 
-    ${visible.length ? `<div class="section spaces-owned-section">
-      ${sectionHead(sp.indexFilter === 'all' ? 'Your Spaces' : NATURES[sp.indexFilter].label + ' Spaces', `${visible.length}`)}
-      ${visible.map(spaceTile).join('')}
-    </div>`
-    : `<div class="spaces-empty-premium">${emptyState(
-        sp.indexFilter === 'all' ? 'Your first Space is waiting.' : 'Nothing here yet.',
-        sp.indexFilter === 'all' ? 'Pick a purpose above and create a room that feels made for it.' : 'Create one with this character and make it yours.',
-        { t: 'Create this kind', a: 'create-type:' + sp.indexFilter }
-      )}</div>`}
+      ${visible.length ? `<div class="section spaces-owned-section">
+        ${sectionHead(sp.indexFilter === 'all' ? 'Your Spaces' : NATURES[sp.indexFilter].label + ' Spaces', `${visible.length}`)}
+        ${visible.map(spaceTile).join('')}
+      </div>`
+      : `<div class="spaces-empty-premium">${emptyState(
+          sp.indexFilter === 'all' ? 'Your first Space is waiting.' : 'Nothing here yet.',
+          sp.indexFilter === 'all' ? 'Pick a purpose above and create a room that feels made for it.' : 'Create one with this character and make it yours.',
+          { t: 'Create this kind', a: 'create-type:' + sp.indexFilter }
+        )}</div>`}
+    ` : `
+      <div class="section spaces-archived-section">
+        ${sectionHead('Archived Spaces', 'Kept out of your main Spaces list')}
+        <p class="spaces-archive-description">Only you see this archive. Restoring a Space returns it to Your Spaces without changing its members or content.</p>
+        ${archived.length
+          ? archived.map(space => spaceTile(space, true)).join('')
+          : '<div class="spaces-empty-premium"><div class="empty"><strong>Your archive is clear.</strong><span>Spaces you archive will be kept here until you restore them.</span></div></div>'}
+      </div>
+    `}
 
     <div class="spaces-footer-note">
       <span class="spaces-footer-note__mark">${icon('shield')}</span>
       <div><strong>Built around boundaries.</strong><span>Membership, invitations and Space rules are enforced by the backend.</span></div>
     </div>
 
-    <div class="section spaces-wallet-section">${sectionHead('Tweaklr Wallet', 'Development mode')}
+    ${!showingArchived ? `<div class="section spaces-wallet-section">${sectionHead('Tweaklr Wallet', 'Development mode')}
       <div class="menu-list">
         <button class="menu-item" data-sp="wallet">${icon('sp-wallet')}<span class="t">Balances and activity</span><span class="go">${icon('chev')}</span></button>
       </div>
-    </div>`;
+    </div>` : ''}
+  `;
 }
-function spaceTile(s) {
+
+function spaceTile(s, archived = false) {
   const n = NATURES[s.nature] || NATURES.friendly || { label: 'Space', signature: '', promise: '', swatch: '#8B3543', icon: 'sp-grid' };
   const members = Server.db.members.filter(m => m.spaceId === s.id).slice(0, 4).map(m => personOf(m.userId));
   const liveCount = contentOf(s.id, 'now').length;
-  return `<button class="sp-tile sp-tile--premium" data-sp="open:${s.id}" style="--sp-swatch:${n.swatch}">
-    <span class="sp-tile__cover" style="background:${coverFor(s)}">
-      <span class="sp-tile__top">
-        <span class="sp-tile__nature">${icon(n.icon)}${esc(n.label)}</span>
-        <span class="sp-tile__arrow">${icon('chev')}</span>
+  return `<div class="sp-tile-wrap">
+    <button class="sp-tile sp-tile--premium" data-sp="open:${s.id}" style="--sp-swatch:${n.swatch}">
+      <span class="sp-tile__cover" style="background:${coverFor(s)}">
+        <span class="sp-tile__top">
+          <span class="sp-tile__nature">${icon(n.icon)}${esc(n.label)}</span>
+          <span class="sp-tile__arrow">${icon('chev')}</span>
+        </span>
+        <span class="sp-tile__signature">${esc(n.signature)}</span>
       </span>
-      <span class="sp-tile__signature">${esc(n.signature)}</span>
-    </span>
-    <span class="sp-tile__body">
-      <span class="sp-tile__title-row">
-        <span class="sp-tile__name">${esc(s.name)}</span>
-        <span class="sp-tile__role">${esc(Server.roleOf(s.id) || 'guest')}</span>
+      <span class="sp-tile__body">
+        <span class="sp-tile__title-row">
+          <span class="sp-tile__name">${esc(s.name)}</span>
+          <span class="sp-tile__role">${esc(Server.roleOf(s.id) || 'guest')}</span>
+        </span>
+        <span class="sp-tile__description">${esc(s.description || n.promise)}</span>
+        <span class="sp-tile__footer">
+          <span class="stack-avs">${members.map(p => avatar(p, 26, { status: false })).join('')}</span>
+          <span>${Server.memberCount(s.id)} ${Server.memberCount(s.id) === 1 ? 'member' : 'members'}${liveCount ? ' · ' + liveCount + ' live' : ''}</span>
+        </span>
       </span>
-      <span class="sp-tile__description">${esc(s.description || n.promise)}</span>
-      <span class="sp-tile__footer">
-        <span class="stack-avs">${members.map(p => avatar(p, 26, { status: false })).join('')}</span>
-        <span>${Server.memberCount(s.id)} ${Server.memberCount(s.id) === 1 ? 'member' : 'members'}${liveCount ? ' · ' + liveCount + ' live' : ''}</span>
-      </span>
-    </span>
-  </button>`;
+    </button>
+    <button class="sp-tile-archive-action" data-sp="${archived ? 'unarchive' : 'archive'}:${s.id}">
+      ${icon(archived ? 'archive-restore' : 'archive')}
+      <span>${archived ? 'Restore to Your Spaces' : 'Move to archive'}</span>
+    </button>
+  </div>`;
 }
 
 /* ============================================================
@@ -14934,6 +15004,17 @@ document.addEventListener('click', async e => {
     case 'filter':
       sp.indexFilter = a || 'all';
       renderSpaces();
+      break;
+    case 'section':
+      sp.indexSection = a === 'archived' ? 'archived' : 'active';
+      sp.indexFilter = 'all';
+      renderSpaces();
+      break;
+    case 'archive':
+      await setSpaceArchived(a, true);
+      break;
+    case 'unarchive':
+      await setSpaceArchived(a, false);
       break;
     case 'wallet': openWallet(); break;
     case 'friendly-more': {
