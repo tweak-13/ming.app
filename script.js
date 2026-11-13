@@ -6308,7 +6308,7 @@ function scheduleMingAppRealtimeRefresh(tableName, eventType) {
 
     try {
       const has = name => changed.has(name);
-      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments') || has('daily_update_comment_likes') || has('activity_comment_notification_events');
+      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments') || has('daily_update_comment_likes') || has('activity_comment_notification_events') || has('discover_place_expiry_notifications');
       const feedChanged = has('daily_updates') || has('daily_update_likes') || has('daily_update_comments') || has('daily_update_participants');
       const connectionChanged = has('connections');
       const profileChanged = has('profiles');
@@ -6388,6 +6388,7 @@ async function subscribeMingAppRealtime() {
   watch('ming_space_product_bids');
   watch('discover_places');
   watch('saved_discover_places');
+  watch('discover_place_expiry_notifications', ['INSERT']);
 
   mingAppRealtimeChannel = channel;
   channel.subscribe(status => {
