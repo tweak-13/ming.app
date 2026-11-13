@@ -3885,6 +3885,25 @@ async function publishMingApproxLocation() {
   } catch (error) { console.warn('Tweaklr: approximate discovery location failed.', error); return false; }
 }
 
+async function requestDiscoverPlaceRows() {
+  const params = {
+    p_latitude: hasLocation() ? Number(state.userLocation.latitude.toFixed(7)) : null,
+    p_longitude: hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null,
+    p_radius_km: 5
+  };
+  let result = await supabaseClient.rpc('get_discover_places_v2', params);
+  // A 42501 here means the API request is not carrying a currently accepted
+  // authenticated role. Refresh the saved session once, then retry safely.
+  if (result.error && result.error.code === '42501') {
+    const { data: refreshed, error: refreshError } = await supabaseClient.auth.refreshSession();
+    if (refreshError || !refreshed?.session?.access_token) {
+      return { data: null, error: refreshError || result.error };
+    }
+    result = await supabaseClient.rpc('get_discover_places_v2', params);
+  }
+  return result;
+}
+
 async function loadMingDiscoverContent() {
   discoverDailyUpdates = []; discoverNeedHelp = []; discoverOffers = [];
   discoverOpportunities = []; discoverActivities = []; discoverVisitors = []; discoverPlaces = [];
@@ -3947,7 +3966,7 @@ async function loadMingDiscoverContent() {
     }
     const lat = hasLocation() ? Number(state.userLocation.latitude.toFixed(7)) : null;
     const lng = hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null;
-    const { data: placeRows, error: placeError } = await supabaseClient.rpc('get_discover_places_v2', { p_latitude: lat, p_longitude: lng, p_radius_km: 5 });
+    const { data: placeRows, error: placeError } = await requestDiscoverPlaceRows();
     if (placeError) console.warn('Tweaklr: Discover places could not be loaded.', placeError.message);
     else discoverPlaces = (placeRows || []).map(row => ({ id: row.id, name: row.name, kind: row.kind, note: row.note || '', hue: 26, km: row.distance_km == null ? null : Number(row.distance_km), saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps', audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [], isMine: !!row.is_mine, imagePath: row.image_path || '', imageUrl: row.image_path ? supabaseClient.storage.from('discover-place-images').getPublicUrl(row.image_path).data.publicUrl : '' }));
     return true;
@@ -8768,9 +8787,7 @@ async function loadPlacesScreen() {
   try {
     const lat = hasLocation() ? Number(state.userLocation.latitude.toFixed(7)) : null;
     const lng = hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null;
-    const { data, error } = await supabaseClient.rpc('get_discover_places_v2', {
-      p_latitude: lat, p_longitude: lng, p_radius_km: 5
-    });
+    const { data, error } = await requestDiscoverPlaceRows();
     if (error) throw error;
     discoverPlaces = (data || []).map(row => ({
       id: row.id, name: row.name, kind: row.kind, note: row.note || '',
@@ -8784,7 +8801,12 @@ async function loadPlacesScreen() {
     renderPlacesScreen();
   } catch (error) {
     console.warn('Tweaklr: Places feed could not be loaded.', error);
-    if (host) host.innerHTML = emptyState('Places could not load', 'Check your connection and try again.', { a: 'refresh-places', t: 'Try again' });
+    const authDenied = error && error.code === '42501';
+    if (host) host.innerHTML = emptyState(
+      authDenied ? 'Your sign-in needs refreshing' : 'Places could not load',
+      authDenied ? 'Tweaklr could not verify your sign-in. Please sign out and sign back in, then try again.' : 'Check your connection and try again.',
+      { a: 'refresh-places', t: 'Try again' }
+    );
   }
 }
 
