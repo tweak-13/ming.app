@@ -2701,7 +2701,7 @@ function updateCard(u) {
 
   const h = hoursLeft(u);
   const pct = Math.max(2, Math.round((h / 24) * 100));
-  const sectionLabel = ({ general: 'Daily Update', talk: 'Need help', service: 'Offer', visitor: 'Visitor' })[u.kind] || '';
+  const sectionLabel = ({ general: 'Daily Update', talk: 'Need help', alert: 'Need help', service: 'Offer', sale: 'Offer', visitor: 'Visitor' })[u.kind] || '';
   return `<article class="upd" id="upd-${u.id}">
     <div class="upd-top">
       ${avatar(p, 36)}
@@ -3938,7 +3938,7 @@ function renderDiscover() {
   if (show('opps')) {
     html += '<div class="section">' + sectionHead('Opportunities', 'People looking, people offering') + '<div class="rail">' + (discoverOpportunities.map(o => {
       const p = byId(o.authorId); if (!p) return '';
-      return '<button class="ocard" data-action="person:' + o.authorId + '">' + (o.kind === 'service' ? '<span class="post-type-card">' + kindPill('general').replace('Daily Update', 'Offer') + '</span>' : '') + '<div class="k">' + esc(o.title) + '</div><h3>' + esc(o.body || 'Opportunity') + '</h3><p>' + esc(timeAgo(o.createdAt)) + '</p><div class="f">' + avatar(p, 28, { status: false }) + '<span>' + esc(p.short) + ' · ' + esc(p.km == null ? 'Local' : distLabel(p.km)) + '</span></div></button>';
+      return '<button class="ocard" data-action="person:' + o.authorId + '">' + (['service', 'sale'].includes(o.kind) ? '<span class="post-type-card">' + kindPill('general').replace('Daily Update', 'Offer') + '</span>' : '') + '<div class="k">' + esc(o.title) + '</div><h3>' + esc(o.body || 'Opportunity') + '</h3><p>' + esc(timeAgo(o.createdAt)) + '</p><div class="f">' + avatar(p, 28, { status: false }) + '<span>' + esc(p.short) + ' · ' + esc(p.km == null ? 'Local' : distLabel(p.km)) + '</span></div></button>';
     }).join('') || emptyState('No opportunities yet', 'Real offers and requests shared on Tweaklr will appear here.')) + '</div></div>';
   }
   if (show('activities')) {
