@@ -1025,7 +1025,16 @@
     }catch(_){}
   }
   window.addEventListener('error',function(e){
+    // Firefox may report a normal media-fetch cancellation when an audio/video
+    // element is replaced, closed, or its source is reset. This is not a
+    // JavaScript startup failure and should not cover the app with an error.
+    var target=e.target;
+    if(target && (target.tagName==='AUDIO'||target.tagName==='VIDEO')){
+      var mediaError=target.error;
+      if(!mediaError || mediaError.code===1) return;
+    }
     var message=e.message||e.error&&e.error.message||'A script failed to load';
+    if(/fetching process for the media resource was aborted/i.test(message)) return;
     if(e.filename)message+='\n'+e.filename.split('/').pop()+(e.lineno?':'+e.lineno:'');
     show('Tweaklr startup error: '+message);
   },true);
