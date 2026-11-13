@@ -9186,6 +9186,30 @@ async function openExpiredPlaceSheet(placeId) {
   });
 }
 
+async function loadNotifiedPlaceForNavigation(placeId) {
+  let place = discoverPlaces.find(item => String(item.id) === String(placeId));
+  if (place) return place;
+
+  const { data: row, error } = await supabaseClient.rpc('get_notified_discover_place', { p_place_id: placeId });
+  if (error || !row) {
+    if (error) console.warn('Tweaklr: notified Place could not be resolved.', error.message);
+    return null;
+  }
+
+  place = {
+    id: row.id, name: row.name, kind: row.kind, note: row.note || '',
+    hue: 26, km: row.distance_km == null ? null : Number(row.distance_km),
+    saved: !!row.saved_by_me, likesCount: 0, liked: false,
+    discoveryMode: row.discovery_mode || 'gps',
+    audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [],
+    isMine: !!row.is_mine,
+    imagePath: row.image_path || '',
+    imageUrl: row.image_path ? supabaseClient.storage.from('discover-place-images').getPublicUrl(row.image_path).data.publicUrl : ''
+  };
+  discoverPlaces.unshift(place);
+  return place;
+}
+
 async function openPlaceSheet(id) {
   const pl = discoverPlaces.find(x => x.id === id);
   if (!pl) return;
@@ -10423,14 +10447,14 @@ document.addEventListener('click', async e => {
       } else if (n.type === 'place_match' && n.placeId) {
         closeSheet();
         await loadPlacesScreen();
-        const place = discoverPlaces.find(item => String(item.id) === String(n.placeId));
+        const place = await loadNotifiedPlaceForNavigation(n.placeId);
         if (place) await openPlaceSheet(place.id);
         else toast('This Place is no longer available in your current discovery results.', 'alert');
       } else if (n.type === 'private_reply' && n.postId && n.postType) {
         closeSheet();
         if (n.postType === 'place') {
           await loadPlacesScreen();
-          const place = discoverPlaces.find(item => String(item.id) === String(n.postId));
+          const place = await loadNotifiedPlaceForNavigation(n.postId);
           if (place) await openPlaceSheet(place.id);
           else toast('This Place is no longer available in your current discovery results.', 'alert');
         } else {
