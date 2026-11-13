@@ -7417,3 +7417,14 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 .place-discussion-locked>span{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:rgba(139,53,67,.1);color:var(--accent,#8B3543)}
 .place-discussion-locked b{font-size:13px}
 .place-discussion-locked p{margin:3px 0 0;color:var(--muted);font-size:12px;line-height:1.45}
+
+
+/* Places likes — independent from saving a place */
+.place-sheet-actions{display:flex;align-items:stretch;gap:9px;width:100%}
+.place-sheet-actions>.btn{flex:1;min-width:0;justify-content:center;white-space:normal}
+.place-like-action{gap:7px}
+.place-like-action>span:first-child{font-size:16px;line-height:1}
+.place-like-count{font-size:11px;opacity:.82}
+.place-post-stats{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.place-post-stats>span{font-size:11px;font-weight:750;color:var(--burgundy)}
+.place-rail-likes{margin-top:3px;font-weight:750;color:var(--burgundy)!important}
