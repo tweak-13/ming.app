@@ -8730,7 +8730,10 @@ function renderPostDiscussionComment(c, privateReply, isCreator, postType, postI
           '<button type="button" class="btn btn--primary" data-action="creator-reply-send" data-post-type="' + postType + '" data-post-id="' + esc(postId) + '" data-comment-id="' + esc(commentId) + '">Send privately</button>' +
         '</div></div>'
     : '';
-  return '<div class="post-discussion-comment"><div class="place-comment-avatar">' +
+  const profileTarget = c.user_id && c.user_id === viewerId
+    ? ' data-profile-self="true" role="button" tabindex="0" aria-label="Open your profile"'
+    : (c.user_id ? ' data-profile-id="' + esc(c.user_id) + '" role="button" tabindex="0" aria-label="Open ' + esc(c.author_display_name || 'commenter') + '\\'s public profile"' : '');
+  return '<div class="post-discussion-comment"><div class="place-comment-avatar place-comment-avatar--clickable"' + profileTarget + ' style="cursor:pointer">' +
     (c.author_avatar_url ? '<img src="' + esc(c.author_avatar_url) + '" alt="">' : '<span>' + esc((c.author_display_name || 'T').slice(0,1)) + '</span>') +
     '</div><div class="post-discussion-comment-copy"><div class="place-comment-meta"><b>' + esc(c.author_display_name || 'Tweaklr member') +
     '</b><span>' + esc(timeAgo(new Date(c.created_at).getTime())) + '</span></div><p class="post-discussion-comment-body">' + esc(c.body || '') +
