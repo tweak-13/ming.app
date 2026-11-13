@@ -7453,7 +7453,7 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 .creator-private-reply{margin:9px 0 3px;padding:10px 12px;border:1px solid rgba(139,53,67,.22);border-radius:13px;background:rgba(139,53,67,.07)}
 .creator-private-reply-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted,#806f64)}
 .creator-private-reply p{font-size:13px;line-height:1.5;margin:5px 0 0;overflow-wrap:anywhere}
-.creator-private-reply-trigger{margin-top:8px;padding:5px 0;border:0;background:transparent;color:var(--accent,#8B3543);font:600 12px inherit;cursor:pointer}
+.creator-private-reply-trigger{margin-top:8px;padding:5px 0;border:0;background:transparent;color:var(--accent,#8B3543);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
 .creator-private-reply-composer{display:grid;gap:8px;margin-top:8px}
 .creator-private-reply-composer textarea{width:100%;min-height:68px;resize:vertical;box-sizing:border-box;border:1px solid var(--line,#ddd);border-radius:12px;padding:10px 12px;background:var(--surface,#fff);color:inherit;font:inherit;font-size:13px}
 .creator-private-reply-composer .btn{justify-self:end;min-height:36px;padding:7px 13px;font-size:12px}
