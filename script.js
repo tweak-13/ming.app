@@ -3949,7 +3949,7 @@ async function loadMingDiscoverContent() {
     const lng = hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null;
     const { data: placeRows, error: placeError } = await supabaseClient.rpc('get_discover_places', { p_latitude: lat, p_longitude: lng, p_radius_km: 5 });
     if (placeError) console.warn('Tweaklr: Discover places could not be loaded.', placeError.message);
-    else discoverPlaces = (placeRows || []).map(row => ({ id: row.id, name: row.name, kind: row.kind, note: row.note || '', hue: 26, km: row.distance_km == null ? null : Number(row.distance_km), saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps', audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [] }));
+    else discoverPlaces = (placeRows || []).map(row => ({ id: row.id, name: row.name, kind: row.kind, note: row.note || '', hue: 26, km: row.distance_km == null ? null : Number(row.distance_km), saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps', audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [], isMine: !!row.is_mine }));
     return true;
   } catch (error) { console.warn('Tweaklr: Discover content load failed.', error); return false; }
 }
@@ -8747,7 +8747,7 @@ function renderPlacesScreen() {
   host.innerHTML = discoverPlaces.map((pl, index) => {
     const matches = (pl.audienceTags || []).filter(tag => terms.has(String(tag).replace(/^#+/, '').trim().toLocaleLowerCase()));
     const nearby = pl.km != null && pl.km <= 5 && ['gps','both'].includes(pl.discoveryMode);
-    const reason = matches.length ? 'Matched to your interests worldwide' : (nearby ? 'GPS discovery near you' : 'Your place on Tweaklr');
+    const reason = pl.isMine ? 'Your place on Tweaklr' : (matches.length ? 'Matched to your interests worldwide' : (nearby ? 'GPS discovery near you' : 'Your place on Tweaklr'));
     const tags = (matches.length ? matches : (pl.audienceTags || []).slice(0, 4)).slice(0, 4);
     return '<button class="place-post" style="animation-delay:' + Math.min(index, 6) * 35 + 'ms" data-action="place:' + pl.id + '">' +
       '<div class="place-post-art"><span class="place-post-art-label">TWEAKLR · PLACES</span></div>' +
@@ -8773,7 +8773,8 @@ async function loadPlacesScreen() {
       id: row.id, name: row.name, kind: row.kind, note: row.note || '',
       hue: 26, km: row.distance_km == null ? null : Number(row.distance_km),
       saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps',
-      audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : []
+      audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [],
+      isMine: !!row.is_mine
     }));
     renderPlacesScreen();
   } catch (error) {
