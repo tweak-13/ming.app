@@ -3724,3 +3724,5 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
   .spaces-archive-switch{gap:4px;padding:4px}
   .spaces-archive-switch button{gap:6px;padding-inline:7px;font-size:11px}
 }
+
+.sp-tile-archive-glyph{display:inline-grid;place-items:center;width:16px;height:16px;font-size:17px;line-height:1;font-weight:800}
