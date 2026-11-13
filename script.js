@@ -3951,7 +3951,6 @@ const DISCOVER_FILTERS = [
   { k: 'offers', t: 'Offer' },
   { k: 'opps', t: 'Opportunities' },
   { k: 'activities', t: 'Activities' },
-  { k: 'places', t: 'Places' },
   { k: 'visitors', t: 'Visitors' }
 ];
 
@@ -4136,6 +4135,7 @@ async function loadDiscover() {
 }
 
 function renderDiscover() {
+  if (state.discoverFilter === 'places') state.discoverFilter = 'all';
   $('#discover-chips').innerHTML = DISCOVER_FILTERS.map(f => '<button class="chip ' + (f.k === state.discoverFilter ? 'is-on' : '') + '" data-action="filter:' + f.k + '">' + f.t + '</button>').join('');
   const f = state.discoverFilter; const show = k => f === 'all' || f === k; let html = '';
   if (show('daily')) {
@@ -4162,9 +4162,6 @@ function renderDiscover() {
       const p = byId(a.authorId); if (!p) return '';
       return '<button class="acard" data-action="activity:' + a.id + '"><div class="when"><div class="h">' + esc(timeAgo(a.createdAt)) + '</div><div class="d">' + esc(a.going) + ' going · ' + esc(a.commentsCount || 0) + ' comments</div></div><div class="info"><div class="t">' + esc(a.title) + '</div><div class="s">' + esc(a.body || 'Activity shared on Tweaklr') + ' · ' + esc(p.km == null ? 'Local' : distLabel(p.km)) + '</div></div><span class="go">' + icon('chev') + '</span></button>';
     }).join('') || emptyState('No activities yet', 'Real activities shared on Tweaklr will appear here.')) + '</div>';
-  }
-  if (show('places')) {
-    html += '<div class="section">' + sectionHead('Places', 'Public places added to Tweaklr') + '<div class="rail">' + (discoverPlaces.map(pl => '<button class="plcard" data-action="place:' + pl.id + '"><div class="art" style="background:' + avatarStyle(pl.hue) + '"></div><div class="body"><div class="n">' + esc(pl.name) + '</div><div class="s">' + esc(pl.kind) + '</div><div class="d">' + esc(pl.km == null ? 'Distance unavailable' : distLabel(pl.km)) + '</div><div class="d place-rail-likes">♥ ' + Number(pl.likesCount || 0) + ' likes</div></div></button>').join('') || emptyState('No places yet', 'Places will appear here once they are added to Tweaklr.')) + '</div></div>';
   }
   if (show('visitors')) {
     html += '<div class="section">' + sectionHead('Visitors', 'People sharing that they are visiting') + '<div class="rail">' + (discoverVisitors.map(v => {
