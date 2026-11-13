@@ -3889,7 +3889,7 @@ async function loadMingDiscoverContent() {
           tag: row.author_headline || 'Tweaklr member', interests: [], bio: row.author_bio || '', avatarUrl: row.author_avatar_url || '',
           username: row.author_username ? '@' + row.author_username.replace(/^@/, '') : '', activity: row.author_activity || '',
           status: 'on', visitor: row.kind === 'visitor', km: mingDiscoverPeople.find(p => p.id === row.author_id)?.km ?? null });
-        const base = { id: row.id, authorId: row.author_id, title: row.title, body: row.body, createdAt: new Date(row.created_at).getTime(),
+        const base = { id: row.id, authorId: row.author_id, kind: row.kind, title: row.title, body: row.body, createdAt: new Date(row.created_at).getTime(),
           likes: Number(row.likes || 0), liked: !!row.liked, commentsCount: Number(row.comments_count || 0) };
         if (['service', 'hiring', 'sale'].includes(row.kind)) discoverOpportunities.push(base);
         if (row.kind === 'activity') discoverActivities.push({ ...base, place: row.title, going: 0, joined: false });
@@ -3938,7 +3938,7 @@ function renderDiscover() {
   if (show('opps')) {
     html += '<div class="section">' + sectionHead('Opportunities', 'People looking, people offering') + '<div class="rail">' + (discoverOpportunities.map(o => {
       const p = byId(o.authorId); if (!p) return '';
-      return '<button class="ocard" data-action="person:' + o.authorId + '"><div class="k">' + esc(o.title) + '</div><h3>' + esc(o.body || 'Opportunity') + '</h3><p>' + esc(timeAgo(o.createdAt)) + '</p><div class="f">' + avatar(p, 28, { status: false }) + '<span>' + esc(p.short) + ' · ' + esc(p.km == null ? 'Local' : distLabel(p.km)) + '</span></div></button>';
+      return '<button class="ocard" data-action="person:' + o.authorId + '">' + (o.kind === 'service' ? '<span class="post-type-card">' + kindPill('general').replace('Daily Update', 'Offer') + '</span>' : '') + '<div class="k">' + esc(o.title) + '</div><h3>' + esc(o.body || 'Opportunity') + '</h3><p>' + esc(timeAgo(o.createdAt)) + '</p><div class="f">' + avatar(p, 28, { status: false }) + '<span>' + esc(p.short) + ' · ' + esc(p.km == null ? 'Local' : distLabel(p.km)) + '</span></div></button>';
     }).join('') || emptyState('No opportunities yet', 'Real offers and requests shared on Tweaklr will appear here.')) + '</div></div>';
   }
   if (show('activities')) {
