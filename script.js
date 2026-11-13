@@ -1919,7 +1919,7 @@ function ensureLoaded(tab) {
 }
 
 function syncStackNavigationVisibility() {
-  // Keep the primary tabs out of the inbox, conversation views, and Need help composer.
+  // Keep the primary tabs out of the inbox, conversation views, and post composers.
   const messageViewOpen = state.stack.some(id => id === 'messages' || id === 'chat');
   const composerHidesNavigation = sheet?.classList.contains('sheet--hide-primary-nav');
   nav?.classList.toggle('hidden', messageViewOpen || composerHidesNavigation);
@@ -8485,7 +8485,7 @@ function openComposer(type) {
   state.sheetCtx = { type: 'compose', kind: preset.kind };
   openSheet({
     composerBack: true,
-    hidePrimaryNav: type === 'help',
+    hidePrimaryNav: ['help', 'update', 'activity', 'offer', 'visitor'].includes(type),
     title: preset.title,
     sub: preset.body,
     body: `
