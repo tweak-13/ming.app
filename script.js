@@ -2709,7 +2709,7 @@ function updateCard(u) {
         <div class="n">${esc(p.short || p.name)}</div>
         <div class="m">${esc(mine ? 'You' : distLabel(p.km))} · ${esc(timeAgo(u.createdAt))}</div>
       </div>
-      ${kindPill(u.kind || 'general')}
+      <span class="post-type-card">${kindPill(u.kind || 'general')}</span>
     </div>
     <h3>${esc(u.title)}</h3>
     <p>${esc(u.body)}</p>
@@ -12622,7 +12622,7 @@ function businessUpdateCard(post, space) {
   const likes = Math.max(0, Number(post.likeCount ?? post.reacts?.like ?? 0));
   const liked = Array.isArray(post.likedBy) ? post.likedBy.includes(currentUser.id) : !!post.mine?.like;
   return '<article class="upd" id="biz-upd-' + esc(post.id) + '">' +
-    '<div class="upd-top">' + avatar(author,36) + '<div class="who"><div class="n">' + esc(author.short || author.name || author.username || 'Space member') + '</div><div class="m">' + esc(mine ? 'You' : 'Business Space member') + ' · ' + esc(timeAgo(createdAt)) + '</div></div>' + kindPill(kind) + '</div>' +
+    '<div class="upd-top">' + avatar(author,36) + '<div class="who"><div class="n">' + esc(author.short || author.name || author.username || 'Space member') + '</div><div class="m">' + esc(mine ? 'You' : 'Business Space member') + ' · ' + esc(timeAgo(createdAt)) + '</div></div>' + '<span class="post-type-card">' + kindPill(kind) + '</span></div>' +
     '<h3>' + esc(post.title || (post.text ? 'Daily Update' : 'Daily Update')) + '</h3><p>' + esc(post.body || post.text || '') + '</p>' +
     businessPostMediaMarkup(post) +
     '<div class="upd-foot">' +
