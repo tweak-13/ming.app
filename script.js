@@ -8752,7 +8752,7 @@ function renderPlacesScreen() {
     return '<button class="place-post" style="animation-delay:' + Math.min(index, 6) * 35 + 'ms" data-action="place:' + pl.id + '">' +
       '<div class="place-post-art"><span class="place-post-art-label">TWEAKLR · PLACES</span></div>' +
       '<div class="place-post-copy"><div class="place-post-top"><div><div class="place-post-name">' + esc(pl.name) + '</div><div class="place-post-kind">' + esc(pl.kind) + '</div></div>' +
-      '<span class="place-post-distance">' + esc(pl.km == null ? (pl.discoveryMode === 'interests' ? 'Global match' : 'Explore') : distLabel(pl.km)) + '</span></div>' +
+      '<span class="place-post-distance">' + esc(pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global match' : 'Explore') : distLabel(pl.km)) + '</span></div>' +
       (pl.note ? '<p class="place-post-note">' + esc(pl.note) + '</p>' : '') +
       (tags.length ? '<div class="place-post-tags">' + tags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
       '<div class="place-post-foot"><span>' + esc(reason) + '</span><b>' + (pl.saved ? 'SAVED' : 'VIEW PLACE') + '</b></div></div></button>';
@@ -8858,9 +8858,10 @@ function openPlaceSheet(id) {
   if (!pl) return;
   openSheet({
     title: pl.name,
-    sub: pl.kind + ' · ' + (pl.km == null ? 'Distance unavailable' : distLabel(pl.km)),
+    sub: pl.kind + ' · ' + (pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global interest discovery' : 'Distance unavailable') : distLabel(pl.km)),
     body: '<div style="height:120px;border-radius:var(--r-lg);margin:4px 0 14px;background:' + avatarStyle(pl.hue) + '"></div>' +
-      '<p style="font-size:14.5px;line-height:1.55">' + esc(pl.note || 'Public place on Tweaklr.') + '</p>',
+      '<p style="font-size:14.5px;line-height:1.55">' + esc(pl.note || 'Public place on Tweaklr.') + '</p>' +
+      ((pl.audienceTags || []).length ? '<div class="place-post-tags" style="margin-top:14px">' + pl.audienceTags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : ''),
     foot: '<button class="btn btn--soft btn--block" data-action="save-place:' + pl.id + '">' + (pl.saved ? 'Saved' : 'Save this place') + '</button>'
   });
 }
