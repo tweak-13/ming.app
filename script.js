@@ -8295,7 +8295,7 @@ function renderSearch(mode, q = '') {
 /* ------------------------------------------------------------
    NOTIFICATIONS
 ------------------------------------------------------------ */
-const NOTIF_ICON = { connect: 'users', update: 'spark', activity: 'spark', activity_comment: 'chat', message: 'chat', nearby: 'pin', expiry: 'clock', request: 'users', like: 'heart', comment: 'chat' };
+const NOTIF_ICON = { connect: 'users', update: 'spark', activity: 'spark', activity_comment: 'chat', message: 'chat', nearby: 'pin', expiry: 'clock', place_expiry: 'clock', request: 'users', like: 'heart', comment: 'chat' };
 
 function renderNotifications() {
   const host = $('#notif-body');
