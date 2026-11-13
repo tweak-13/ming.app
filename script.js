@@ -1919,9 +1919,10 @@ function ensureLoaded(tab) {
 }
 
 function syncStackNavigationVisibility() {
-  // Keep the primary tabs out of the inbox and conversation views.
+  // Keep the primary tabs out of the inbox, conversation views, and Need help composer.
   const messageViewOpen = state.stack.some(id => id === 'messages' || id === 'chat');
-  nav?.classList.toggle('hidden', messageViewOpen);
+  const composerHidesNavigation = sheet?.classList.contains('sheet--hide-primary-nav');
+  nav?.classList.toggle('hidden', messageViewOpen || composerHidesNavigation);
 }
 
 
@@ -8362,10 +8363,11 @@ const appShellForSheets = sheet.parentElement;
 let activitySheetBaseViewportHeight = window.innerHeight;
 let activitySheetBaseOuterHeight = window.outerHeight || window.innerHeight;
 
-function openSheet({ title, sub, body, foot, activityKeyboard = false, composerBack = false }) {
+function openSheet({ title, sub, body, foot, activityKeyboard = false, composerBack = false, hidePrimaryNav = false }) {
   restoreSheetToApp();
   $('#sheet-head').classList.toggle('sheet-head--with-back', !!composerBack);
-  sheet.classList.remove('sheet--activity-keyboard');
+  sheet.classList.remove('sheet--activity-keyboard', 'sheet--hide-primary-nav');
+  if (hidePrimaryNav) sheet.classList.add('sheet--hide-primary-nav');
   ['top', 'bottom', 'left', 'right', 'width', 'max-height', 'position'].forEach(prop => sheet.style.removeProperty(prop));
   $('#sheet-head').innerHTML = composerBack
     ? `<button type="button" class="composer-back" data-composer-back aria-label="Back" title="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6" /></svg></button><div class="sheet-head-copy"><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</div>`
@@ -8383,10 +8385,12 @@ function openSheet({ title, sub, body, foot, activityKeyboard = false, composerB
   }
   sheet.classList.add('is-open');
   scrim.classList.add('is-open');
+  syncStackNavigationVisibility();
   if (activityKeyboard) refreshActivitySheetPosition();
 }
 function closeSheet() {
-  sheet.classList.remove('is-open', 'sheet--activity-keyboard');
+  sheet.classList.remove('is-open', 'sheet--activity-keyboard', 'sheet--hide-primary-nav');
+  syncStackNavigationVisibility();
   restoreSheetToApp();
   if (!modal.classList.contains('is-open')) scrim.classList.remove('is-open');
 }
@@ -8481,6 +8485,7 @@ function openComposer(type) {
   state.sheetCtx = { type: 'compose', kind: preset.kind };
   openSheet({
     composerBack: true,
+    hidePrimaryNav: type === 'help',
     title: preset.title,
     sub: preset.body,
     body: `
