@@ -3673,3 +3673,54 @@ html[data-theme="dark"] #screen-space[data-nature="business"] .biz-app-tab.on{
     padding-inline: 13px !important;
   }
 }
+
+
+
+/* PERSONAL SPACE ARCHIVE — separate from membership and Space content */
+.spaces-archive-switch{
+  display:grid;grid-template-columns:1fr 1fr;gap:7px;
+  margin:18px 0 20px;padding:5px;border:1px solid var(--border);
+  border-radius:16px;background:var(--surface-2)
+}
+.spaces-archive-switch button{
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  min-height:43px;padding:9px 12px;border:1px solid transparent;
+  border-radius:12px;background:transparent;color:var(--muted);
+  font:inherit;font-size:12px;font-weight:750;cursor:pointer;
+  transition:background .18s ease,border-color .18s ease,color .18s ease
+}
+.spaces-archive-switch button b{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:22px;height:22px;padding:0 6px;border-radius:99px;
+  background:var(--surface);color:var(--muted);font-size:10px
+}
+.spaces-archive-switch button.is-active{
+  border-color:var(--border);background:var(--surface);
+  color:var(--text);box-shadow:0 3px 12px rgba(30,20,15,.07)
+}
+.spaces-archive-switch button.is-active b{
+  background:rgba(139,53,67,.12);color:var(--coffee)
+}
+.spaces-archive-description{
+  margin:-5px 0 15px;color:var(--muted);font-size:12px;line-height:1.55
+}
+.sp-tile-wrap{display:grid;gap:8px;margin:0 0 13px;min-width:0}
+.sp-tile-wrap .sp-tile{width:100%;min-width:0}
+.sp-tile-archive-action{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  min-height:38px;padding:8px 12px;border:1px solid var(--border);
+  border-radius:12px;background:var(--surface-2);color:var(--muted);
+  font:inherit;font-size:11px;font-weight:750;cursor:pointer;
+  transition:background .18s ease,border-color .18s ease,color .18s ease
+}
+.sp-tile-archive-action svg{width:14px;height:14px;flex:0 0 14px}
+.sp-tile-archive-action:hover,.sp-tile-archive-action:focus-visible{
+  border-color:rgba(139,53,67,.35);background:rgba(139,53,67,.08);
+  color:var(--coffee);outline:none
+}
+.spaces-archived-section{padding-bottom:10px}
+.spaces-archived-section .sp-tile-wrap{margin-bottom:15px}
+@media(max-width:380px){
+  .spaces-archive-switch{gap:4px;padding:4px}
+  .spaces-archive-switch button{gap:6px;padding-inline:7px;font-size:11px}
+}
