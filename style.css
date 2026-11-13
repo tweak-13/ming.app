@@ -7428,3 +7428,19 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 .place-post-stats{display:flex;align-items:center;gap:10px;white-space:nowrap}
 .place-post-stats>span{font-size:11px;font-weight:750;color:var(--burgundy)}
 .place-rail-likes{margin-top:3px;font-weight:750;color:var(--burgundy)!important}
+
+
+/* People who liked a Places post */
+.place-view-likers{display:block;width:100%;margin-top:9px;padding:10px 12px;border:1px solid var(--line,rgba(139,53,67,.2));border-radius:12px;background:transparent;color:var(--coffee);font:700 12px inherit;text-align:center;cursor:pointer}
+.place-post-like-count{cursor:pointer;border-radius:8px;padding:3px 5px;touch-action:manipulation}
+.place-post-like-count:focus-visible,.place-view-likers:focus-visible,.place-liker-row:focus-visible{outline:2px solid var(--burgundy);outline-offset:2px}
+.place-likers-list{display:flex;flex-direction:column;gap:2px;padding:4px 0}
+.place-liker-row{display:flex;align-items:center;gap:12px;width:100%;padding:11px 8px;border:0;border-bottom:1px solid var(--line,rgba(139,53,67,.12));background:transparent;color:inherit;text-align:left;cursor:pointer}
+.place-liker-avatar{width:42px;height:42px;flex:0 0 42px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:50%;background:rgba(139,53,67,.13);color:var(--coffee);font-weight:800}
+.place-liker-avatar img{width:100%;height:100%;object-fit:cover}
+.place-liker-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+.place-liker-copy b{font-size:13px;font-weight:750;color:var(--text,inherit)}
+.place-liker-copy small{font-size:11px;color:var(--muted,#888)}
+.place-liker-time{font-size:10px;color:var(--muted,#888);white-space:nowrap}
+.place-likers-loading,.place-likers-empty,.place-likers-limit{padding:22px 12px;text-align:center;color:var(--muted,#888);font-size:12px;line-height:1.5}
+.place-likers-limit{padding-top:8px;font-size:10px}
