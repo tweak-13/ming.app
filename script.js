@@ -934,6 +934,9 @@ const KINDS = {
 let dailyUpdates = [];
 let possibilityProfiles = new Map();
 
+let discoverDailyUpdates = [];
+let discoverNeedHelp = [];
+let discoverOffers = [];
 let discoverOpportunities = [];
 let discoverActivities = [];
 let discoverVisitors = [];
@@ -3804,6 +3807,9 @@ function rerenderFeeds() {
 const DISCOVER_FILTERS = [
   { k: 'all', t: 'Everything' },
   { k: 'people', t: 'People' },
+  { k: 'daily', t: 'Daily update' },
+  { k: 'help', t: 'Need help' },
+  { k: 'offers', t: 'Offer' },
   { k: 'opps', t: 'Opportunities' },
   { k: 'activities', t: 'Activities' },
   { k: 'places', t: 'Places' },
@@ -3872,6 +3878,7 @@ async function publishMingApproxLocation() {
 }
 
 async function loadMingDiscoverContent() {
+  discoverDailyUpdates = []; discoverNeedHelp = []; discoverOffers = [];
   discoverOpportunities = []; discoverActivities = []; discoverVisitors = []; discoverPlaces = [];
   discoverActivityJoined.clear();
   try {
@@ -3891,7 +3898,10 @@ async function loadMingDiscoverContent() {
           username: row.author_username ? '@' + row.author_username.replace(/^@/, '') : '', activity: row.author_activity || '',
           status: 'on', visitor: row.kind === 'visitor', km: mingDiscoverPeople.find(p => p.id === row.author_id)?.km ?? null });
         const base = { id: row.id, authorId: row.author_id, kind: row.kind, title: row.title, body: row.body, createdAt: new Date(row.created_at).getTime(),
-          likes: Number(row.likes || 0), liked: !!row.liked, commentsCount: Number(row.comments_count || 0) };
+          likes: Number(row.likes || 0), liked: !!row.liked, commentsCount: Number(row.comments_count || 0), comments: [], media: [] };
+        if (row.kind === 'general') discoverDailyUpdates.push(base);
+        if (['talk', 'alert'].includes(row.kind)) discoverNeedHelp.push(base);
+        if (['service', 'sale'].includes(row.kind)) discoverOffers.push(base);
         if (['service', 'hiring', 'sale'].includes(row.kind)) discoverOpportunities.push(base);
         if (row.kind === 'activity') discoverActivities.push({ ...base, place: row.title, going: 0, joined: false });
         if (row.kind === 'visitor') discoverVisitors.push(base);
@@ -3932,6 +3942,15 @@ async function loadDiscover() {
 function renderDiscover() {
   $('#discover-chips').innerHTML = DISCOVER_FILTERS.map(f => '<button class="chip ' + (f.k === state.discoverFilter ? 'is-on' : '') + '" data-action="filter:' + f.k + '">' + f.t + '</button>').join('');
   const f = state.discoverFilter; const show = k => f === 'all' || f === k; let html = '';
+  if (show('daily')) {
+    html += '<div class="section">' + sectionHead('Daily Updates', 'Fresh moments shared on Tweaklr') + (discoverDailyUpdates.map(updateCard).join('') || emptyState('No Daily Updates yet', 'Daily Updates shared by the community will appear here.')) + '</div>';
+  }
+  if (show('help')) {
+    html += '<div class="section">' + sectionHead('Need help', 'People asking for a hand') + (discoverNeedHelp.map(updateCard).join('') || emptyState('No requests for help yet', 'Requests shared by the community will appear here.')) + '</div>';
+  }
+  if (show('offers')) {
+    html += '<div class="section">' + sectionHead('Offers', 'Services and items people are offering') + (discoverOffers.map(updateCard).join('') || emptyState('No offers yet', 'Services and items offered on Tweaklr will appear here.')) + '</div>';
+  }
   if (show('people')) {
     html += '<div class="section">' + sectionHead('People', null, { t: 'Nearby', a: 'go-nearby' }) + '<div class="rail">' +
       (mingDiscoverPeople.map(p => '<button class="pcard" data-action="person:' + p.id + '">' + ringAvatar(p, 56, isMingUserOnline(p.id)) + '<div class="name">' + esc(p.short) + '</div><div class="tag">' + esc(p.tag) + '</div><div class="dist">' + esc(p.km == null ? 'Discoverable' : distLabel(p.km)) + '</div></button>').join('') || '<div style="padding:8px 0;color:var(--muted);font-size:13px">No other Tweaklr members are discoverable yet.</div>') + '</div></div>';
