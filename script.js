@@ -8843,7 +8843,7 @@ function renderPlacesScreen() {
       '<span class="place-post-distance">' + esc(pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global match' : 'Explore') : distLabel(pl.km)) + '</span></div>' +
       (pl.note ? '<p class="place-post-note">' + esc(pl.note) + '</p>' : '') +
       (tags.length ? '<div class="place-post-tags">' + tags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
-      '<div class="place-post-foot"><span>' + esc(reason) + '</span><span class="place-post-stats"><span aria-label="likes">♥ ' + Number(pl.likesCount || 0) + '</span><b>' + (pl.saved ? 'SAVED' : 'VIEW PLACE') + '</b></span></div></div></button>';
+      '<div class="place-post-foot"><span>' + esc(reason) + '</span><span class="place-post-stats"><span class="place-post-like-count" role="button" tabindex="0" aria-label="See who liked this place" data-action="view-place-likers:' + pl.id + '">♥ ' + Number(pl.likesCount || 0) + '</span><b>' + (pl.saved ? 'SAVED' : 'VIEW PLACE') + '</b></span></div></div></button>';
   }).join('');
 }
 async function loadPlacesScreen() {
