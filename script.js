@@ -3897,7 +3897,8 @@ async function requestDiscoverPlaceRows() {
   if (result.error && result.error.code === '42501') {
     const { data: refreshed, error: refreshError } = await supabaseClient.auth.refreshSession();
     if (refreshError || !refreshed?.session?.access_token) {
-      return { data: null, error: refreshError || result.error };
+      console.warn('Tweaklr: Places session refresh failed.', refreshError?.message || 'No active session.');
+      return { data: null, error: result.error };
     }
     result = await supabaseClient.rpc('get_discover_places_v2', params);
   }
