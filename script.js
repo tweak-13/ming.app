@@ -8843,7 +8843,7 @@ function renderPlacesScreen() {
       '<span class="place-post-distance">' + esc(pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global match' : 'Explore') : distLabel(pl.km)) + '</span></div>' +
       (pl.note ? '<p class="place-post-note">' + esc(pl.note) + '</p>' : '') +
       (tags.length ? '<div class="place-post-tags">' + tags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
-      '<div class="place-post-foot"><span>' + esc(reason) + '</span><span class="place-post-stats"><span class="place-post-like-count" role="button" tabindex="0" aria-label="See who liked this place" data-action="view-place-likers:' + pl.id + '">♥ ' + Number(pl.likesCount || 0) + '</span><b>' + (pl.saved ? 'SAVED' : 'VIEW PLACE') + '</b></span></div></div></button>';
+      '<div class="place-post-foot"><span>' + esc(reason) + '</span><span class="place-post-stats"><span class="place-post-like-count ' + (pl.liked ? 'is-liked' : '') + '" role="button" tabindex="0" aria-pressed="' + !!pl.liked + '" aria-label="' + (pl.liked ? 'Unlike this place' : 'Like this place') + '" data-action="like-place:' + pl.id + '">♥ ' + Number(pl.likesCount || 0) + '</span><b>' + (pl.saved ? 'SAVED' : 'VIEW PLACE') + '</b></span></div></div></button>';
   }).join('');
 }
 async function loadPlacesScreen() {
@@ -8857,12 +8857,27 @@ async function loadPlacesScreen() {
     discoverPlaces = (data || []).map(row => ({
       id: row.id, name: row.name, kind: row.kind, note: row.note || '',
       hue: 26, km: row.distance_km == null ? null : Number(row.distance_km),
-      saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps',
+      saved: !!row.saved_by_me, likesCount: 0, liked: false,
+      discoveryMode: row.discovery_mode || 'gps',
       audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [],
       isMine: !!row.is_mine,
       imagePath: row.image_path || '',
       imageUrl: row.image_path ? supabaseClient.storage.from('discover-place-images').getPublicUrl(row.image_path).data.publicUrl : ''
     }));
+    if (discoverPlaces.length) {
+      const { data: likeStates, error: likeStateError } = await supabaseClient.rpc('get_discover_place_like_state', { p_place_ids: discoverPlaces.map(place => place.id) });
+      if (likeStateError) console.warn('Tweaklr: Places like states could not be loaded.', likeStateError.message);
+      else {
+        const likeMap = new Map((likeStates || []).map(item => [item.place_id, item]));
+        discoverPlaces.forEach(place => {
+          const likeState = likeMap.get(place.id);
+          if (likeState) {
+            place.likesCount = Number(likeState.likes_count || 0);
+            place.liked = !!likeState.liked_by_me;
+          }
+        });
+      }
+    }
     renderPlacesScreen();
   } catch (error) {
     console.warn('Tweaklr: Places feed could not be loaded.', error);
@@ -10015,12 +10030,13 @@ document.addEventListener('click', async e => {
     case 'like-place': {
       const place = discoverPlaces.find(item => item.id === arg);
       if (!place) break;
+      const fromPlaceCard = !!e.target.closest('.place-post-like-count');
       const likeButton = document.querySelector('[data-action="like-place:' + arg + '"]');
-      if (likeButton) likeButton.disabled = true;
+      if (likeButton) likeButton.setAttribute('aria-busy', 'true');
       const { data, error } = await supabaseClient.rpc('toggle_discover_place_like', { p_place_id: arg });
       if (error || !data) {
         console.warn('Tweaklr: Places like could not be updated.', error);
-        if (likeButton) likeButton.disabled = false;
+        if (likeButton) likeButton.removeAttribute('aria-busy');
         toast(error?.message || 'Could not update your like.', 'alert');
         break;
       }
@@ -10028,7 +10044,7 @@ document.addEventListener('click', async e => {
       place.likesCount = Number(data.likes_count || 0);
       renderPlacesScreen();
       if (state.loaded.discover) renderDiscover();
-      await openPlaceSheet(arg);
+      if (!fromPlaceCard) await openPlaceSheet(arg);
       toast(place.liked ? 'You liked this place.' : 'Like removed.', 'heart');
       break;
     }
