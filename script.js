@@ -942,6 +942,9 @@ let discoverActivities = [];
 let discoverVisitors = [];
 let discoverPlaces = [];
 let placesSection = 'discover';
+const profilePlacesByUser = new Map();
+const profilePlacesLoaded = new Set();
+const profilePlacesLoading = new Map();
 const discoverActivityJoined = new Set();
 
 let connections = [
@@ -2732,6 +2735,106 @@ function liveUpdates() {
   return dailyUpdates.filter(u => hoursLeft(u) > 0).sort((a, b) => b.createdAt - a.createdAt);
 }
 
+async function loadProfilePlaces(userId) {
+  if (!isUuidPerson(userId)) return [];
+  if (profilePlacesLoading.has(userId)) return profilePlacesLoading.get(userId);
+  const task = (async () => {
+    const { data, error } = await supabaseClient.rpc('get_public_user_places', { p_user_id: userId });
+    if (error) throw error;
+    const places = (data || []).map(row => ({
+      id: row.id, name: row.name, title: row.name, kind: 'place',
+      placeKind: row.kind, note: row.note || '', body: row.note || '',
+      authorId: userId, createdAt: new Date(row.created_at).getTime(),
+      expiresAt: row.expires_at, imagePath: row.image_path || '',
+      imageUrl: row.image_path ? supabaseClient.storage.from('discover-place-images').getPublicUrl(row.image_path).data.publicUrl : '',
+      saved: false, isMine: userId === currentUser.id, km: null, hue: 26,
+      audienceTags: [], discoveryMode: 'profile', likesCount: 0, likes: 0,
+      liked: false, commentsCount: 0, comments: []
+    }));
+    if (places.length) {
+      const { data: likeStates, error: likeError } = await supabaseClient.rpc('get_discover_place_like_state', {
+        p_place_ids: places.map(place => place.id)
+      });
+      if (likeError) console.warn('Tweaklr: profile Place likes could not be loaded.', likeError.message);
+      else {
+        const likeMap = new Map((likeStates || []).map(item => [item.place_id, item]));
+        places.forEach(place => {
+          const state = likeMap.get(place.id);
+          if (state) {
+            place.likesCount = Number(state.likes_count || 0);
+            place.likes = place.likesCount;
+            place.liked = !!state.liked_by_me;
+          }
+        });
+      }
+    }
+    profilePlacesByUser.set(userId, places);
+    profilePlacesLoaded.add(userId);
+    const merged = new Map(discoverPlaces.map(place => [place.id, place]));
+    places.forEach(place => merged.set(place.id, { ...merged.get(place.id), ...place }));
+    discoverPlaces = [...merged.values()];
+    return places;
+  })();
+  profilePlacesLoading.set(userId, task);
+  try { return await task; }
+  finally { profilePlacesLoading.delete(userId); }
+}
+
+function profileLiveItems(userId) {
+  const updates = liveUpdates().filter(update => update.authorId === userId);
+  const places = (profilePlacesByUser.get(userId) || [])
+    .filter(place => !place.expiresAt || new Date(place.expiresAt).getTime() > Date.now());
+  return [...updates, ...places].sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function profilePlaceCard(place) {
+  const author = place.authorId === currentUser.id
+    ? currentUser
+    : (byId(place.authorId) || mingConnectionProfiles.get(place.authorId) || { id: place.authorId, name: 'Tweaklr member', short: 'Tweaklr member', avatarUrl: '' });
+  return `<article class="upd upd--place" id="place-upd-${esc(place.id)}">
+    <div class="upd-top">
+      ${avatar(author, 36)}
+      <div class="who">
+        <div class="n">${esc(author.short || author.name || 'Tweaklr member')}</div>
+        <div class="m">${esc(place.authorId === currentUser.id ? 'You' : 'Place shared')} · ${esc(timeAgo(place.createdAt))}</div>
+      </div>
+      <span class="post-type-card">${kindPill('general').replace('Daily Update', 'Place')}</span>
+    </div>
+    <h3>${esc(place.name)}</h3>
+    <p>${esc(place.placeKind || 'Place')}${place.note ? ' · ' + esc(place.note) : ''}</p>
+    ${place.imageUrl ? `<div class="upd-media upd-media--single"><img src="${esc(place.imageUrl)}" alt="${esc(place.name)}" loading="lazy" /></div>` : ''}
+    <div class="upd-foot">
+      <span class="like-control"><span class="like-count">♥ ${Number(place.likesCount || place.likes || 0)}</span></span>
+      <button type="button" class="act" data-action="place:${esc(place.id)}">View Place</button>
+    </div>
+  </article>`;
+}
+
+function refreshPublicProfileLiveItems(userId) {
+  if (state.activePerson !== userId) return;
+  const items = profileLiveItems(userId);
+  const likes = items.reduce((total, item) => total + Math.max(0, Number(item.likesCount ?? item.likes) || 0), 0);
+  const stats = $('#person-body .public-profile-stats');
+  if (stats) {
+    const likesValue = stats.querySelector('[data-action="public-likes:' + userId + '"] strong');
+    const updatesValue = stats.querySelector('[data-action="public-updates:' + userId + '"] strong');
+    if (likesValue) likesValue.textContent = likes.toLocaleString();
+    if (updatesValue) updatesValue.textContent = items.length.toLocaleString();
+  }
+  const likesHost = $('#person-body #public-profile-likes');
+  if (likesHost) {
+    const likedItems = items.filter(item => Math.max(0, Number(item.likesCount ?? item.likes) || 0) > 0)
+      .sort((a, b) => (Number(b.likesCount ?? b.likes) || 0) - (Number(a.likesCount ?? a.likes) || 0));
+    likesHost.innerHTML = sectionHead('Updates with likes', 'Most liked first') +
+      (likedItems.map(updateCard).join('') || emptyState('No likes received yet', 'This member has no active updates with likes right now.'));
+  }
+  const updatesHost = $('#person-body #public-profile-updates');
+  if (updatesHost) {
+    updatesHost.innerHTML = sectionHead('Live Updates', 'Daily Updates and Places') +
+      (items.length ? items.map(updateCard).join('') : emptyState('Nothing shared right now', 'This member has no active Daily Updates or Places.'));
+  }
+}
+
 function renderDailyUpdateMedia(u) {
   const media = Array.isArray(u.media) ? u.media.filter(m => m?.url) : [];
   if (!media.length) return '';
@@ -2827,6 +2930,7 @@ function openDailyUpdateMedia(id, index) {
 
 
 function updateCard(u) {
+  if (u.kind === 'place') return profilePlaceCard(u);
   const p = u.authorId === currentUser.id ? currentUser : byId(u.authorId);
   const mine = u.authorId === currentUser.id;
 
@@ -4447,8 +4551,8 @@ function openPerson(id) {
   const connected = status === 'connected';
   const incoming = status === 'incoming';
   const outgoing = hasOutgoingConnectionRequest(id);
-  const theirUpdates = liveUpdates().filter(u => u.authorId === id);
-  const publicLikes = theirUpdates.reduce((total, update) => total + Math.max(0, Number(update.likes) || 0), 0);
+  const theirUpdates = profileLiveItems(id);
+  const publicLikes = theirUpdates.reduce((total, update) => total + Math.max(0, Number(update.likesCount ?? update.likes) || 0), 0);
   const relationshipLabel = connected ? 'Connected' : incoming ? 'Request received' : outgoing ? 'Request sent' : 'Not connected';
   const isBlocked = tweaklrBlockedUserIds.has(id);
 
@@ -4494,14 +4598,16 @@ function openPerson(id) {
     <div class="section" id="public-profile-likes">${sectionHead('Updates with likes', 'Most liked first')}
       ${theirUpdates.filter(update => Math.max(0, Number(update.likes) || 0) > 0).sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0)).map(updateCard).join('') || emptyState('No likes received yet', `${p.short} has no active updates with likes right now.`)}
     </div>
-    <div class="section" id="public-profile-updates">${sectionHead('Daily Updates', 'Gone in 24 hours')}
-      ${theirUpdates.length ? theirUpdates.map(updateCard).join('') : emptyState('Nothing shared today', `${p.short} has not posted an update in the last 24 hours.`)}
+    <div class="section" id="public-profile-updates">${sectionHead('Live Updates', 'Daily Updates and Places')}
+      ${theirUpdates.length ? theirUpdates.map(updateCard).join('') : emptyState('Nothing shared right now', `${p.short} has no active Daily Updates or Places.`)}
     </div>
     <div class="privacy-note" style="margin-bottom:8px">${icon('shield')}
       <p>You are seeing an approximate distance. ${esc(p.short)} cannot see your exact location either.</p>
     </div>`;
   pushStack('person');
   if (isUuidPerson(id)) {
+    loadProfilePlaces(id).then(() => refreshPublicProfileLiveItems(id))
+      .catch(error => console.warn('Tweaklr: public profile Places could not be loaded.', error.message || error));
     loadPublicConnectionCount(id);
     refreshTweaklrBlocks().then(ok => {
       if (!ok || state.activePerson !== id) return;
@@ -7915,14 +8021,18 @@ function profileLikedUpdateCard(u) {
 function renderYourLiveUpdatesScreen() {
   const host = document.getElementById('your-live-updates-body');
   if (!host) return;
-  const mine = liveUpdates().filter(update => update.authorId === currentUser.id);
+  const mine = profileLiveItems(currentUser.id);
   host.innerHTML = mine.length
     ? mine.map(updateCard).join('')
-    : emptyState('No live updates right now', 'Your Daily Updates will appear here after you publish them. They remain visible for 24 hours.');
+    : emptyState('No live updates right now', 'Your Daily Updates and Places will appear here when you share them.');
 }
 
 function renderProfile() {
-  const mine = liveUpdates().filter(u => u.authorId === currentUser.id);
+  if (isUuidPerson(currentUser.id) && !profilePlacesLoaded.has(currentUser.id) && !profilePlacesLoading.has(currentUser.id)) {
+    loadProfilePlaces(currentUser.id).then(() => { if (state.loaded.profile) renderProfile(); })
+      .catch(error => console.warn('Tweaklr: your profile Places could not be loaded.', error.message || error));
+  }
+  const mine = profileLiveItems(currentUser.id);
   $('#profile-body').innerHTML = `
     <div class="phead">
       <button type="button" data-action="${currentUser.avatarUrl ? 'view-avatar' : 'avatar-menu'}" aria-label="Profile photo" style="border:0;background:none;padding:0;cursor:pointer">
@@ -10373,6 +10483,7 @@ document.addEventListener('click', async e => {
     case 'go-updates': {
       closeSheet();
       const loaded = await loadMingDailyUpdates();
+      try { await loadProfilePlaces(currentUser.id); } catch (error) { console.warn('Tweaklr: your Places could not be loaded for Live Updates.', error.message || error); }
       renderYourLiveUpdatesScreen();
       pushStack('your-live-updates');
       if (!loaded) toast('Your Live Updates could not be refreshed. Please try again.', 'alert');
