@@ -1233,24 +1233,51 @@ async function loadMingNotifications() {
       const cutoff = new Date(Date.now() - TWEAKLR_NOTIFICATION_RETENTION_MS).toISOString();
       const { data: activityRows, error: activityError } = await supabaseClient
         .from('profile_activity_notifications')
-        .select('id, actor_id, created_at')
+        .select('id, actor_id, created_at, field_key, old_value, new_value')
         .eq('recipient_id', session.user.id)
         .gte('created_at', cutoff)
         .order('created_at', { ascending: false })
         .limit(100);
 
       if (activityError) {
-        console.warn('Tweaklr: Right now notifications could not be loaded.', activityError.message);
+        console.warn('Tweaklr: Profile activity notifications could not be loaded.', activityError.message);
       } else {
         (activityRows || []).forEach(row => {
           const person = byId(row.actor_id);
           const name = person?.short || person?.name || 'A connection';
           const id = 'right_now_' + row.id;
+          let detail = 'updated their Right now.';
+          if (row.field_key) {
+            const labels = {
+              display_name: 'profile name',
+              username: 'username',
+              bio: 'bio',
+              headline: 'headline',
+              avatar_url: 'profile photo',
+              interests: 'interests',
+              tags: 'tags'
+            };
+            const label = labels[row.field_key] || 'profile';
+            const formatValue = value => row.field_key === 'username'
+              ? '@' + String(value || '').replace(/^@+/, '')
+              : String(value || '');
+            const before = formatValue(row.old_value);
+            const after = formatValue(row.new_value);
+            if (row.field_key === 'avatar_url') {
+              detail = 'updated their profile photo.';
+            } else if (after) {
+              detail = before
+                ? 'changed their ' + label + ' from <b>' + esc(before) + '</b> to <b>' + esc(after) + '</b>.'
+                : 'added a ' + label + ': <b>' + esc(after) + '</b>.';
+            } else {
+              detail = 'removed their ' + label + (before ? ' (previously <b>' + esc(before) + '</b>)' : '') + '.';
+            }
+          }
           next.push({
             id,
             type: 'activity',
             personId: row.actor_id,
-            text: '<b>' + esc(name) + '</b> updated their Right now.',
+            text: '<b>' + esc(name) + '</b> ' + detail,
             at: new Date(row.created_at).getTime(),
             read: notificationReadIds.has(id)
           });
