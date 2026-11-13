@@ -2625,7 +2625,15 @@ function renderDailyUpdateMedia(u) {
 }
 
 function openDailyUpdateMedia(id, index) {
-  const u = dailyUpdates.find(x => x.id === id);
+  const u = [
+    ...dailyUpdates,
+    ...discoverDailyUpdates,
+    ...discoverNeedHelp,
+    ...discoverOffers,
+    ...discoverOpportunities,
+    ...discoverActivities,
+    ...discoverVisitors
+  ].find(x => x.id === id);
   const media = Array.isArray(u?.media) ? u.media.filter(m => m?.url) : [];
   if (!media.length) return;
 
@@ -3889,7 +3897,7 @@ async function loadMingDiscoverContent() {
     else {
       const updates = rows || [];
       const activityIds = updates.filter(r => r.kind === 'activity').map(r => r.id);
-      updates.forEach(row => {
+      for (const row of updates) {
         const name = row.author_display_name || 'Tweaklr user';
         const seed = String(row.author_id || '') + ':' + name; let hue = 0;
         for (let i = 0; i < seed.length; i++) hue = (hue * 31 + seed.charCodeAt(i)) % 360;
@@ -3897,15 +3905,30 @@ async function loadMingDiscoverContent() {
           tag: row.author_headline || 'Tweaklr member', interests: [], bio: row.author_bio || '', avatarUrl: row.author_avatar_url || '',
           username: row.author_username ? '@' + row.author_username.replace(/^@/, '') : '', activity: row.author_activity || '',
           status: 'on', visitor: row.kind === 'visitor', km: mingDiscoverPeople.find(p => p.id === row.author_id)?.km ?? null });
+        const sourceMedia = Array.isArray(row.media) ? row.media : [];
+        const resolvedMedia = await Promise.all(sourceMedia.map(async item => {
+          const path = typeof item === 'string' ? item : item?.path;
+          if (!path) return null;
+          try {
+            const { data: signed, error: signedError } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(path, 3600);
+            if (signedError || !signed?.signedUrl) return null;
+            return {
+              path,
+              url: signed.signedUrl,
+              name: typeof item === 'string' ? path.split('/').pop() : (item?.name || path.split('/').pop()),
+              mime: typeof item === 'string' ? '' : (item?.mime || '')
+            };
+          } catch (_) { return null; }
+        }));
         const base = { id: row.id, authorId: row.author_id, kind: row.kind, title: row.title, body: row.body, createdAt: new Date(row.created_at).getTime(),
-          likes: Number(row.likes || 0), liked: !!row.liked, commentsCount: Number(row.comments_count || 0), comments: [], media: [] };
+          likes: Number(row.likes || 0), liked: !!row.liked, commentsCount: Number(row.comments_count || 0), comments: [], media: resolvedMedia.filter(Boolean) };
         if (row.kind === 'general') discoverDailyUpdates.push(base);
         if (['talk', 'alert'].includes(row.kind)) discoverNeedHelp.push(base);
         if (['service', 'sale'].includes(row.kind)) discoverOffers.push(base);
         if (['service', 'hiring', 'sale'].includes(row.kind)) discoverOpportunities.push(base);
         if (row.kind === 'activity') discoverActivities.push({ ...base, place: row.title, going: 0, joined: false });
         if (row.kind === 'visitor') discoverVisitors.push(base);
-      });
+      }
       if (activityIds.length) {
         const { data: commentCounts, error: commentCountError } = await supabaseClient.rpc('get_daily_update_activity_comment_counts', { p_update_ids: activityIds });
         if (commentCountError) console.warn('Tweaklr: activity comment counts could not be loaded.', commentCountError.message);
