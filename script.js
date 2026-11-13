@@ -4658,7 +4658,7 @@ async function loadMingMessages(options = {}) {
       const [messagesResult, hiddenResult] = await Promise.all([
         supabaseClient
           .from('messages')
-          .select('id, sender_id, recipient_id, body, created_at, read_at, message_type, voice_path, voice_duration, reply_to_id, attachment_path, attachment_name, attachment_mime, attachment_size, view_once, viewed_at')
+          .select('id, sender_id, recipient_id, body, created_at, read_at, message_type, voice_path, voice_duration, reply_to_id, attachment_path, attachment_name, attachment_mime, attachment_size')
           .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
           .order('created_at', { ascending: true }),
         supabaseClient
@@ -4702,8 +4702,6 @@ async function loadMingMessages(options = {}) {
           attachmentName: row.attachment_name || '',
           attachmentMime: row.attachment_mime || '',
           attachmentSize: Number(row.attachment_size || 0),
-          viewOnce: !!row.view_once,
-          viewedAt: row.viewed_at || null
         });
         if (row.recipient_id === userId && !row.read_at) c.unread += 1;
         byConversation.set(otherId, c);
@@ -4850,7 +4848,7 @@ let pendingChatAttachment=null;
 function clearChatAttachment(){pendingChatAttachment=null;const i=$('#chat-attachment-input');if(i)i.value='';const h=$('#chat-attachment-preview');if(h){h.hidden=true;h.innerHTML='';}}
 function showChatAttachmentPreview(file){const h=$('#chat-attachment-preview');if(!h)return;h.hidden=false;h.innerHTML='<div class="chat-attachment-preview__inner"><span class="chat-attachment-preview__icon">'+icon(file.type.startsWith('image/')?'spark':'note')+'</span><span class="chat-attachment-preview__copy"><strong>'+esc(file.name)+'</strong><small>'+esc(formatChatFileSize(file.size))+' · Ready to send</small></span><button type="button" class="chat-attachment-preview__remove" id="chat-attachment-remove" aria-label="Remove attachment">'+icon('x')+'</button></div>';$('#chat-attachment-remove')?.addEventListener('click',clearChatAttachment);}
 async function chooseChatAttachment(file){if(!file)return;const ext=(file.name||'').toLowerCase().split('.').pop();const mimeOk=MING_CHAT_ALLOWED_MIME.has(file.type);const extOk=['jpg','jpeg','png','webp','gif','heic','heif','mp4','webm','mov','m4v','pdf','txt','doc','docx','xls','xlsx','ppt','pptx'].includes(ext);if(!mimeOk&&!extOk){toast('That file type is not supported in Ming chat.','alert');return;}if(file.size>MING_CHAT_MAX_FILE_BYTES){toast('Attachments must be 50 MB or smaller.','alert');return;}pendingChatAttachment=file;showChatAttachmentPreview(file);}
-async function sendStoredChatAttachment(file,options={}){const p=byId(state.activeChat);if(!p||!isUuidPerson(state.activeChat))return false;const {data:{session}}=await supabaseClient.auth.getSession();if(!session?.user){toast('Please sign in again','alert');return false;}const ext=(file.name||'').toLowerCase().split('.').pop();const isImage=file.type.startsWith('image/')||['jpg','jpeg','png','webp','gif','heic','heif'].includes(ext);const isVideo=file.type.startsWith('video/')||['mp4','webm','mov','m4v'].includes(ext);const type=(isImage||isVideo)?'image':'file';const safeName=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,90)||'attachment';const path=session.user.id+'/'+crypto.randomUUID()+'-'+safeName;const {error:uploadError}=await supabaseClient.storage.from('ming-message-files').upload(path,file,{contentType:file.type||'application/octet-stream',cacheControl:'3600',upsert:false});if(uploadError){toast('Could not upload attachment. Run supabase_daily_update_share_media_migration.sql first.','alert');return false;}const replyToId=options.replyToId||chatReplyTarget?.id||null;let row=null,error=null;const direct=await supabaseClient.from('messages').insert({sender_id:session.user.id,recipient_id:state.activeChat,body:'',message_type:type,attachment_path:path,attachment_name:file.name,attachment_mime:file.type||'application/octet-stream',attachment_size:file.size,reply_to_id:replyToId,view_once:!!$('#chat-view-once')?.checked}).select('id,sender_id,recipient_id,body,created_at,read_at,message_type,voice_path,voice_duration,reply_to_id,attachment_path,attachment_name,attachment_mime,attachment_size,view_once,viewed_at').single();row=direct.data;error=direct.error;if(error&&!$('#chat-view-once')?.checked){const rpc=await supabaseClient.rpc('ming_send_message_v3',{p_recipient_id:state.activeChat,p_body:'',p_message_type:type,p_voice_path:null,p_voice_duration:null,p_reply_to_id:replyToId,p_attachment_path:path,p_attachment_name:file.name,p_attachment_mime:file.type||'application/octet-stream',p_attachment_size:file.size});row=Array.isArray(rpc.data)?rpc.data[0]:rpc.data;error=rpc.error;}if(error||!row){await supabaseClient.storage.from('ming-message-files').remove([path]).catch(()=>{});toast(error?.message||'Could not send attachment.','alert');return false;}const c=convoFor(state.activeChat);c.messages.push({id:row.id,me:true,text:'',at:new Date(row.created_at).getTime(),read:!!row.read_at,type,voicePath:'',voiceDuration:0,replyToId:row.reply_to_id||null,attachmentPath:path,attachmentName:file.name,attachmentMime:file.type||'',attachmentSize:file.size,viewOnce:!!row.view_once,viewedAt:row.viewed_at||null,reactions:[]});const viewOnceToggle=$('#chat-view-once');if(viewOnceToggle)viewOnceToggle.checked=false;clearChatAttachment();clearChatReply();renderThread();const t=$('#chat-thread');if(t)t.scrollTop=t.scrollHeight;return true;}
+async function sendStoredChatAttachment(file,options={}){const p=byId(state.activeChat);if(!p||!isUuidPerson(state.activeChat))return false;const {data:{session}}=await supabaseClient.auth.getSession();if(!session?.user){toast('Please sign in again','alert');return false;}const ext=(file.name||'').toLowerCase().split('.').pop();const isImage=file.type.startsWith('image/')||['jpg','jpeg','png','webp','gif','heic','heif'].includes(ext);const isVideo=file.type.startsWith('video/')||['mp4','webm','mov','m4v'].includes(ext);const type=(isImage||isVideo)?'image':'file';const safeName=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,90)||'attachment';const path=session.user.id+'/'+crypto.randomUUID()+'-'+safeName;const {error:uploadError}=await supabaseClient.storage.from('ming-message-files').upload(path,file,{contentType:file.type||'application/octet-stream',cacheControl:'3600',upsert:false});if(uploadError){toast('Could not upload attachment. Run supabase_daily_update_share_media_migration.sql first.','alert');return false;}const replyToId=options.replyToId||chatReplyTarget?.id||null;let row=null,error=null;const direct=await supabaseClient.from('messages').insert({sender_id:session.user.id,recipient_id:state.activeChat,body:'',message_type:type,attachment_path:path,attachment_name:file.name,attachment_mime:file.type||'application/octet-stream',attachment_size:file.size,reply_to_id:replyToId,view_once:false}).select('id,sender_id,recipient_id,body,created_at,read_at,message_type,voice_path,voice_duration,reply_to_id,attachment_path,attachment_name,attachment_mime,attachment_size').single();row=direct.data;error=direct.error;if(error){const rpc=await supabaseClient.rpc('ming_send_message_v3',{p_recipient_id:state.activeChat,p_body:'',p_message_type:type,p_voice_path:null,p_voice_duration:null,p_reply_to_id:replyToId,p_attachment_path:path,p_attachment_name:file.name,p_attachment_mime:file.type||'application/octet-stream',p_attachment_size:file.size});row=Array.isArray(rpc.data)?rpc.data[0]:rpc.data;error=rpc.error;}if(error||!row){await supabaseClient.storage.from('ming-message-files').remove([path]).catch(()=>{});toast(error?.message||'Could not send attachment.','alert');return false;}const c=convoFor(state.activeChat);c.messages.push({id:row.id,me:true,text:'',at:new Date(row.created_at).getTime(),read:!!row.read_at,type,voicePath:'',voiceDuration:0,replyToId:row.reply_to_id||null,attachmentPath:path,attachmentName:file.name,attachmentMime:file.type||'',attachmentSize:file.size,reactions:[]});clearChatAttachment();clearChatReply();renderThread();const t=$('#chat-thread');if(t)t.scrollTop=t.scrollHeight;return true;}
 
 
 function chatTopicFor(a, b) {
@@ -6030,7 +6028,6 @@ async function subscribeMingMessages() {
         if (!message) return;
         message.text = row.body;
         message.read = !!row.read_at;
-        message.viewedAt = row.viewed_at || null;
         if (state.activeChat === row.recipient_id) renderThread();
         if (state.loaded.messages) renderMessages();
       }
@@ -6070,8 +6067,6 @@ async function subscribeMingMessages() {
           attachmentName: row.attachment_name || '',
           attachmentMime: row.attachment_mime || '',
           attachmentSize: Number(row.attachment_size || 0),
-          viewOnce: !!row.view_once,
-          viewedAt: row.viewed_at || null,
           reactions: []
         });
 
@@ -6456,10 +6451,6 @@ function renderChatAttachment(m) {
   const mime=(m.attachmentMime||'').toLowerCase();
   const ext=(name||'').toLowerCase().split('.').pop();
   if(!path)return '';
-  if(m.viewOnce){
-    if(m.viewedAt) return '<div class="chat-view-once-state"><span aria-hidden="true">✓</span><span><strong>Opened</strong><small>This media is no longer available</small></span></div>';
-    return '<button type="button" class="chat-view-once-button" data-view-once="attachment" data-message-id="'+esc(m.id)+'"><span class="chat-view-once-symbol" aria-hidden="true">1×</span><span class="chat-view-once-copy"><strong>View once</strong><small>Tap to open · Cannot be opened again</small></span><span class="chat-view-once-open">Open</span></button>';
-  }
   const isVideo=mime.startsWith('video/')||['mp4','webm','mov','m4v'].includes(ext);
   const isImage=!isVideo&&(m.type==='image'||mime.startsWith('image/')||['jpg','jpeg','png','webp','gif','heic','heif'].includes(ext));
   if(isImage)return '<button type="button" class="chat-attachment chat-attachment--image" data-chat-attachment="'+esc(path)+'" aria-label="Open image"><span class="chat-attachment-loading">Loading image…</span><img alt="" data-chat-attachment-image hidden /></button>';
@@ -6521,182 +6512,9 @@ async function hydrateChatAttachments() {
   }));
 }
 
-/* Dedicated view-once voice player. Kept separate from normal voice-note playback. */
-function bindViewOnceVoicePlayer(audio, player, message) {
-  if (!audio || !player) return;
-  if (typeof audio._tweaklrViewOnceCleanup === 'function') audio._tweaklrViewOnceCleanup();
-
-  const button = player.querySelector('[data-voice-path]');
-  const seek = player.querySelector('[data-voice-seek]');
-  const time = player.querySelector('[data-voice-time]');
-  if (!button || !seek || !time) return;
-
-  button._audio = audio;
-  player._audio = audio;
-  const format = value => {
-    const n = Number(value);
-    return Number.isFinite(n) && n >= 0 ? n.toFixed(2) : '0.00';
-  };
-  const duration = () => Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
-  let resumeAfterSeek = false;
-  let seekSettled = true;
-  let seekPendingHandler = null;
-
-  const update = () => {
-    const total = duration();
-    const current = Number.isFinite(audio.currentTime) ? Math.max(0, audio.currentTime) : 0;
-    const fraction = total ? Math.max(0, Math.min(1, current / total)) : 0;
-    if (!seek.matches(':active')) seek.value = String(Math.round(fraction * 1000));
-    player.style.setProperty('--tw-vo-progress', (fraction * 100) + '%');
-    time.textContent = format(current) + ' / ' + format(total);
-  };
-  const playAfterSeek = () => {
-    if (!resumeAfterSeek || !seekSettled || audio.seeking || message.viewOnceFinished) return;
-    resumeAfterSeek = false;
-    audio.play().catch(error => {
-      console.warn('Tweaklr view-once voice resume failed:', error);
-      toast('Tap play to continue listening to this voice note.', 'alert');
-    });
-  };
-  const seekTo = fraction => {
-    const total = duration();
-    if (!total) return;
-    const progress = Math.max(0, Math.min(1, fraction));
-    const target = progress * total;
-    if (audio.paused) resumeAfterSeek = true;
-
-    if (seekPendingHandler) {
-      audio.removeEventListener('seeked', seekPendingHandler);
-      seekPendingHandler = null;
-    }
-    seekSettled = Math.abs((Number(audio.currentTime) || 0) - target) < 0.015 && !audio.seeking;
-    if (!seekSettled) {
-      seekPendingHandler = () => {
-        seekPendingHandler = null;
-        seekSettled = true;
-        playAfterSeek();
-      };
-      audio.addEventListener('seeked', seekPendingHandler, { once: true });
-    }
-    try {
-      audio.currentTime = target;
-      if (!audio.seeking && Math.abs((Number(audio.currentTime) || 0) - target) < 0.05) {
-        seekSettled = true;
-        if (seekPendingHandler) {
-          audio.removeEventListener('seeked', seekPendingHandler);
-          seekPendingHandler = null;
-        }
-      }
-    } catch (_) {}
-    seek.value = String(Math.round(progress * 1000));
-    player.style.setProperty('--tw-vo-progress', (progress * 100) + '%');
-    time.textContent = format(target) + ' / ' + format(total);
-    if (seekSettled) playAfterSeek();
-  };
-  const onInput = () => {
-    seekTo((Math.max(0, Math.min(1000, Number(seek.value) || 0))) / 1000);
-  };
-  const onPointerSeek = event => {
-    const rect = seek.getBoundingClientRect();
-    if (!rect.width) return;
-    event.preventDefault();
-    seekTo((event.clientX - rect.left) / rect.width);
-  };
-  const onChange = () => {
-    if (resumeAfterSeek && seekSettled && !audio.seeking) playAfterSeek();
-  };
-  const onLoaded = update;
-  const onTime = update;
-  const onPlay = () => {
-    button.innerHTML = '<span class="tw-vo-pause" aria-hidden="true">Ⅱ</span>';
-    button.setAttribute('aria-label', 'Pause voice note');
-    player.classList.add('is-playing');
-  };
-  const onPause = () => {
-    if (audio.ended) return;
-    button.innerHTML = '<span class="tw-vo-play-icon" aria-hidden="true">▶</span>';
-    button.setAttribute('aria-label', 'Play voice note');
-    player.classList.remove('is-playing');
-  };
-  const onEnded = () => {
-    message.viewOnceEnded = true;
-    message.viewOnceFinished = true;
-    message.viewOncePlayback = false;
-    message.viewOnceAudio = null;
-    player.classList.remove('is-playing');
-    audio.pause();
-    audio.removeAttribute('src');
-    audio.load();
-    if (message._viewOnceObjectUrl) {
-      URL.revokeObjectURL(message._viewOnceObjectUrl);
-      message._viewOnceObjectUrl = '';
-    }
-    renderThread();
-  };
-  const onError = () => {
-    button.innerHTML = '<span class="tw-vo-play-icon" aria-hidden="true">▶</span>';
-    button.setAttribute('aria-label', 'Play voice note');
-    player.classList.remove('is-playing');
-    toast('This one-time voice note could not be played.', 'alert');
-  };
-
-  seek.addEventListener('input', onInput);
-  seek.addEventListener('pointerdown', onPointerSeek);
-  seek.addEventListener('change', onChange);
-  audio.addEventListener('loadedmetadata', onLoaded);
-  audio.addEventListener('durationchange', onLoaded);
-  audio.addEventListener('timeupdate', onTime);
-  audio.addEventListener('play', onPlay);
-  audio.addEventListener('pause', onPause);
-  audio.addEventListener('ended', onEnded);
-  audio.addEventListener('error', onError);
-
-  audio._tweaklrViewOnceCleanup = () => {
-    seek.removeEventListener('input', onInput);
-    seek.removeEventListener('pointerdown', onPointerSeek);
-    seek.removeEventListener('change', onChange);
-    audio.removeEventListener('loadedmetadata', onLoaded);
-    audio.removeEventListener('durationchange', onLoaded);
-    audio.removeEventListener('timeupdate', onTime);
-    audio.removeEventListener('play', onPlay);
-    audio.removeEventListener('pause', onPause);
-    audio.removeEventListener('ended', onEnded);
-    audio.removeEventListener('error', onError);
-    if (seekPendingHandler) audio.removeEventListener('seeked', seekPendingHandler);
-  };
-  update();
-  if (!audio.paused) onPlay();
-}
-
 function renderVoiceMessage(m) {
   const rawSeconds = Number(m.voiceDuration);
   const seconds = Number.isFinite(rawSeconds) && rawSeconds > 0 ? rawSeconds : 0;
-  if (m.viewOnce) {
-    const active = !!m.viewOncePlayback && !m.viewOnceFinished;
-    if (m.viewOnceFinished || (m.viewedAt && !active)) return '<div class="chat-view-once-state"><span aria-hidden="true">✓</span> Opened · No replay available</div>';
-    const bars = Array.from({length:36}, (_, i) => {
-      const wave = 18 + ((i * 17 + (i % 5) * 11 + 9) % 74);
-      return '<i style="--tw-vo-bar-height:' + wave + '%"></i>';
-    }).join('');
-    const button = active
-      ? '<button type="button" class="tw-vo-play-button" data-voice-path="view-once" aria-label="Play voice note"><span class="tw-vo-play-icon" aria-hidden="true">▶</span></button>'
-      : '<button type="button" class="tw-vo-play-button" data-view-once="voice" data-message-id="' + esc(m.id) + '" aria-label="Open view-once voice note"><span class="tw-vo-play-icon" aria-hidden="true">▶</span></button>';
-    const seek = active
-      ? '<input type="range" class="tw-vo-seek" data-voice-seek min="0" max="1000" value="0" aria-label="Seek voice note" />'
-      : '';
-    const speed = active
-      ? '<button type="button" class="tw-vo-speed" data-voice-speed aria-label="Playback speed" data-rate="1">1×</button>'
-      : '<span class="tw-vo-speed-placeholder">VOICE NOTE</span>';
-    const timeLabel = active ? '0.00 / ' + seconds.toFixed(2) : seconds.toFixed(2) + ' sec';
-    return '<div class="tw-vo-voice ' + (active ? 'is-active' : 'is-unopened') + '" data-voice-player data-view-once-player>' +
-      '<div class="tw-vo-head"><span class="tw-vo-label"><span class="tw-vo-lock" aria-hidden="true">1×</span> VIEW ONCE</span><span class="tw-vo-time" data-voice-time>' + timeLabel + '</span></div>' +
-      '<div class="tw-vo-main">' + button +
-        '<div class="tw-vo-wave-wrap"><div class="tw-vo-wave" aria-hidden="true">' + bars + '</div>' + seek + '</div>' +
-        speed +
-      '</div>' +
-      '<div class="tw-vo-foot"><span class="tw-vo-foot-mark" aria-hidden="true">◉</span>' + (active ? 'Listen once · playback ends permanently' : 'Opens once · no replay after listening') + '</div>' +
-    '</div>';
-  }
   if (!m.voicePath) {
     return '<div class="chat-voice-note"><span>🎙️</span><span>Voice note</span><span class="chat-voice-duration">' + seconds + 's</span></div>';
   }
@@ -6731,7 +6549,7 @@ function renderThread() {
       <div class="chat-bubble ${m.type === 'voice' && m.me ? 'chat-bubble--voice-outgoing' : ''}" data-message-id="${esc(m.id)}">
         ${reply ? `<button type="button" class="chat-bubble__reply" data-action="chat-jump-reply:${esc(reply.id)}" aria-label="Jump to replied message"><strong>${reply.me ? 'You' : esc(byId(state.activeChat)?.short || 'Them')}</strong>${reply.type === 'voice' ? '🎙️ Voice note' : esc((reply.text || '').slice(0, 110))}</button>` : ''}
         ${m.type === 'voice' ? renderVoiceMessage(m) : (m.attachmentPath ? renderChatAttachment(m) : `<span class="chat-bubble__text">${esc(m.text)}</span>`)}
-        <span class="chat-bubble__time">${clockTime(m.at)}${m.me ? ` · ${m.viewOnce ? (m.viewedAt ? 'Opened' : 'View once') : (m.read ? 'Read' : 'Sent')}` : ''}</span>
+        <span class="chat-bubble__time">${clockTime(m.at)}${m.me ? ` · ${m.read ? 'Read' : 'Sent'}` : ''}</span>
         ${Object.entries(reactions).length ? `<span class="chat-reactions">${Object.entries(reactions).map(([emoji,count]) => tweaklrReactionMarkup(emoji,count)).join('')}</span>` : ''}
       </div>
     </div>`;
@@ -6760,12 +6578,6 @@ function renderThread() {
     thread.dataset.returnLatestBound = 'true';
   }
   updateChatReturnLatest(thread);
-  c.messages.forEach(message=>{
-    if(message.viewOncePlayback && message.viewOnceAudio){
-      const player=Array.from(thread.querySelectorAll('[data-view-once-player]')).find(node=>node.closest('.chat-bubble')?.dataset.messageId===String(message.id));
-      if(player) bindViewOnceVoicePlayer(message.viewOnceAudio,player,message);
-    }
-  });
   void hydrateChatAttachments();
 
 }
@@ -7465,14 +7277,13 @@ async function uploadVoiceNote(blob, duration) {
   }
 
   const replyToId = chatReplyTarget?.id || null;
-  const viewOnce = !!$('#chat-view-once')?.checked;
   const direct = await supabaseClient.from('messages').insert({
     sender_id: session.user.id, recipient_id: state.activeChat, body: '',
-    message_type: 'voice', voice_path: path, voice_duration: duration, reply_to_id: replyToId, view_once: viewOnce
-  }).select('id,sender_id,recipient_id,body,created_at,read_at,message_type,voice_path,voice_duration,reply_to_id,attachment_path,attachment_name,attachment_mime,attachment_size,view_once,viewed_at').single();
+    message_type: 'voice', voice_path: path, voice_duration: duration, reply_to_id: replyToId, view_once: false
+  }).select('id,sender_id,recipient_id,body,created_at,read_at,message_type,voice_path,voice_duration,reply_to_id,attachment_path,attachment_name,attachment_mime,attachment_size').single();
 
   let row = direct.data, error = direct.error;
-  if (error && !viewOnce) {
+  if (error) {
     const rpc = await supabaseClient.rpc('ming_send_message_v2', {
       p_recipient_id: state.activeChat, p_body: '', p_message_type: 'voice',
       p_voice_path: path, p_voice_duration: duration, p_reply_to_id: replyToId
@@ -7492,10 +7303,8 @@ async function uploadVoiceNote(blob, duration) {
     type: 'voice', voicePath: path, voiceDuration: duration, replyToId: row.reply_to_id || null,
     attachmentPath: row.attachment_path || '', attachmentName: row.attachment_name || '',
     attachmentMime: row.attachment_mime || '', attachmentSize: Number(row.attachment_size || 0),
-    viewOnce: !!row.view_once, viewedAt: row.viewed_at || null, reactions: []
+    reactions: []
   });
-  const viewOnceToggle = $('#chat-view-once');
-  if (viewOnceToggle) viewOnceToggle.checked = false;
   clearChatReply();
   renderThread();
   const thread = $('#chat-thread');
@@ -10528,89 +10337,6 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
 }
 
 document.addEventListener('click', async e => {
-  const onceBtn=e.target.closest('[data-view-once]');
-  if(onceBtn){
-    e.preventDefault();
-    e.stopPropagation();
-    const messageId=onceBtn.dataset.messageId;
-    const conversation=convoFor(state.activeChat);
-    const message=conversation.messages.find(item=>String(item.id)===String(messageId));
-    if(!message||!message.viewOnce||message.viewedAt)return;
-
-    const isVoice=onceBtn.dataset.viewOnce==='voice';
-    const popup=isVoice?null:window.open('about:blank','_blank');
-    if(!isVoice&&!popup){
-      toast('Allow pop-ups to open this one-time file.','alert');
-      return;
-    }
-
-    onceBtn.disabled=true;
-    try{
-      const {data:{session}}=await supabaseClient.auth.getSession();
-      if(!session?.access_token)throw new Error('Please sign in again.');
-      const response=await fetch(SUPABASE_URL+'/functions/v1/view-once-media',{
-        method:'POST',
-        headers:{
-          'Authorization':'Bearer '+session.access_token,
-          'apikey':SUPABASE_ANON_KEY,
-          'Content-Type':'application/json'
-        },
-        body:JSON.stringify({message_id:messageId})
-      });
-      if(!response.ok){
-        const payload=await response.json().catch(()=>({}));
-        if(response.headers.get('X-View-Once-Claimed')==='true'){
-          message.viewedAt=new Date().toISOString();
-          renderThread();
-        }
-        throw new Error(payload.error||'This media has already been opened or is unavailable.');
-      }
-
-      const mediaBlob=await response.blob();
-      if(!mediaBlob.size)throw new Error('The one-time media is empty or unavailable.');
-      const objectUrl=URL.createObjectURL(mediaBlob);
-      message.viewedAt=response.headers.get('X-View-Once-At')||new Date().toISOString();
-      message.viewOncePlayback=isVoice;
-      message.viewOnceFinished=false;
-      let audio=null;
-      if(isVoice){
-        audio=new Audio(objectUrl);
-        audio.preload='auto';
-        audio.playbackRate=1;
-        message.viewOnceAudio=audio;
-        message._viewOnceObjectUrl=objectUrl;
-      }
-      renderThread();
-
-      if(isVoice){
-        try{
-          await audio.play();
-        }catch(error){
-          console.warn('Tweaklr view-once voice autoplay was blocked:',error);
-          toast('Tap play on the voice note to start listening.','alert');
-        }
-      }else{
-        popup.location.href=objectUrl;
-        // The server will not issue this media again. Revoke the local object
-        // URL after the viewing tab has had time to load or the tab closes.
-        const cleanupTimer=setInterval(()=>{
-          if(popup.closed){
-            clearInterval(cleanupTimer);
-            URL.revokeObjectURL(objectUrl);
-          }
-        },1000);
-      }
-    }catch(err){
-      if(popup&&!popup.closed)popup.close();
-      // Fail closed while we reconcile the server's atomic claim.
-      const {data:latest}=await supabaseClient.from('messages').select('viewed_at').eq('id',messageId).maybeSingle();
-      if(latest?.viewed_at)message.viewedAt=latest.viewed_at;
-      else message.viewedAt=null;
-      renderThread();
-      toast(err?.message||'This media has already been opened or is unavailable.','alert');
-    }
-    return;
-  }
   const attachmentBtn=e.target.closest('[data-chat-attachment]');
   if(attachmentBtn){e.stopPropagation();if(attachmentBtn.querySelector('[data-chat-attachment-video]'))return;const path=attachmentBtn.dataset.chatAttachment;if(!path)return;let url=attachmentBtn.dataset.chatAttachmentUrl;if(!url){const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,3600);if(error||!data?.signedUrl){toast('Could not open attachment.','alert');return;}url=data.signedUrl;}window.open(url,'_blank','noopener');return;}
   const speedBtn=e.target.closest('[data-voice-speed]');
