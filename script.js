@@ -9077,6 +9077,7 @@ async function openPlaceSheet(id) {
       ((pl.audienceTags || []).length ? '<div class="place-post-tags" style="margin-top:14px">' + pl.audienceTags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
       discussion,
     foot: '<div class="place-sheet-actions"><button class="btn ' + (pl.liked ? 'btn--primary' : 'btn--soft') + ' place-like-action" aria-pressed="' + !!pl.liked + '" data-action="like-place:' + pl.id + '"><span aria-hidden="true">♥</span> ' + (pl.liked ? 'Liked' : 'Like') + ' <span class="place-like-count">' + Number(pl.likesCount || 0) + '</span></button>' + (pl.saved ? '<button class="btn btn--ghost" data-action="save-place:' + pl.id + '">Remove from saved places</button>' : '<button class="btn btn--soft" data-action="save-place:' + pl.id + '">Save this place</button>') + '</div><button type="button" class="place-view-likers" data-action="view-place-likers:' + pl.id + '">See who liked this · ' + Number(pl.likesCount || 0) + '</button>'
+    ,hidePrimaryNav: canDiscuss
   });
 }
 
