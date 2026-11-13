@@ -1249,8 +1249,8 @@ async function loadMingNotifications() {
           let detail = 'updated their Right now.';
           if (row.field_key) {
             const labels = {
-              display_name: 'profile name',
-              username: 'username',
+              display_name: 'display name',
+              username: 'profile name',
               bio: 'bio',
               headline: 'headline',
               avatar_url: 'profile photo',
