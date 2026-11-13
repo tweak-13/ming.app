@@ -9020,15 +9020,34 @@ async function openExpiredPlaceSheet(placeId) {
   });
 }
 
-function openPlaceSheet(id) {
+async function openPlaceSheet(id) {
   const pl = discoverPlaces.find(x => x.id === id);
   if (!pl) return;
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const userId = session?.user?.id;
+  const canDiscuss = !!userId && (!!pl.saved || pl.isMine === true);
+  let comments = [];
+  let commentsError = null;
+  if (canDiscuss) {
+    const { data, error } = await supabaseClient.rpc('get_discover_place_comments', { p_place_id: pl.id });
+    commentsError = error;
+    if (!error) comments = data || [];
+  }
+  const discussion = canDiscuss
+    ? (commentsError
+      ? '<div class="privacy-note" style="margin:14px 0">Place discussion is temporarily unavailable. Please try again.</div>'
+      : '<section class="place-discussion"><div class="place-discussion-head"><b>Discussion</b><span>' + comments.length + (comments.length === 1 ? ' comment' : ' comments') + '</span></div>' +
+        (comments.map(c => '<div class="place-comment"><div class="place-comment-avatar">' + (c.author_avatar_url ? '<img src="' + esc(c.author_avatar_url) + '" alt="">' : '<span>' + esc((c.author_display_name || 'T').slice(0,1)) + '</span>') + '</div><div class="place-comment-copy"><div class="place-comment-meta"><b>' + esc(c.author_display_name || 'Tweaklr member') + '</b><span>' + esc(timeAgo(new Date(c.created_at).getTime())) + '</span></div><p>' + esc(c.body) + '</p></div></div>').join('') ||
+        '<div class="place-discussion-empty">No comments yet. Start the conversation.</div>') +
+        '<div class="place-comment-composer"><textarea id="place-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…"></textarea><button class="btn btn--primary" data-action="place-comment-send:' + pl.id + '">Send</button></div></section>')
+    : '<div class="place-discussion-locked"><span>✦</span><div><b>Join the conversation</b><p>Save this place to unlock its discussion and leave a comment.</p></div></div>';
   openSheet({
     title: pl.name,
     sub: pl.kind + ' · ' + (pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global interest discovery' : 'Distance unavailable') : distLabel(pl.km)),
     body: (pl.imageUrl ? '<div class="place-detail-hero"><img src="' + esc(pl.imageUrl) + '" alt="' + esc(pl.name) + '"></div>' : '<div class="place-detail-fallback"><span>✦</span><b>TWEAKLR PLACES</b></div>') +
       '<p style="font-size:14.5px;line-height:1.55">' + esc(pl.note || 'Public place on Tweaklr.') + '</p>' +
-      ((pl.audienceTags || []).length ? '<div class="place-post-tags" style="margin-top:14px">' + pl.audienceTags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : ''),
+      ((pl.audienceTags || []).length ? '<div class="place-post-tags" style="margin-top:14px">' + pl.audienceTags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
+      discussion,
     foot: (pl.saved ? '<button class="btn btn--ghost btn--block" data-action="save-place:' + pl.id + '">Remove from saved places</button>' : '<button class="btn btn--soft btn--block" data-action="save-place:' + pl.id + '">Save this place</button>')
   });
 }
@@ -9936,6 +9955,24 @@ document.addEventListener('click', async e => {
     case 'refresh-places': loadPlacesScreen(); break;
     case 'places-section': placesSection = ['discover','saved'].includes(arg) ? arg : 'discover'; renderPlacesScreen(); break;
     case 'place': openPlaceSheet(arg); break;
+    case 'place-comment-send': {
+      const input = $('#place-comment-input');
+      const body = String(input?.value || '').trim();
+      if (!body) { toast('Write a comment first.', 'alert'); break; }
+      if (body.length > 1000) { toast('Comments must be 1,000 characters or fewer.', 'alert'); break; }
+      const sendButton = document.querySelector('[data-action="place-comment-send:' + arg + '"]');
+      if (sendButton) { sendButton.disabled = true; sendButton.textContent = 'Sending…'; }
+      const { error } = await supabaseClient.rpc('add_discover_place_comment', { p_place_id: arg, p_body: body });
+      if (error) {
+        console.warn('Tweaklr: place comment failed:', error.message);
+        toast(error.message || 'Could not send your comment.', 'alert');
+        if (sendButton) { sendButton.disabled = false; sendButton.textContent = 'Send'; }
+        break;
+      }
+      await openPlaceSheet(arg);
+      toast('Comment added.', 'check');
+      break;
+    }
     case 'renew-place': {
       const { data: renewedExpiry, error: renewError } = await supabaseClient.rpc('renew_discover_place', { p_place_id: arg });
       if (renewError || !renewedExpiry) {
@@ -9978,9 +10015,9 @@ document.addEventListener('click', async e => {
         const { error } = await supabaseClient.from('saved_discover_places').insert({ place_id: pl.id, user_id: session.user.id });
         if (error && error.code !== '23505') { toast('Could not save place.', 'alert'); break; }
         pl.saved = true;
-        closeSheet();
         renderPlacesScreen();
-        toast('Place saved.', 'check');
+        await openPlaceSheet(pl.id);
+        toast('Place saved. You can now join the discussion.', 'check');
       }
       break;
     }
