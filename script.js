@@ -3891,14 +3891,23 @@ async function requestDiscoverPlaceRows() {
     p_longitude: hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null,
     p_radius_km: 5
   };
+  // Restore the persisted login before making the authenticated RPC call.
+  // Calling the RPC first can send an anonymous request during app startup.
+  const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+  if (sessionError || !sessionData?.session?.user?.id) {
+    return {
+      data: null,
+      error: { code: 'AUTH_SESSION_MISSING', message: sessionError?.message || 'No active Tweaklr session.' }
+    };
+  }
+  currentUser.id = sessionData.session.user.id;
   let result = await supabaseClient.rpc('get_discover_places_v2', params);
-  // A 42501 here means the API request is not carrying a currently accepted
-  // authenticated role. Refresh the saved session once, then retry safely.
+  // If the restored access token is no longer accepted, refresh once and retry.
   if (result.error && result.error.code === '42501') {
     const { data: refreshed, error: refreshError } = await supabaseClient.auth.refreshSession();
     if (refreshError || !refreshed?.session?.access_token) {
       console.warn('Tweaklr: Places session refresh failed.', refreshError?.message || 'No active session.');
-      return { data: null, error: result.error };
+      return { data: null, error: { code: 'AUTH_SESSION_EXPIRED', message: refreshError?.message || result.error.message } };
     }
     result = await supabaseClient.rpc('get_discover_places_v2', params);
   }
@@ -8802,10 +8811,10 @@ async function loadPlacesScreen() {
     renderPlacesScreen();
   } catch (error) {
     console.warn('Tweaklr: Places feed could not be loaded.', error);
-    const authDenied = error && error.code === '42501';
+    const authDenied = error && ['42501', 'AUTH_SESSION_MISSING', 'AUTH_SESSION_EXPIRED'].includes(error.code);
     if (host) host.innerHTML = emptyState(
       authDenied ? 'Your sign-in needs refreshing' : 'Places could not load',
-      authDenied ? 'Tweaklr could not verify your sign-in. Please sign out and sign back in, then try again.' : 'Check your connection and try again.',
+      authDenied ? 'Tweaklr could not restore your sign-in. Please sign in again, then retry.' : 'Check your connection and try again.',
       { a: 'refresh-places', t: 'Try again' }
     );
   }
