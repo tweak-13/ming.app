@@ -10314,25 +10314,20 @@ chatVoiceButton.addEventListener('pointermove', event => {
 });
 chatVoiceButton.addEventListener('pointerup', event => {
   if (!chatVoiceHoldMode || chatVoiceHoldPointerId !== event.pointerId) return;
-  chatVoiceHoldReleased = true;
+  // Tapping starts a recording that continues after the finger is lifted.
+  // The user finishes it with the visible Finish control in the recording panel.
+  chatVoiceHoldReleased = false;
   chatVoiceHoldPointerId = null;
-  if (!chatVoiceHoldLocked && chatRecording && chatRecording.state !== 'inactive') {
-    finishChatVoiceRecording(chatVoiceHoldCancelled);
-    chatVoiceHoldMode = false;
-  }
 });
 chatVoiceButton.addEventListener('pointercancel', event => {
   if (!chatVoiceHoldMode || chatVoiceHoldPointerId !== event.pointerId) return;
-  chatVoiceHoldReleased = true;
-  chatVoiceHoldCancelled = true;
+  // Browsers can cancel touch pointers during normal mobile gesture handling.
+  // Do not discard a recording; keep it active until the user chooses an action.
+  chatVoiceHoldReleased = false;
   chatVoiceHoldPointerId = null;
-  if (chatRecording && chatRecording.state !== 'inactive') {
-    finishChatVoiceRecording(true);
-    chatVoiceHoldMode = false;
-  }
 });
 chatVoiceButton.addEventListener('click', event => {
-  if (event.detail === 0) recordVoiceNote();
+  if (event.detail === 0 && !chatRecording) recordVoiceNote();
 });
 $('#chat-recording-pause').addEventListener('click', () => {
   if (!chatRecording) return;
