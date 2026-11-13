@@ -1065,12 +1065,17 @@
       if(!mediaError || mediaError.code===1) return;
     }
     // Ignore the primary Supabase CDN failure when its onerror fallback is configured.
-    // If the fallback also fails, its script element has no onerror handler and is reported.
     if(target && target.tagName==='SCRIPT' && target.hasAttribute('onerror')) return;
     var message=e.message||e.error&&e.error.message||'A resource failed to load';
     if(/fetching process for the media resource was aborted/i.test(message)) return;
-    if(target && target.tagName==='SCRIPT' && target.src) message='Script failed to load: '+target.src;
-    else if(e.filename)message+='\\n'+e.filename.split('/').pop()+(e.lineno?':'+e.lineno:'');
+    if(target && target.tagName){
+      var resourceUrl=target.src||target.href||target.currentSrc||'';
+      var resourceType=target.tagName.toLowerCase();
+      if(resourceType==='link') resourceType='stylesheet or linked resource';
+      message='Failed to load '+resourceType+(resourceUrl?': '+resourceUrl:'');
+    }else if(e.filename){
+      message+=' ('+e.filename.split('/').pop()+(e.lineno?':'+e.lineno:'')+')';
+    }
     show('Tweaklr startup error: '+message);
   },true);
   window.addEventListener('unhandledrejection',function(e){
