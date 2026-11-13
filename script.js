@@ -2701,6 +2701,7 @@ function updateCard(u) {
 
   const h = hoursLeft(u);
   const pct = Math.max(2, Math.round((h / 24) * 100));
+  const sectionLabel = ({ general: 'Daily Update', talk: 'Need help', service: 'Offer', visitor: 'Visitor' })[u.kind] || '';
   return `<article class="upd" id="upd-${u.id}">
     <div class="upd-top">
       ${avatar(p, 36)}
@@ -2708,7 +2709,7 @@ function updateCard(u) {
         <div class="n">${esc(p.short || p.name)}</div>
         <div class="m">${esc(mine ? 'You' : distLabel(p.km))} · ${esc(timeAgo(u.createdAt))}</div>
       </div>
-      <span class="post-type-card">${kindPill('general')}</span>
+      ${sectionLabel ? '<span class="post-type-card">' + kindPill('general').replace('Daily Update', sectionLabel) + '</span>' : ''}
     </div>
     <h3>${esc(u.title)}</h3>
     <p>${esc(u.body)}</p>
@@ -3952,7 +3953,7 @@ function renderDiscover() {
   if (show('visitors')) {
     html += '<div class="section">' + sectionHead('Visitors', 'People sharing that they are visiting') + '<div class="rail">' + (discoverVisitors.map(v => {
       const p = byId(v.authorId); if (!p) return '';
-      return '<button class="prow" data-action="person:' + v.authorId + '">' + avatar(p, 48) + '<div class="meta"><div class="n">' + esc(p.name) + '</div><div class="s">' + esc(v.body || v.title) + '</div></div><div class="right"><div class="d">' + esc(p.km == null ? 'Local' : distLabel(p.km)) + '</div><div class="t">' + esc(timeAgo(v.createdAt)) + '</div></div></button>';
+      return '<button class="prow" data-action="person:' + v.authorId + '">' + avatar(p, 48) + '<div class="meta"><div class="n">' + esc(p.name) + '</div><div class="s">' + esc(v.body || v.title) + '</div></div><div class="right"><span class="post-type-card">' + kindPill('general').replace('Daily Update', 'Visitor') + '</span><div class="d">' + esc(p.km == null ? 'Local' : distLabel(p.km)) + '</div><div class="t">' + esc(timeAgo(v.createdAt)) + '</div></div></button>';
     }).join('') || emptyState('No visitors right now', 'Visitors will appear here when they share a Visiting update.')) + '</div></div>';
   }
   $('#discover-body').innerHTML = html;
