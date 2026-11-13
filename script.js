@@ -10420,33 +10420,28 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
       if(!duration)return;
       const value=Math.max(0,Math.min(1000,Number(seek.value)||0));
       const target=(value/1000)*duration;
-      // Wait for the browser to finish moving the playhead before resuming.
-      // Calling play() immediately at the ended state can restart playback
-      // from the end/zero instead of the selected timestamp.
+      // Preserve active playback when the user taps a new position. Some
+      // mobile browsers briefly pause audio while seeking, so resume as soon
+      // as the browser confirms the new playhead position.
+      const shouldResume=!audio.paused||(resume&&options.resumeOnSeek&&audio.paused);
       if(pendingSeekResume){
         audio.removeEventListener('seeked',pendingSeekResume);
         pendingSeekResume=null;
       }
-      if(resume&&options.resumeOnSeek&&audio.paused){
-        pendingSeekResume=()=>{
-          const callback=pendingSeekResume;
-          pendingSeekResume=null;
-          if(callback)audio.removeEventListener('seeked',callback);
-          if(audio.paused){
-            try{const playback=audio.play();if(playback&&typeof playback.catch==='function')playback.catch(()=>{});}catch(_){}
-          }
-        };
+      const resumePlayback=()=>{
+        const callback=pendingSeekResume;
+        pendingSeekResume=null;
+        if(callback)audio.removeEventListener('seeked',callback);
+        if(shouldResume&&audio.paused){
+          try{const playback=audio.play();if(playback&&typeof playback.catch==='function')playback.catch(()=>{});}catch(_){}
+        }
+      };
+      if(shouldResume){
+        pendingSeekResume=resumePlayback;
         audio.addEventListener('seeked',pendingSeekResume,{once:true});
       }
       try{audio.currentTime=target;}catch(_){}
-      if(pendingSeekResume&&!audio.seeking){
-        const callback=pendingSeekResume;
-        pendingSeekResume=null;
-        audio.removeEventListener('seeked',callback);
-        if(audio.paused){
-          try{const playback=audio.play();if(playback&&typeof playback.catch==='function')playback.catch(()=>{});}catch(_){}
-        }
-      }
+      if(pendingSeekResume&&!audio.seeking)resumePlayback();
       seek.style.setProperty('--voice-progress',(value/10)+'%');
       if(time)time.textContent=fmt(target)+' / '+fmt(duration);
     };
