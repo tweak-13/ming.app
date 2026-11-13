@@ -12140,7 +12140,7 @@ function spaceTile(s, archived = false) {
       </span>
     </button>
     <button class="sp-tile-archive-action" data-sp="${archived ? 'unarchive' : 'archive'}:${s.id}">
-      ${icon(archived ? 'archive-restore' : 'archive')}
+      <span class="sp-tile-archive-glyph" aria-hidden="true">${archived ? '↥' : '↧'}</span>
       <span>${archived ? 'Restore to Your Spaces' : 'Move to archive'}</span>
     </button>
   </div>`;
