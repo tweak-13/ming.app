@@ -8732,7 +8732,7 @@ function renderPostDiscussionComment(c, privateReply, isCreator, postType, postI
     : '';
   const profileTarget = c.user_id && c.user_id === viewerId
     ? ' data-profile-self="true" role="button" tabindex="0" aria-label="Open your profile"'
-    : (c.user_id ? ' data-profile-id="' + esc(c.user_id) + '" role="button" tabindex="0" aria-label="Open ' + esc(c.author_display_name || 'commenter') + '\\'s public profile"' : '');
+    : (c.user_id ? ' data-profile-id="' + esc(c.user_id) + '" role="button" tabindex="0" aria-label="Open public profile of ' + esc(c.author_display_name || 'commenter') + '"' : '');
   return '<div class="post-discussion-comment"><div class="place-comment-avatar place-comment-avatar--clickable"' + profileTarget + ' style="cursor:pointer">' +
     (c.author_avatar_url ? '<img src="' + esc(c.author_avatar_url) + '" alt="">' : '<span>' + esc((c.author_display_name || 'T').slice(0,1)) + '</span>') +
     '</div><div class="post-discussion-comment-copy"><div class="place-comment-meta"><b>' + esc(c.author_display_name || 'Tweaklr member') +
