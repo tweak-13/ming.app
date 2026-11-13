@@ -1924,11 +1924,84 @@ function syncStackNavigationVisibility() {
   nav?.classList.toggle('hidden', messageViewOpen);
 }
 
+let tweaklrChatScreenHome = null;
+let tweaklrChatViewportRaf = 0;
+function mountChatScreenForKeyboard() {
+  const screen = document.getElementById('screen-chat');
+  const appRoot = document.getElementById('app');
+  if (!screen || !appRoot) return;
+  if (!tweaklrChatScreenHome) {
+    tweaklrChatScreenHome = { parent: screen.parentElement, next: screen.nextSibling };
+  }
+  if (screen.parentElement !== document.body) document.body.appendChild(screen);
+  screen.classList.add('chat-keyboard-floating');
+  refreshChatScreenViewport();
+}
+function restoreChatScreenHome() {
+  const screen = document.getElementById('screen-chat');
+  if (!screen || !tweaklrChatScreenHome) return;
+  screen.classList.remove('chat-keyboard-floating');
+  const { parent, next } = tweaklrChatScreenHome;
+  if (parent) parent.insertBefore(screen, next?.parentNode === parent ? next : null);
+  ['top','bottom','left','right','width','height','max-height'].forEach(prop => screen.style.removeProperty(prop));
+  tweaklrChatScreenHome = null;
+}
+function positionChatScreenForKeyboard() {
+  const screen = document.getElementById('screen-chat');
+  if (!screen?.classList.contains('chat-keyboard-floating')) return;
+  const appRoot = document.getElementById('app');
+  const appRect = appRoot?.getBoundingClientRect();
+  const viewport = window.visualViewport;
+  const visibleTop = viewport ? viewport.offsetTop : 0;
+  const visibleHeight = viewport ? viewport.height : window.innerHeight;
+  const visibleBottom = visibleTop + visibleHeight;
+  const keyboardGap = Math.max(0, window.innerHeight - visibleBottom);
+  const viewportShrink = Math.max(0, window.innerHeight - visibleHeight);
+  const inputFocused = document.activeElement?.id === 'chat-input';
+  // Firefox Android may overlay the keyboard without resizing the visual viewport.
+  const keyboardInset = inputFocused ? Math.max(keyboardGap, viewportShrink, 300) : 0;
+  screen.style.position = 'fixed';
+  screen.style.left = (appRect?.left || 0) + 'px';
+  screen.style.right = 'auto';
+  screen.style.width = (appRect?.width || window.innerWidth) + 'px';
+  screen.style.top = visibleTop + 'px';
+  screen.style.bottom = keyboardInset + 'px';
+  screen.style.height = 'auto';
+  screen.style.maxHeight = 'none';
+}
+function refreshChatScreenViewport() {
+  if (tweaklrChatViewportRaf) cancelAnimationFrame(tweaklrChatViewportRaf);
+  tweaklrChatViewportRaf = requestAnimationFrame(() => {
+    tweaklrChatViewportRaf = 0;
+    positionChatScreenForKeyboard();
+  });
+}
+if (!window.__tweaklrChatKeyboardViewportReady) {
+  window.__tweaklrChatKeyboardViewportReady = true;
+  window.visualViewport?.addEventListener('resize', refreshChatScreenViewport);
+  window.visualViewport?.addEventListener('scroll', refreshChatScreenViewport);
+  window.addEventListener('resize', refreshChatScreenViewport);
+  document.addEventListener('focusin', event => {
+    if (event.target?.id === 'chat-input') {
+      refreshChatScreenViewport();
+      setTimeout(refreshChatScreenViewport, 120);
+      setTimeout(refreshChatScreenViewport, 320);
+      setTimeout(refreshChatScreenViewport, 520);
+    }
+  });
+  document.addEventListener('focusout', event => {
+    if (event.target?.id === 'chat-input') {
+      setTimeout(refreshChatScreenViewport, 80);
+    }
+  });
+}
+
 function pushStack(id) {
   // Stack navigation dismisses transient sheets before changing screens.
   if (sheet?.classList.contains('is-open')) closeSheet();
   const scr = document.getElementById('screen-' + id);
   if (!scr) return;
+  if (id === 'chat') mountChatScreenForKeyboard();
   if (!state.stack.includes(id)) state.stack.push(id);
   scr.classList.add('is-active');
   syncStackNavigationVisibility();
@@ -1938,7 +2011,10 @@ function pushStack(id) {
 }
 function popStack() {
   const id = state.stack.pop();
-  if (id === 'chat') stopMingChatRealtime();
+  if (id === 'chat') {
+    stopMingChatRealtime();
+    restoreChatScreenHome();
+  }
   if (id) {
     const poppedScreen = document.getElementById('screen-' + id);
     poppedScreen?.classList.remove('is-active');
