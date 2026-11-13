@@ -1615,11 +1615,60 @@ async function loadMingNotifications() {
       console.warn('Tweaklr: Places expiry notifications failed.', expiryNotificationError);
     }
 
+    /* New Place matches and creator private-reply notifications are written
+       by database triggers and are visible only to their intended recipient. */
+    try {
+      const cutoff = new Date(Date.now() - TWEAKLR_NOTIFICATION_RETENTION_MS).toISOString();
+      const { data: targetedRows, error: targetedError } = await supabaseClient
+        .from('tweaklr_targeted_notifications')
+        .select('id, actor_id, event_type, place_id, post_type, post_id, comment_id, match_reason, created_at')
+        .eq('recipient_id', session.user.id)
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false })
+        .limit(150);
+      if (targetedError) {
+        console.warn('Tweaklr: Place-match and private-reply notifications could not be loaded.', targetedError.message);
+      } else {
+        const actorIds = [...new Set((targetedRows || []).map(row => row.actor_id).filter(Boolean))];
+        const actorMap = new Map();
+        if (actorIds.length) {
+          const { data: actors, error: actorsError } = await supabaseClient.from('profiles')
+            .select('id, display_name, username').in('id', actorIds);
+          if (!actorsError) (actors || []).forEach(actor => actorMap.set(actor.id, actor));
+          else console.warn('Tweaklr: targeted notification profiles could not be loaded.', actorsError.message);
+        }
+        (targetedRows || []).forEach(row => {
+          const actor = actorMap.get(row.actor_id);
+          const actorName = actor?.display_name || (actor?.username ? '@' + String(actor.username).replace(/^@/, '') : 'Someone');
+          const id = 'targeted_' + row.id;
+          if (row.event_type.startsWith('place_')) {
+            const reason = row.match_reason || '';
+            const text = reason === 'interests_and_gps'
+              ? 'A new Place matches your interests and is near your GPS location.'
+              : (reason === 'interests' ? 'A new Place matches your interests.' : 'A new Place is available near your GPS location.');
+            next.push({ id, type: 'place_match', placeId: row.place_id, text: text + ' Tap to explore it.', at: new Date(row.created_at).getTime(), read: notificationReadIds.has(id) });
+          } else {
+            const edited = row.event_type === 'private_reply_edited';
+            next.push({
+              id, type: 'private_reply', actorId: row.actor_id, postType: row.post_type,
+              postId: row.post_id, commentId: row.comment_id,
+              text: '<b>' + esc(actorName) + '</b> ' + (edited ? 'edited their private reply to your comment.' : 'replied privately to your comment.'),
+              at: new Date(row.created_at).getTime(), read: notificationReadIds.has(id)
+            });
+          }
+        });
+      }
+    } catch (targetedNotificationError) {
+      console.warn('Tweaklr: targeted notifications failed.', targetedNotificationError);
+    }
+
     const { error: syncError } = await supabaseClient.rpc('sync_tweaklr_notifications', {
       p_notifications: next.map(n => ({
         id: n.id, type: n.type, personId: n.personId || null,
         updateId: n.updateId || null, commentId: n.commentId || null,
         placeId: n.placeId || null, actorId: n.actorId || null,
+        postType: n.postType || null, postId: n.postId || null,
+        matchReason: n.matchReason || null,
         text: n.text, at: n.at
       }))
     });
@@ -6373,7 +6422,7 @@ function scheduleMingAppRealtimeRefresh(tableName, eventType) {
 
     try {
       const has = name => changed.has(name);
-      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments') || has('daily_update_comment_likes') || has('activity_comment_notification_events') || has('discover_place_expiry_notifications') || has('discover_place_activity_notifications');
+      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments') || has('daily_update_comment_likes') || has('activity_comment_notification_events') || has('discover_place_expiry_notifications') || has('discover_place_activity_notifications') || has('tweaklr_targeted_notifications');
       const feedChanged = has('daily_updates') || has('daily_update_likes') || has('daily_update_comments') || has('daily_update_participants');
       const connectionChanged = has('connections');
       const profileChanged = has('profiles');
@@ -6455,6 +6504,7 @@ async function subscribeMingAppRealtime() {
   watch('saved_discover_places');
   watch('discover_place_expiry_notifications', ['INSERT']);
   watch('discover_place_activity_notifications', ['INSERT', 'DELETE']);
+  watch('tweaklr_targeted_notifications', ['INSERT']);
 
   mingAppRealtimeChannel = channel;
   channel.subscribe(status => {
@@ -6465,6 +6515,7 @@ async function subscribeMingAppRealtime() {
       scheduleMingAppRealtimeRefresh('daily_update_comment_likes', 'SYNC');
       scheduleMingAppRealtimeRefresh('activity_comment_notification_events', 'SYNC');
       scheduleMingAppRealtimeRefresh('discover_place_activity_notifications', 'SYNC');
+      scheduleMingAppRealtimeRefresh('tweaklr_targeted_notifications', 'SYNC');
       scheduleMingAppRealtimeRefresh('connections', 'SYNC');
       scheduleMingAppRealtimeRefresh('ming_space_content', 'SYNC');
     } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -8363,7 +8414,7 @@ function renderSearch(mode, q = '') {
 /* ------------------------------------------------------------
    NOTIFICATIONS
 ------------------------------------------------------------ */
-const NOTIF_ICON = { connect: 'users', update: 'spark', activity: 'spark', activity_comment: 'chat', message: 'chat', nearby: 'pin', expiry: 'clock', place_expiry: 'clock', request: 'users', like: 'heart', comment: 'chat', place_activity: 'map-pin' };
+const NOTIF_ICON = { connect: 'users', update: 'spark', activity: 'spark', activity_comment: 'chat', message: 'chat', nearby: 'pin', expiry: 'clock', place_expiry: 'clock', request: 'users', like: 'heart', comment: 'chat', place_activity: 'map-pin', place_match: 'map-pin', private_reply: 'message-circle' };
 
 function renderNotifications() {
   const host = $('#notif-body');
@@ -8787,7 +8838,7 @@ function renderPostDiscussionComment(c, privateReply, isCreator, postType, postI
   const profileTarget = c.user_id && c.user_id === viewerId
     ? ' data-profile-self="true" role="button" tabindex="0" aria-label="Open your profile"'
     : (c.user_id ? ' data-profile-id="' + esc(c.user_id) + '" role="button" tabindex="0" aria-label="Open public profile of ' + esc(c.author_display_name || 'commenter') + '"' : '');
-  return '<div class="post-discussion-comment"' + (postType === 'place' ? ' data-place-comment-id="' + esc(commentId) + '"' : '') + '><div class="place-comment-avatar place-comment-avatar--clickable"' + profileTarget + ' style="cursor:pointer">' +
+  return '<div class="post-discussion-comment" data-post-comment-id="' + esc(commentId) + '"' + (postType === 'place' ? ' data-place-comment-id="' + esc(commentId) + '"' : '') + '><div class="place-comment-avatar place-comment-avatar--clickable"' + profileTarget + ' style="cursor:pointer">' +
     (c.author_avatar_url ? '<img src="' + esc(c.author_avatar_url) + '" alt="">' : '<span>' + esc((c.author_display_name || 'T').slice(0,1)) + '</span>') +
     '</div><div class="post-discussion-comment-copy"><div class="place-comment-meta"><b>' + esc(c.author_display_name || 'Tweaklr member') +
     '</b><span>' + esc(timeAgo(new Date(c.created_at).getTime())) + '</span></div><p class="post-discussion-comment-body">' + esc(c.body || '') +
@@ -10369,6 +10420,35 @@ document.addEventListener('click', async e => {
           const post = document.getElementById('upd-' + n.updateId);
           if (post) post.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 80);
+      } else if (n.type === 'place_match' && n.placeId) {
+        closeSheet();
+        await loadPlacesScreen();
+        const place = discoverPlaces.find(item => String(item.id) === String(n.placeId));
+        if (place) await openPlaceSheet(place.id);
+        else toast('This Place is no longer available in your current discovery results.', 'alert');
+      } else if (n.type === 'private_reply' && n.postId && n.postType) {
+        closeSheet();
+        if (n.postType === 'place') {
+          await loadPlacesScreen();
+          const place = discoverPlaces.find(item => String(item.id) === String(n.postId));
+          if (place) await openPlaceSheet(place.id);
+          else toast('This Place is no longer available in your current discovery results.', 'alert');
+        } else {
+          state.discoverFilter = 'all';
+          await loadDiscover();
+          await openActivitySheet(n.postId);
+        }
+        if (n.commentId) {
+          setTimeout(() => {
+            const comment = document.querySelector('[data-post-comment-id="' + CSS.escape(String(n.commentId)) + '"]');
+            if (comment) {
+              comment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              comment.style.outline = '2px solid var(--coffee)';
+              comment.style.outlineOffset = '5px';
+              setTimeout(() => { comment.style.outline = ''; comment.style.outlineOffset = ''; }, 2200);
+            }
+          }, 120);
+        }
       } else if (n.type === 'place_activity' && n.placeId) {
         closeSheet();
         await loadPlacesScreen();
