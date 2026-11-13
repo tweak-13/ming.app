@@ -9061,7 +9061,45 @@ async function openPlaceSheet(id) {
       '<p style="font-size:14.5px;line-height:1.55">' + esc(pl.note || 'Public place on Tweaklr.') + '</p>' +
       ((pl.audienceTags || []).length ? '<div class="place-post-tags" style="margin-top:14px">' + pl.audienceTags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
       discussion,
-    foot: '<div class="place-sheet-actions"><button class="btn ' + (pl.liked ? 'btn--primary' : 'btn--soft') + ' place-like-action" aria-pressed="' + !!pl.liked + '" data-action="like-place:' + pl.id + '"><span aria-hidden="true">♥</span> ' + (pl.liked ? 'Liked' : 'Like') + ' <span class="place-like-count">' + Number(pl.likesCount || 0) + '</span></button>' + (pl.saved ? '<button class="btn btn--ghost" data-action="save-place:' + pl.id + '">Remove from saved places</button>' : '<button class="btn btn--soft" data-action="save-place:' + pl.id + '">Save this place</button>') + '</div>'
+    foot: '<div class="place-sheet-actions"><button class="btn ' + (pl.liked ? 'btn--primary' : 'btn--soft') + ' place-like-action" aria-pressed="' + !!pl.liked + '" data-action="like-place:' + pl.id + '"><span aria-hidden="true">♥</span> ' + (pl.liked ? 'Liked' : 'Like') + ' <span class="place-like-count">' + Number(pl.likesCount || 0) + '</span></button>' + (pl.saved ? '<button class="btn btn--ghost" data-action="save-place:' + pl.id + '">Remove from saved places</button>' : '<button class="btn btn--soft" data-action="save-place:' + pl.id + '">Save this place</button>') + '</div><button type="button" class="place-view-likers" data-action="view-place-likers:' + pl.id + '">See who liked this · ' + Number(pl.likesCount || 0) + '</button>'
+  });
+}
+
+
+async function openPlaceLikersSheet(placeId) {
+  const place = discoverPlaces.find(item => item.id === placeId);
+  if (!place) return;
+  openSheet({
+    title: 'Liked by',
+    sub: place.name + ' · ' + Number(place.likesCount || 0) + (Number(place.likesCount || 0) === 1 ? ' like' : ' likes'),
+    body: '<div class="place-likers-loading">Loading people who liked this place…</div>'
+  });
+  const { data, error } = await supabaseClient.rpc('get_discover_place_likers', { p_place_id: placeId });
+  if (error) {
+    console.warn('Tweaklr: place likers could not be loaded.', error.message);
+    openSheet({
+      title: 'Liked by',
+      sub: place.name,
+      body: '<div class="place-likers-empty">People who liked this place are temporarily unavailable. Please try again.</div>'
+    });
+    return;
+  }
+  const likers = data || [];
+  const list = likers.length
+    ? '<div class="place-likers-list">' + likers.map(person =>
+        '<button type="button" class="place-liker-row" data-action="place-liker-profile:' + person.user_id + '">' +
+          '<span class="place-liker-avatar">' + (person.avatar_url ? '<img src="' + esc(person.avatar_url) + '" alt="">' : '<span>' + esc((person.display_name || 'T').slice(0,1)) + '</span>') + '</span>' +
+          '<span class="place-liker-copy"><b>' + esc(person.display_name || 'Tweaklr member') + '</b>' +
+          (person.username ? '<small>@' + esc(String(person.username).replace(/^@/, '')) + '</small>' : '') + '</span>' +
+          '<span class="place-liker-time">' + esc(timeAgo(new Date(person.liked_at).getTime())) + '</span>' +
+        '</button>'
+      ).join('') + '</div>' +
+      (Number(place.likesCount || 0) > likers.length ? '<div class="place-likers-limit">Showing the 200 most recent likes.</div>' : '')
+    : '<div class="place-likers-empty">No likes yet. Be the first to like this place.</div>';
+  openSheet({
+    title: 'Liked by',
+    sub: place.name + ' · ' + Number(place.likesCount || 0) + (Number(place.likesCount || 0) === 1 ? ' like' : ' likes'),
+    body: list
   });
 }
 
@@ -9968,6 +10006,12 @@ document.addEventListener('click', async e => {
     case 'refresh-places': loadPlacesScreen(); break;
     case 'places-section': placesSection = ['discover','saved'].includes(arg) ? arg : 'discover'; renderPlacesScreen(); break;
     case 'place': openPlaceSheet(arg); break;
+    case 'view-place-likers':
+      openPlaceLikersSheet(arg);
+      break;
+    case 'place-liker-profile':
+      openPublicProfile(arg);
+      break;
     case 'like-place': {
       const place = discoverPlaces.find(item => item.id === arg);
       if (!place) break;
