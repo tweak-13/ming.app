@@ -1536,6 +1536,35 @@ async function loadMingNotifications() {
       console.warn('Tweaklr: anonymous activity notifications failed.', anonymousNotificationError);
     }
 
+    /* Expiry reminders are stored separately so the reminder survives reloads
+       and is generated once per seven-day renewal cycle. */
+    try {
+      const { data: expiryRows, error: expiryError } = await supabaseClient
+        .from('discover_place_expiry_notifications')
+        .select('id, place_id, expires_at, created_at')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (expiryError) {
+        console.warn('Tweaklr: Places expiry notifications could not be loaded.', expiryError.message);
+      } else {
+        (expiryRows || []).forEach(row => {
+          const id = 'place_expiry_' + row.id;
+          next.push({
+            id,
+            type: 'place_expiry',
+            placeId: row.place_id,
+            text: 'Your Places post is due to expire.',
+            at: new Date(row.created_at).getTime(),
+            expiresAt: row.expires_at,
+            read: notificationReadIds.has(id)
+          });
+        });
+      }
+    } catch (expiryNotificationError) {
+      console.warn('Tweaklr: Places expiry notifications failed.', expiryNotificationError);
+    }
+
     const { error: syncError } = await supabaseClient.rpc('sync_tweaklr_notifications', {
       p_notifications: next.map(n => ({
         id: n.id, type: n.type, personId: n.personId || null,
@@ -8916,6 +8945,8 @@ function openPlaceComposer() {
     const mode = useGps && useInterests ? 'both' : (useGps ? 'gps' : 'interests');
     const payload = {
       name, kind, note, created_by: session.user.id, active: true,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      expiry_warning_sent_at: null,
       discovery_mode: mode, audience_tags: useInterests ? tags : [],
       latitude: useGps ? state.userLocation.latitude : null,
       longitude: useGps ? state.userLocation.longitude : null
@@ -8960,6 +8991,31 @@ function openPlaceComposer() {
     toast('Your place is now on Tweaklr.', 'check');
     await loadPlacesScreen();
     if (state.loaded.discover) loadMingDiscoverContent().then(renderDiscover);
+  });
+}
+
+async function openExpiredPlaceSheet(placeId) {
+  const { data: row, error } = await supabaseClient
+    .from('discover_places')
+    .select('id, name, kind, note, image_path, audience_tags, expires_at, active')
+    .eq('id', placeId)
+    .eq('created_by', currentUser.id)
+    .maybeSingle();
+  if (error || !row) {
+    toast('This Places post could not be opened.', 'alert');
+    return;
+  }
+  const imageUrl = row.image_path
+    ? supabaseClient.storage.from('discover-place-images').getPublicUrl(row.image_path).data.publicUrl
+    : '';
+  openSheet({
+    title: row.name,
+    sub: row.kind + ' · ' + (row.active ? 'Expiring soon' : 'Expired · only visible to you'),
+    body: (imageUrl ? '<div class="place-detail-hero"><img src="' + esc(imageUrl) + '" alt="' + esc(row.name) + '"></div>' : '<div class="place-detail-fallback"><span>✦</span><b>TWEAKLR PLACES</b></div>') +
+      '<p style="font-size:14.5px;line-height:1.55">' + esc(row.note || 'Your Places post.') + '</p>' +
+      ((row.audience_tags || []).length ? '<div class="place-post-tags" style="margin-top:14px">' + row.audience_tags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
+      '<p class="place-expiry-note">' + (row.active ? 'This post is scheduled to expire soon.' : 'This post has expired and is hidden from discovery. Renew it to make it visible for another 7 days.') + '</p>',
+    foot: '<button class="btn btn--soft btn--block" data-action="renew-place:' + row.id + '">Renew for 7 days</button>'
   });
 }
 
@@ -9879,6 +9935,20 @@ document.addEventListener('click', async e => {
     case 'refresh-places': loadPlacesScreen(); break;
     case 'places-section': placesSection = ['discover','saved'].includes(arg) ? arg : 'discover'; renderPlacesScreen(); break;
     case 'place': openPlaceSheet(arg); break;
+    case 'renew-place': {
+      const { data: renewedExpiry, error: renewError } = await supabaseClient.rpc('renew_discover_place', { p_place_id: arg });
+      if (renewError || !renewedExpiry) {
+        console.warn('Tweaklr: Places post renewal failed.', renewError);
+        toast('Could not renew this Places post. Please try again.', 'alert');
+        break;
+      }
+      closeSheet();
+      toast('Your Places post has been renewed for 7 days.', 'check');
+      await loadPlacesScreen();
+      if (state.loaded.discover) loadMingDiscoverContent().then(renderDiscover);
+      break;
+    }
+
     case 'save-place': {
       const pl = discoverPlaces.find(x => x.id === arg);
       if (!pl) break;
@@ -9994,7 +10064,9 @@ document.addEventListener('click', async e => {
       renderNotifications();
       updateNotifDot();
 
-      if (n.type === 'message' && n.personId) {
+      if (n.type === 'place_expiry' && n.placeId) {
+        await openExpiredPlaceSheet(n.placeId);
+      } else if (n.type === 'message' && n.personId) {
         await openChat(n.personId);
       } else if (n.type === 'request') {
         await loadMingConnections();
