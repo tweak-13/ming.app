@@ -8898,18 +8898,23 @@ async function openActivitySheet(id) {
     const { data, error } = await supabaseClient.rpc('get_daily_update_activity_comments', { p_update_id: a.id });
     commentsError = error;
     if (!error) comments = data || [];
-    const { data: privateData, error: privateError } = await supabaseClient.rpc('get_creator_comment_private_replies', { p_post_type: 'activity', p_post_id: a.id });
-    if (!privateError) privateReplies = privateData || [];
-    else console.warn('Tweaklr: private Activity replies could not be loaded.', privateError.message);
   }
+  const { data: privateData, error: privateError } = await supabaseClient.rpc('get_creator_comment_private_replies', { p_post_type: 'activity', p_post_id: a.id });
+  if (!privateError) privateReplies = privateData || [];
+  else if (joined) console.warn('Tweaklr: private Activity replies could not be loaded.', privateError.message);
   const privateReplyByComment = new Map(privateReplies.map(reply => [reply.comment_id, reply]));
+  const recipientPrivateReplies = !joined && privateReplies.length
+    ? '<div style="margin-top:16px"><b style="font-size:14px">Your private reply</b>' +
+      privateReplies.map(reply => '<div class="post-discussion-comment" data-post-comment-id="' + esc(reply.comment_id) + '"><div class="creator-private-reply"><div class="creator-private-reply-label">🔒 Private reply from ' + esc(reply.creator_display_name || 'the creator') + '</div><p>' + esc(reply.body || '') + '</p></div></div>').join('') +
+      '</div>'
+    : '';
   const discussion = joined
     ? (commentsError
       ? '<div class="privacy-note" style="margin:12px 0"><p>Activity discussion is not ready yet. Please apply the activity discussion database migration.</p></div>'
       : '<div style="margin-top:20px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><b style="font-size:14px">Discussion</b><span style="font-size:12px;color:var(--muted)">' + comments.length + ' comments</span></div>' +
         (comments.map(c => renderPostDiscussionComment(c, privateReplyByComment.get(c.id), isHost, 'activity', a.id, userId)).join('') || '<div style="padding:14px 0;color:var(--muted);font-size:13px">No comments yet. Start the conversation.</div>') +
         '<div id="activity-comment-composer" class="activity-comment-composer"><div style="display:flex;gap:8px;align-items:flex-end"><textarea id="activity-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…" style="flex:1;min-width:0;resize:vertical;border:1px solid var(--line,#ddd);border-radius:14px;padding:11px;font:inherit;background:var(--surface,#fff);color:inherit"></textarea><button class="btn btn--primary" data-action="activity-comment-send:' + a.id + '" style="min-height:42px">Send</button></div></div>')
-    : '<div class="privacy-note" style="margin:18px 0 0">' + icon('lock') + '<p>Join this activity to unlock its private discussion and talk with the people attending.</p></div>';
+    : '<div class="privacy-note" style="margin:18px 0 0">' + icon('lock') + '<p>Join this activity to unlock its private discussion and talk with the people attending.</p></div>' + recipientPrivateReplies;
   openSheet({
     activityKeyboard: true,
     composerBack: true,
@@ -9223,11 +9228,16 @@ async function openPlaceSheet(id) {
     const { data, error } = await supabaseClient.rpc('get_discover_place_comments', { p_place_id: pl.id });
     commentsError = error;
     if (!error) comments = data || [];
-    const { data: privateData, error: privateError } = await supabaseClient.rpc('get_creator_comment_private_replies', { p_post_type: 'place', p_post_id: pl.id });
-    if (!privateError) privateReplies = privateData || [];
-    else console.warn('Tweaklr: private Places replies could not be loaded.', privateError.message);
   }
+  const { data: privateData, error: privateError } = await supabaseClient.rpc('get_creator_comment_private_replies', { p_post_type: 'place', p_post_id: pl.id });
+  if (!privateError) privateReplies = privateData || [];
+  else if (canDiscuss) console.warn('Tweaklr: private Places replies could not be loaded.', privateError.message);
   const privateReplyByComment = new Map(privateReplies.map(reply => [reply.comment_id, reply]));
+  const recipientPrivateReplies = !canDiscuss && privateReplies.length
+    ? '<div class="place-discussion" style="margin-top:14px"><div class="place-discussion-head"><b>Your private reply</b></div>' +
+      privateReplies.map(reply => '<div class="post-discussion-comment" data-post-comment-id="' + esc(reply.comment_id) + '" data-place-comment-id="' + esc(reply.comment_id) + '"><div class="creator-private-reply"><div class="creator-private-reply-label">🔒 Private reply from ' + esc(reply.creator_display_name || 'the creator') + '</div><p>' + esc(reply.body || '') + '</p></div></div>').join('') +
+      '</div>'
+    : '';
   window.__tweaklrCurrentUserId = userId || '';
   const discussion = canDiscuss
     ? (commentsError
@@ -9236,7 +9246,7 @@ async function openPlaceSheet(id) {
         (comments.map(c => renderPostDiscussionComment(c, privateReplyByComment.get(c.id), pl.isMine === true, 'place', pl.id, userId)).join('') ||
         '<div class="place-discussion-empty">No comments yet. Start the conversation.</div>') +
         '<div class="place-comment-composer"><textarea id="place-comment-input" maxlength="1000" rows="2" placeholder="Add to the conversation…"></textarea><button class="btn btn--primary" data-action="place-comment-send:' + pl.id + '">Send</button></div></section>')
-    : '<div class="place-discussion-locked"><span>✦</span><div><b>Join the conversation</b><p>Save this place to unlock its discussion and leave a comment.</p></div></div>';
+    : '<div class="place-discussion-locked"><span>✦</span><div><b>Join the conversation</b><p>Save this place to unlock its discussion and leave a comment.</p></div></div>' + recipientPrivateReplies;
   openSheet({
     title: pl.name,
     sub: pl.kind + ' · ' + (pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global interest discovery' : 'Distance unavailable') : distLabel(pl.km)),
