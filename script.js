@@ -2693,7 +2693,6 @@ function updateCard(u) {
     const going = Number(activity?.going || 0);
     const comments = Number(u.commentsCount ?? activity?.commentsCount ?? 0);
     return `<button class="acard" data-action="activity:${u.id}" aria-label="Open activity: ${esc(u.title)}">
-      <span class="post-type-card">${kindPill('activity')}</span>
       <div class="when"><div class="h">${esc(timeAgo(u.createdAt))}</div><div class="d">${esc(going)} going · ${esc(comments)} comments</div></div>
       <div class="info"><div class="t">${esc(u.title)}</div><div class="s">${esc(u.body || 'Activity shared on Tweaklr')} · ${esc(p.km == null ? 'Local' : distLabel(p.km))}</div></div>
       <span class="go">${icon('chev')}</span>
@@ -2709,7 +2708,7 @@ function updateCard(u) {
         <div class="n">${esc(p.short || p.name)}</div>
         <div class="m">${esc(mine ? 'You' : distLabel(p.km))} · ${esc(timeAgo(u.createdAt))}</div>
       </div>
-      <span class="post-type-card">${kindPill(u.kind || 'general')}</span>
+      <span class="post-type-card">${kindPill('general')}</span>
     </div>
     <h3>${esc(u.title)}</h3>
     <p>${esc(u.body)}</p>
@@ -12622,7 +12621,7 @@ function businessUpdateCard(post, space) {
   const likes = Math.max(0, Number(post.likeCount ?? post.reacts?.like ?? 0));
   const liked = Array.isArray(post.likedBy) ? post.likedBy.includes(currentUser.id) : !!post.mine?.like;
   return '<article class="upd" id="biz-upd-' + esc(post.id) + '">' +
-    '<div class="upd-top">' + avatar(author,36) + '<div class="who"><div class="n">' + esc(author.short || author.name || author.username || 'Space member') + '</div><div class="m">' + esc(mine ? 'You' : 'Business Space member') + ' · ' + esc(timeAgo(createdAt)) + '</div></div>' + '<span class="post-type-card">' + kindPill(kind) + '</span></div>' +
+    '<div class="upd-top">' + avatar(author,36) + '<div class="who"><div class="n">' + esc(author.short || author.name || author.username || 'Space member') + '</div><div class="m">' + esc(mine ? 'You' : 'Business Space member') + ' · ' + esc(timeAgo(createdAt)) + '</div></div>' + '</div>' +
     '<h3>' + esc(post.title || (post.text ? 'Daily Update' : 'Daily Update')) + '</h3><p>' + esc(post.body || post.text || '') + '</p>' +
     businessPostMediaMarkup(post) +
     '<div class="upd-foot">' +
@@ -13797,7 +13796,7 @@ function friendlyPostCard(post) {
   const interests = Array.isArray(post.interests) ? post.interests : [];
   return '<article class="friend-post" id="friend-post-'+esc(post.id)+'">'+
     '<header class="friend-post-head">'+avatar(author,44)+'<div class="friend-post-author"><b>'+esc(author.short||author.name||'Tweaklr member')+'</b><small>'+esc(mine?'You':(author.username||'Friendly Space member'))+' · '+esc(timeAgo(Number(post.at||post.createdAt||Date.now())))+'</small></div>'+
-    '<span class="post-type-card friend-post-type-card">'+kindPill(post.postFormat==='story'?'general':post.postFormat==='activity'?'activity':'talk').replace('Daily Update','Story').replace('Someone to talk to','Friend post')+'</span></header>'+
+    '</header>'+
     friendlyPostMediaMarkup(post)+
     (post.postFormat==='activity' ? '<section class="friend-activity-post-details"><div class="friend-activity-post-kicker"><span>✳ ACTIVITY</span>'+(post.category?'<span>'+esc(post.category)+'</span>':'')+'</div><h3>'+esc(post.title||'Activity')+'</h3>'+(post.description||post.caption?'<p>'+esc(post.description||post.caption)+'</p>':'')+'<div class="friend-activity-post-meta">'+(post.startsAt?'<span>◷ '+esc(new Date(post.startsAt).toLocaleString([],{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}))+'</span>':'<span>◷ Date to be confirmed</span>')+(post.venue?'<span>⌖ '+esc(post.venue)+'</span>':'')+'</div></section>' : (post.caption ? '<p class="friend-post-caption">'+esc(post.caption)+'</p>' : ''))+
     (post.lookingFor ? '<div class="friend-looking"><span>✧ LOOKING TO MEET</span><p>'+esc(post.lookingFor)+'</p><small>'+esc(FRIENDSHIP_TYPES.find(x=>x[0]===post.friendshipType)?.[1]||'Open to friendship')+'</small></div>' : '')+
