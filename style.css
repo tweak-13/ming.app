@@ -299,23 +299,6 @@ img { display: block; max-width: 100%; }
   box-shadow: -20px 0 50px -30px rgba(73, 50, 36, .6);
 }
 .screen--stack.is-active { transform: none; }
-/* Chat is temporarily mounted under body while open so the mobile
-   keyboard cannot be hidden behind the app's clipped viewport. */
-.screen.chat-keyboard-floating {
-  position: fixed !important;
-  inset: auto;
-  z-index: 1000 !important;
-  overflow: hidden;
-  min-height: 0;
-  transition: none !important;
-  transform: none !important;
-}
-.screen.chat-keyboard-floating .thread {
-  min-height: 0;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
 .scroll {
   flex: 1 1 auto;
   overflow-y: auto;
