@@ -5836,14 +5836,6 @@ html.theme-transitioning *::after {
 }
 
 
-/* Messages: one-time media controls */
-.chat-view-once-toggle{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:34px;height:34px;border:1px solid rgba(177,132,104,.35);border-radius:50%;color:var(--ink,#f1d2ae);font-size:11px;font-weight:800;cursor:pointer;position:relative}
-.chat-view-once-toggle input{position:absolute;inset:0;opacity:0;cursor:pointer}
-.chat-view-once-toggle:has(input:checked){background:rgba(139,53,67,.28);border-color:#b46b70;box-shadow:0 0 12px rgba(139,53,67,.25)}
-.chat-view-once-button{border:1px solid rgba(177,132,104,.45);border-radius:999px;padding:10px 14px;background:rgba(139,53,67,.18);color:inherit;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
-.chat-view-once-button:disabled{opacity:.65;cursor:wait}
-.chat-view-once-state{padding:10px 13px;border:1px solid rgba(177,132,104,.22);border-radius:14px;color:var(--muted,#a99a8d);font-size:12px;font-style:italic}
-
 /* WhatsApp-style message voice-note recording and draft controls. */
 .chat-recording-panel{display:grid;gap:10px;padding:12px 14px;border-top:1px solid var(--border);background:var(--surface)}
 .chat-recording-panel[hidden]{display:none!important}
@@ -5862,17 +5854,15 @@ html.theme-transitioning *::after {
 .chat-recording-actions button:disabled{opacity:.5}
 @media(max-width:360px){.chat-recording-panel{padding:10px 9px}.chat-recording-actions{gap:5px}.chat-recording-actions button{padding-inline:10px;font-size:10px}}
 
-/* Keep the message composer inside narrow screens with the 1× control present. */
+/* Keep the message composer balanced on narrow screens. */
 #chat-form{gap:7px;padding-inline:12px;min-width:0}
 #chat-form .chat-attach-btn{flex:0 0 34px;width:34px;min-width:34px;height:38px}
-#chat-form .chat-view-once-toggle{flex:0 0 30px;width:30px;height:30px}
 #chat-form .chat-voice-btn{flex:0 0 36px;width:36px;height:36px}
 #chat-form #chat-input{flex:1 1 0;width:0;min-width:0;padding-inline:11px}
 #chat-form #chat-send{flex:0 0 40px;width:40px;height:40px}
 @media(max-width:360px){
   #chat-form{gap:5px;padding-inline:8px}
   #chat-form .chat-attach-btn{flex-basis:32px;width:32px;min-width:32px}
-  #chat-form .chat-view-once-toggle{flex-basis:28px;width:28px;height:28px}
   #chat-form .chat-voice-btn{flex-basis:34px;width:34px;height:34px}
   #chat-form #chat-send{flex-basis:38px;width:38px;height:38px}
   #chat-form #chat-input{padding-inline:8px;font-size:14px}
