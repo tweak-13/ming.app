@@ -2771,7 +2771,7 @@ async function loadProfilePlaces(userId) {
     profilePlacesByUser.set(userId, places);
     profilePlacesLoaded.add(userId);
     const merged = new Map(discoverPlaces.map(place => [place.id, place]));
-    places.forEach(place => merged.set(place.id, { ...merged.get(place.id), ...place }));
+    places.forEach(place => merged.set(place.id, { ...place, ...merged.get(place.id) }));
     discoverPlaces = [...merged.values()];
     return places;
   })();
@@ -9129,6 +9129,12 @@ async function loadPlacesScreen() {
       }
     }
     renderPlacesScreen();
+    try {
+      await loadProfilePlaces(currentUser.id);
+      if (state.loaded.profile) renderProfile();
+    } catch (profilePlaceError) {
+      console.warn('Tweaklr: profile Live Updates could not be refreshed from Places.', profilePlaceError.message || profilePlaceError);
+    }
   } catch (error) {
     console.warn('Tweaklr: Places feed could not be loaded.', error);
     const authDenied = error && ['42501', 'AUTH_SESSION_MISSING', 'AUTH_SESSION_EXPIRED'].includes(error.code);
