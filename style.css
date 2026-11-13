@@ -7432,7 +7432,7 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 
 /* People who liked a Places post */
 .place-view-likers{display:block;width:100%;margin-top:9px;padding:10px 12px;border:1px solid var(--line,rgba(139,53,67,.2));border-radius:12px;background:transparent;color:var(--coffee);font:700 12px inherit;text-align:center;cursor:pointer}
-.place-post-like-count{cursor:pointer;border-radius:8px;padding:3px 5px;touch-action:manipulation}
+.place-post-like-count{cursor:pointer;border-radius:8px;padding:3px 5px;touch-action:manipulation;color:#fff!important}.place-post-stats>.place-post-like-count.is-liked{color:#e34b5b!important}
 .place-post-like-count:focus-visible,.place-view-likers:focus-visible,.place-liker-row:focus-visible{outline:2px solid var(--burgundy);outline-offset:2px}
 .place-likers-list{display:flex;flex-direction:column;gap:2px;padding:4px 0}
 .place-liker-row{display:flex;align-items:center;gap:12px;width:100%;padding:11px 8px;border:0;border-bottom:1px solid var(--line,rgba(139,53,67,.12));background:transparent;color:inherit;text-align:left;cursor:pointer}
