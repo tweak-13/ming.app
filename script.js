@@ -4008,7 +4008,20 @@ async function loadMingDiscoverContent() {
     const lng = hasLocation() ? Number(state.userLocation.longitude.toFixed(7)) : null;
     const { data: placeRows, error: placeError } = await requestDiscoverPlaceRows();
     if (placeError) console.warn('Tweaklr: Discover places could not be loaded.', placeError.message);
-    else discoverPlaces = (placeRows || []).map(row => ({ id: row.id, name: row.name, kind: row.kind, note: row.note || '', hue: 26, km: row.distance_km == null ? null : Number(row.distance_km), saved: !!row.saved_by_me, discoveryMode: row.discovery_mode || 'gps', audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [], isMine: !!row.is_mine, imagePath: row.image_path || '', imageUrl: row.image_path ? supabaseClient.storage.from('discover-place-images').getPublicUrl(row.image_path).data.publicUrl : '' }));
+    else {
+      discoverPlaces = (placeRows || []).map(row => ({ id: row.id, name: row.name, kind: row.kind, note: row.note || '', hue: 26, km: row.distance_km == null ? null : Number(row.distance_km), saved: !!row.saved_by_me, likesCount: 0, liked: false, discoveryMode: row.discovery_mode || 'gps', audienceTags: Array.isArray(row.audience_tags) ? row.audience_tags : [], isMine: !!row.is_mine, imagePath: row.image_path || '', imageUrl: row.image_path ? supabaseClient.storage.from('discover-place-images').getPublicUrl(row.image_path).data.publicUrl : '' }));
+      if (discoverPlaces.length) {
+        const { data: likeStates, error: likeStateError } = await supabaseClient.rpc('get_discover_place_like_state', { p_place_ids: discoverPlaces.map(place => place.id) });
+        if (likeStateError) console.warn('Tweaklr: Places likes could not be loaded.', likeStateError.message);
+        else {
+          const likeMap = new Map((likeStates || []).map(item => [item.place_id, item]));
+          discoverPlaces.forEach(place => {
+            const state = likeMap.get(place.id);
+            if (state) { place.likesCount = Number(state.likes_count || 0); place.liked = !!state.liked_by_me; }
+          });
+        }
+      }
+    }
     return true;
   } catch (error) { console.warn('Tweaklr: Discover content load failed.', error); return false; }
 }
@@ -4050,7 +4063,7 @@ function renderDiscover() {
     }).join('') || emptyState('No activities yet', 'Real activities shared on Tweaklr will appear here.')) + '</div>';
   }
   if (show('places')) {
-    html += '<div class="section">' + sectionHead('Places', 'Public places added to Tweaklr') + '<div class="rail">' + (discoverPlaces.map(pl => '<button class="plcard" data-action="place:' + pl.id + '"><div class="art" style="background:' + avatarStyle(pl.hue) + '"></div><div class="body"><div class="n">' + esc(pl.name) + '</div><div class="s">' + esc(pl.kind) + '</div><div class="d">' + esc(pl.km == null ? 'Distance unavailable' : distLabel(pl.km)) + '</div></div></button>').join('') || emptyState('No places yet', 'Places will appear here once they are added to Tweaklr.')) + '</div></div>';
+    html += '<div class="section">' + sectionHead('Places', 'Public places added to Tweaklr') + '<div class="rail">' + (discoverPlaces.map(pl => '<button class="plcard" data-action="place:' + pl.id + '"><div class="art" style="background:' + avatarStyle(pl.hue) + '"></div><div class="body"><div class="n">' + esc(pl.name) + '</div><div class="s">' + esc(pl.kind) + '</div><div class="d">' + esc(pl.km == null ? 'Distance unavailable' : distLabel(pl.km)) + '</div><div class="d place-rail-likes">♥ ' + Number(pl.likesCount || 0) + ' likes</div></div></button>').join('') || emptyState('No places yet', 'Places will appear here once they are added to Tweaklr.')) + '</div></div>';
   }
   if (show('visitors')) {
     html += '<div class="section">' + sectionHead('Visitors', 'People sharing that they are visiting') + '<div class="rail">' + (discoverVisitors.map(v => {
@@ -8830,7 +8843,7 @@ function renderPlacesScreen() {
       '<span class="place-post-distance">' + esc(pl.km == null ? (['interests','both'].includes(pl.discoveryMode) ? 'Global match' : 'Explore') : distLabel(pl.km)) + '</span></div>' +
       (pl.note ? '<p class="place-post-note">' + esc(pl.note) + '</p>' : '') +
       (tags.length ? '<div class="place-post-tags">' + tags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
-      '<div class="place-post-foot"><span>' + esc(reason) + '</span><b>' + (pl.saved ? 'SAVED' : 'VIEW PLACE') + '</b></div></div></button>';
+      '<div class="place-post-foot"><span>' + esc(reason) + '</span><span class="place-post-stats"><span aria-label="likes">♥ ' + Number(pl.likesCount || 0) + '</span><b>' + (pl.saved ? 'SAVED' : 'VIEW PLACE') + '</b></span></div></div></button>';
   }).join('');
 }
 async function loadPlacesScreen() {
@@ -9048,7 +9061,7 @@ async function openPlaceSheet(id) {
       '<p style="font-size:14.5px;line-height:1.55">' + esc(pl.note || 'Public place on Tweaklr.') + '</p>' +
       ((pl.audienceTags || []).length ? '<div class="place-post-tags" style="margin-top:14px">' + pl.audienceTags.map(tag => '<span>#' + esc(tag) + '</span>').join('') + '</div>' : '') +
       discussion,
-    foot: (pl.saved ? '<button class="btn btn--ghost btn--block" data-action="save-place:' + pl.id + '">Remove from saved places</button>' : '<button class="btn btn--soft btn--block" data-action="save-place:' + pl.id + '">Save this place</button>')
+    foot: '<div class="place-sheet-actions"><button class="btn ' + (pl.liked ? 'btn--primary' : 'btn--soft') + ' place-like-action" aria-pressed="' + !!pl.liked + '" data-action="like-place:' + pl.id + '"><span aria-hidden="true">♥</span> ' + (pl.liked ? 'Liked' : 'Like') + ' <span class="place-like-count">' + Number(pl.likesCount || 0) + '</span></button>' + (pl.saved ? '<button class="btn btn--ghost" data-action="save-place:' + pl.id + '">Remove from saved places</button>' : '<button class="btn btn--soft" data-action="save-place:' + pl.id + '">Save this place</button>') + '</div>'
   });
 }
 
@@ -9955,6 +9968,26 @@ document.addEventListener('click', async e => {
     case 'refresh-places': loadPlacesScreen(); break;
     case 'places-section': placesSection = ['discover','saved'].includes(arg) ? arg : 'discover'; renderPlacesScreen(); break;
     case 'place': openPlaceSheet(arg); break;
+    case 'like-place': {
+      const place = discoverPlaces.find(item => item.id === arg);
+      if (!place) break;
+      const likeButton = document.querySelector('[data-action="like-place:' + arg + '"]');
+      if (likeButton) likeButton.disabled = true;
+      const { data, error } = await supabaseClient.rpc('toggle_discover_place_like', { p_place_id: arg });
+      if (error || !data) {
+        console.warn('Tweaklr: Places like could not be updated.', error);
+        if (likeButton) likeButton.disabled = false;
+        toast(error?.message || 'Could not update your like.', 'alert');
+        break;
+      }
+      place.liked = !!data.liked;
+      place.likesCount = Number(data.likes_count || 0);
+      renderPlacesScreen();
+      if (state.loaded.discover) renderDiscover();
+      await openPlaceSheet(arg);
+      toast(place.liked ? 'You liked this place.' : 'Like removed.', 'heart');
+      break;
+    }
     case 'place-comment-send': {
       const input = $('#place-comment-input');
       const body = String(input?.value || '').trim();
