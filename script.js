@@ -10904,52 +10904,6 @@ document.addEventListener('pointercancel', () => {
 document.addEventListener('click', async e => {
   const attachmentBtn=e.target.closest('[data-chat-attachment]');
   if(attachmentBtn){e.stopPropagation();if(attachmentBtn.querySelector('[data-chat-attachment-video]'))return;const path=attachmentBtn.dataset.chatAttachment;if(!path)return;let url=attachmentBtn.dataset.chatAttachmentUrl;if(!url){const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,2592000);if(error||!data?.signedUrl){toast('Could not open attachment.','alert');return;}url=data.signedUrl;}window.open(url,'_blank','noopener');return;}
-  const speedBtn=e.target.closest('[data-voice-speed]');
-  if(speedBtn){
-    e.preventDefault();e.stopPropagation();
-    const player=speedBtn.closest('[data-voice-player]');
-    const play=player?.querySelector('[data-voice-path]');
-    if(!play)return;
-    const rates=[1,1.5,2];
-    const current=Number(speedBtn.dataset.rate||play._playbackRate||1);
-    const next=rates[(rates.indexOf(current)+1)%rates.length];
-    speedBtn.dataset.rate=String(next);
-    play._playbackRate=next;
-    if(play._audio)play._audio.playbackRate=next;
-    speedBtn.textContent=next+'×';
-    return;
-  }
-  const voiceBtn=e.target.closest('[data-voice-path]');
-  if(voiceBtn){
-    e.preventDefault();e.stopPropagation();
-    const path=voiceBtn.dataset.voicePath;if(!path)return;
-    try{
-      let audio=voiceBtn._audio;
-      if(!audio){
-        const {data,error}=await supabaseClient.storage.from('ming-voice').createSignedUrl(path,2592000);
-        if(error||!data?.signedUrl)throw error||new Error('Could not load this voice note.');
-        audio=new Audio();audio.preload='metadata';audio.src=data.signedUrl;
-        audio.playbackRate=Number(voiceBtn._playbackRate||1);
-        voiceBtn._audio=audio;
-        bindChatVoicePlayer(audio,voiceBtn);
-      }
-      if(audio.paused){
-        voiceBtn.disabled=true;
-        try{
-          if(voiceBtn.dataset.voicePath==='view-once' && audio.ended) {
-            try{audio.currentTime=0;}catch(_){}
-          }
-          await audio.play();
-        }finally{voiceBtn.disabled=false;}
-      }else audio.pause();
-    }catch(error){
-      console.error('Tweaklr voice playback failed:',error);
-      voiceBtn.disabled=false;
-      voiceBtn.innerHTML='<span class="chat-voice-play-icon" aria-hidden="true">▶</span>';
-      toast(error?.message||'This voice note could not be played.','alert');
-    }
-    return;
-  }
   const b=e.target.closest('[data-action^="chat-"]');
   if (!b) return;
   const [verb,arg,arg2]=b.dataset.action.split(':');
