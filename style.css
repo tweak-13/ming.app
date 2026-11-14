@@ -7227,3 +7227,33 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
 .creator-private-reply-composer{display:grid;gap:8px;margin-top:8px}
 .creator-private-reply-composer textarea{width:100%;min-height:68px;resize:vertical;box-sizing:border-box;border:1px solid var(--line,#ddd);border-radius:12px;padding:10px 12px;background:var(--surface,#fff);color:inherit;font:inherit;font-size:13px}
 .creator-private-reply-composer .btn{justify-self:end;min-height:36px;padding:7px 13px;font-size:12px}
+
+
+/* Chat photo/video attachments fill the message bubble, leaving only a slim frame. */
+#chat-thread .chat-bubble:has(.chat-attachment--image),
+#chat-thread .chat-bubble:has(.chat-attachment--video){
+  padding:7px!important;
+  overflow:hidden;
+}
+#chat-thread .chat-attachment--image,
+#chat-thread .chat-attachment--video{
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+  border-radius:12px!important;
+}
+#chat-thread .chat-attachment--image img,
+#chat-thread .chat-attachment--video video{
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+  height:auto!important;
+  max-height:min(70vh,640px)!important;
+  margin:0!important;
+  object-fit:cover!important;
+  border-radius:inherit!important;
+}
