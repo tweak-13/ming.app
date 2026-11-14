@@ -1176,6 +1176,54 @@ async function loadMingNotifications() {
     const connectionsLoaded = await loadMingConnections();
     const messagesLoaded = await loadMingMessages();
 
+    /* Message reactions are notified by a database trigger, so inserts and
+       emoji changes are captured even when the recipient is offline. */
+    try {
+      const cutoff = new Date(Date.now() - TWEAKLR_NOTIFICATION_RETENTION_MS).toISOString();
+      const { data: reactionRows, error: reactionError } = await supabaseClient
+        .from('message_reaction_notifications')
+        .select('id, actor_id, message_id, event_type, old_emoji, new_emoji, created_at')
+        .eq('recipient_id', session.user.id)
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (reactionError) {
+        console.warn('Tweaklr: message reaction notifications could not be loaded.', reactionError.message);
+      } else if (reactionRows?.length) {
+        const actorIds = [...new Set(reactionRows.map(row => row.actor_id).filter(Boolean))];
+        const actorMap = new Map();
+        if (actorIds.length) {
+          const { data: actors, error: actorsError } = await supabaseClient
+            .from('profiles')
+            .select('id, display_name, username')
+            .in('id', actorIds);
+          if (!actorsError) (actors || []).forEach(actor => actorMap.set(actor.id, actor));
+          else console.warn('Tweaklr: message reaction actor profiles could not be loaded.', actorsError.message);
+        }
+
+        reactionRows.forEach(row => {
+          const actor = actorMap.get(row.actor_id);
+          const name = actor?.display_name || (actor?.username ? '@' + String(actor.username).replace(/^@/, '') : 'Someone');
+          const detail = row.event_type === 'reaction_changed'
+            ? 'changed their reaction from <b>' + esc(row.old_emoji || 'a previous reaction') + '</b> to <b>' + esc(row.new_emoji) + '</b> on your message.'
+            : 'reacted to your message with <b>' + esc(row.new_emoji) + '</b>.';
+          const id = 'message_reaction_' + row.id;
+          next.push({
+            id,
+            type: 'message_reaction',
+            personId: row.actor_id,
+            messageId: row.message_id,
+            text: '<b>' + esc(name) + '</b> ' + detail,
+            at: new Date(row.created_at).getTime(),
+            read: notificationReadIds.has(id)
+          });
+        });
+      }
+    } catch (messageReactionNotificationError) {
+      console.warn('Tweaklr: message reaction notifications failed.', messageReactionNotificationError);
+    }
+
     const next = [];
 
     if (connectionsLoaded) {
@@ -6596,7 +6644,7 @@ function scheduleMingAppRealtimeRefresh(tableName, eventType) {
 
     try {
       const has = name => changed.has(name);
-      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments') || has('daily_update_comment_likes') || has('activity_comment_notification_events') || has('discover_place_expiry_notifications') || has('discover_place_activity_notifications') || has('tweaklr_targeted_notifications');
+      const postActivityChanged = has('daily_update_likes') || has('daily_update_comments') || has('daily_update_comment_likes') || has('activity_comment_notification_events') || has('discover_place_expiry_notifications') || has('discover_place_activity_notifications') || has('tweaklr_targeted_notifications') || has('message_reaction_notifications');
       const feedChanged = has('daily_updates') || has('daily_update_likes') || has('daily_update_comments') || has('daily_update_participants');
       const connectionChanged = has('connections');
       const profileChanged = has('profiles');
@@ -6679,6 +6727,7 @@ async function subscribeMingAppRealtime() {
   watch('discover_place_expiry_notifications', ['INSERT']);
   watch('discover_place_activity_notifications', ['INSERT', 'DELETE']);
   watch('tweaklr_targeted_notifications', ['INSERT']);
+  watch('message_reaction_notifications', ['INSERT']);
 
   mingAppRealtimeChannel = channel;
   channel.subscribe(status => {
@@ -10382,6 +10431,8 @@ document.addEventListener('click', async e => {
       updateNotifDot();
 
       if (n.type === 'message' && n.personId) {
+        await openChat(n.personId);
+      } else if (n.type === 'message_reaction' && n.personId) {
         await openChat(n.personId);
       } else if (n.type === 'request') {
         await loadMingConnections();
