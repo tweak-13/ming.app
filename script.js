@@ -7322,13 +7322,11 @@ async function forwardSelectedChatMessage(targetId) {
   }
   const rpc = await supabaseClient.rpc('ming_send_message_v3', {
     p_recipient_id: targetId, p_body: '', p_message_type: source.type,
-    p_voice_path: source.type === 'voice' ? (source.voicePath || null) : null,
-    p_voice_duration: source.type === 'voice' ? (source.voiceDuration || null) : null,
-    p_reply_to_id: null,
-    p_attachment_path: source.type !== 'voice' ? (source.attachmentPath || null) : null,
-    p_attachment_name: source.type !== 'voice' ? (source.attachmentName || null) : null,
-    p_attachment_mime: source.type !== 'voice' ? (source.attachmentMime || null) : null,
-    p_attachment_size: source.type !== 'voice' ? (source.attachmentSize || null) : null
+    p_voice_path: null, p_voice_duration: null, p_reply_to_id: null,
+    p_attachment_path: source.attachmentPath || null,
+    p_attachment_name: source.attachmentName || null,
+    p_attachment_mime: source.attachmentMime || null,
+    p_attachment_size: source.attachmentSize || null
   });
   if (rpc.error) { toast('Could not forward this message.', 'alert'); return; }
   closeSheet(); await openChat(targetId); await loadMingMessages(); renderThread();
