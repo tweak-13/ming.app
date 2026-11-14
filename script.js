@@ -7170,11 +7170,64 @@ function openMessageActions(messageId) {
         <button data-action="chat-copy:${esc(messageId)}"><span class="tw-action-icon tw-action-copy" aria-hidden="true"></span><br>Copy</button>
         <button data-action="chat-forward:${esc(messageId)}"><span class="tw-action-icon tw-action-forward" aria-hidden="true"></span><br>Forward</button>
         <button data-action="chat-delete:${esc(messageId)}"><span class="tw-action-icon tw-action-delete" aria-hidden="true"></span><br>Delete</button>
+        ${!m.me ? `<button data-action="chat-report:${esc(messageId)}"><span aria-hidden="true">⚑</span><br>Report</button>` : ''}
         ${editAction}
       </div>`
   });
 }
 
+function openMessageReportSheet(messageId) {
+  const c = convoFor(state.activeChat);
+  const message = c.messages.find(item => item.id === messageId);
+  if (!message || message.me) return;
+  openSheet({
+    title: 'Report message',
+    sub: 'Tell us why this message should be reviewed. Reports are confidential.',
+    body: `
+      <div class="chat-report-form">
+        <label for="chat-report-reason">Reason for reporting</label>
+        <select id="chat-report-reason" class="input">
+          <option value="harassment">Harassment or bullying</option>
+          <option value="hate_or_abuse">Hate speech or abusive content</option>
+          <option value="scam_or_fraud">Scam, fraud or impersonation</option>
+          <option value="sexual_content">Sexual or explicit content</option>
+          <option value="threats_or_violence">Threats or violent content</option>
+          <option value="illegal_activity">Suspected illegal activity</option>
+          <option value="spam">Spam or unwanted promotion</option>
+          <option value="other">Something else</option>
+        </select>
+        <label for="chat-report-details">Additional details (optional)</label>
+        <textarea id="chat-report-details" class="input" rows="3" maxlength="1000" placeholder="Add context to help our review team…"></textarea>
+        <p class="chat-report-note">Only report messages that violate Tweaklr's rules. A report is sent privately to the review team.</p>
+        <button type="button" class="btn btn--primary" data-action="chat-report-submit:${esc(messageId)}">Submit report</button>
+      </div>`
+  });
+}
+
+async function submitChatMessageReport(messageId) {
+  const reason = $('#chat-report-reason')?.value || '';
+  const details = String($('#chat-report-details')?.value || '').trim();
+  const button = document.querySelector('[data-action="chat-report-submit:' + CSS.escape(messageId) + '"]');
+  if (!reason) { toast('Choose a reason for your report.', 'alert'); return; }
+  if (button) { button.disabled = true; button.textContent = 'Submitting…'; }
+  const { data, error } = await supabaseClient.functions.invoke('message-report', {
+    body: { message_id: messageId, reason, details }
+  });
+  if (error || !data?.success) {
+    console.warn('Tweaklr: message report failed.', error || data);
+    toast(data?.error || error?.message || 'Could not submit your report. Please try again.', 'alert');
+    if (button) { button.disabled = false; button.textContent = 'Submit report'; }
+    return;
+  }
+  closeSheet();
+  if (data.review_started && data.suspension_applied) {
+    toast('Report received. The account has been temporarily suspended for review.', 'check');
+  } else if (data.review_started) {
+    toast('Report received. The account has been flagged for urgent review.', 'check');
+  } else {
+    toast('Report submitted privately. Thank you for helping keep Tweaklr safe.', 'check');
+  }
+}
 function openDeleteMessageChoices(messageId) {
   const c = convoFor(state.activeChat);
   const m = c.messages.find(x => x.id === messageId);
@@ -10975,6 +11028,8 @@ document.addEventListener('click', async e => {
   }
   if(verb==='chat-add-reaction'){ addChatReaction(arg, decodeURIComponent(arg2||'')); }
   if(verb==='chat-delete'){ openDeleteMessageChoices(arg); }
+  if(verb==='chat-report'){ openMessageReportSheet(arg); }
+  if(verb==='chat-report-submit'){ await submitChatMessageReport(arg); }
   if(verb==='chat-delete-choice'){ confirmChatDelete(arg, arg2); }
   if(verb==='confirm-chat-delete') await deleteChatMessage(arg, arg2);
   if(verb==='forward-to') await forwardSelectedChatMessage(arg);
