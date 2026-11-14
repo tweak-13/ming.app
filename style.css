@@ -3741,7 +3741,7 @@ html.theme-transitioning *::after {
 }
 .chat-action-grid {
   display:grid;
-  grid-template-columns:repeat(4,1fr);
+  grid-template-columns:repeat(5,minmax(0,1fr));
   gap:8px;
 }
 .chat-action-grid button {
@@ -7257,3 +7257,12 @@ html.tweaklr-auth-intro-pending #auth-screen { display:none!important; }
   object-fit:cover!important;
   border-radius:inherit!important;
 }
+
+
+/* Message reporting */
+.chat-report-form { display:flex; flex-direction:column; gap:10px; padding:2px 0 8px; }
+.chat-report-form label { color:var(--text); font-size:13px; font-weight:700; }
+.chat-report-form .input { width:100%; box-sizing:border-box; }
+.chat-report-form textarea { resize:vertical; min-height:88px; }
+.chat-report-note { margin:0 0 4px; color:var(--muted); font-size:12px; line-height:1.5; }
+.chat-report-form .btn { width:100%; min-height:48px; }
