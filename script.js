@@ -12833,7 +12833,7 @@ function spaceTheme(s) {
 }
 function coverFor(s) {
   const theme = spaceTheme(s);
-  return `linear-gradient(140deg, ${theme.colors[0]}, ${theme.colors[1]} 58%, ${theme.colors[2]})`;
+  return `linear-gradient(140deg, ${theme.colors[1]} 0%, ${theme.colors[0]} 28%, ${theme.colors[1]} 58%, ${theme.colors[2]} 100%)`;
 }
 
 /* ============================================================
