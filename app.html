@@ -1066,7 +1066,9 @@
     // Ignore the primary Supabase CDN failure when its onerror fallback is configured.
     if(target && target.tagName==='SCRIPT' && target.hasAttribute('onerror')) return;
     var message=e.message||e.error&&e.error.message||'A resource failed to load';
-    if(/fetching process for the media resource was aborted/i.test(message)) return;
+    // Browser wording varies: "fetching process of the media resource was aborted...".
+    // Treat user-agent media fetch cancellations as expected playback lifecycle events.
+    if(/fetching process.*media resource.*aborted|media resource.*aborted.*user agent/i.test(message)) return;
     if(target && target.tagName){
       var resourceUrl=target.src||target.href||target.currentSrc||'';
       var resourceType=target.tagName.toLowerCase();
@@ -1079,12 +1081,16 @@
   },true);
   window.addEventListener('unhandledrejection',function(e){
     var reason=e.reason;
-    show('Tweaklr startup error: '+(reason&&reason.message||reason||'Unhandled promise rejection'));
+    var message=reason&&reason.message?reason.message:String(reason||'');
+    // Some browsers surface media fetch cancellation as a rejected promise instead
+    // of a resource error event. Do not mislabel that cancellation as startup failure.
+    if(/fetching process.*media resource.*aborted|media resource.*aborted.*user agent/i.test(message)) return;
+    show('Tweaklr startup error: '+(message||'Unhandled promise rejection'));
   });
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;document.write('<script src=&quot;https://unpkg.com/@supabase/supabase-js@2&quot;><' + '/script>')"></script>
-<script src="script.js?v=20261114-media-resume-refresh-1"></script>
+<script src="script.js?v=20261114-media-resume-refresh-2"></script>
 <script src="friendly-space-integration.js?v=20261109-main-sync-1"></script>
 <script src="spaces-enhancements.js?v=20261109-no-pressure-removed-3"></script>
 <script src="spaces-launch-upgrades.js?v=20261109-main-sync-1"></script>
