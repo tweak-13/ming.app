@@ -1175,6 +1175,7 @@ async function loadMingNotifications() {
     await loadNotificationReadState();
     const connectionsLoaded = await loadMingConnections();
     const messagesLoaded = await loadMingMessages();
+    const next = [];
 
     /* Message reactions are notified by a database trigger, so inserts and
        emoji changes are captured even when the recipient is offline. */
@@ -1223,8 +1224,6 @@ async function loadMingNotifications() {
     } catch (messageReactionNotificationError) {
       console.warn('Tweaklr: message reaction notifications failed.', messageReactionNotificationError);
     }
-
-    const next = [];
 
     if (connectionsLoaded) {
       connectionRequests.forEach(r => {
