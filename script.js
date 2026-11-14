@@ -2480,7 +2480,7 @@ async function refreshMingPostMediaUrls() {
         try {
           const { data, error } = await supabaseClient.storage
             .from('ming-post-media')
-            .createSignedUrl(item.path, 3600);
+            .createSignedUrl(item.path, 2592000);
           if (error || !data?.signedUrl) return item;
           if (item.url !== data.signedUrl) changed = true;
           return { ...item, url: data.signedUrl };
@@ -2561,7 +2561,7 @@ async function loadMingDailyUpdates() {
         const path = typeof item === 'string' ? item : item?.path;
         if (!path) return null;
         try {
-          const { data: signed, error: signedError } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(path, 3600);
+          const { data: signed, error: signedError } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(path, 2592000);
           if (signedError || !signed?.signedUrl) return null;
           return { path, url: signed.signedUrl, name: typeof item === 'string' ? path.split('/').pop() : (item?.name || path.split('/').pop()), mime: typeof item === 'string' ? '' : (item?.mime || '') };
         } catch (_) { return null; }
@@ -2605,7 +2605,7 @@ async function loadMingDailyUpdateComments(updateId) {
     if (row.voice_path && !row.voice_view_once) {
       const { data: signed, error: signedError } = await supabaseClient
         .storage.from('ming-daily-update-comment-voice')
-        .createSignedUrl(row.voice_path, 1800);
+        .createSignedUrl(row.voice_path, 2592000);
       if (!signedError) voiceUrl = signed?.signedUrl || '';
     }
 
@@ -4098,7 +4098,7 @@ async function createUpdate(kind, title, body, activityMeta = null, mediaFiles =
     try {
       const { data: signed, error: signedError } = await supabaseClient.storage
         .from('ming-post-media')
-        .createSignedUrl(media.path, 3600);
+        .createSignedUrl(media.path, 2592000);
       if (signedError || !signed?.signedUrl) return { ...media, url: '' };
       return { ...media, url: signed.signedUrl };
     } catch (_) {
@@ -4261,7 +4261,7 @@ async function loadMingDiscoverContent() {
           const path = typeof item === 'string' ? item : item?.path;
           if (!path) return null;
           try {
-            const { data: signed, error: signedError } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(path, 3600);
+            const { data: signed, error: signedError } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(path, 2592000);
             if (signedError || !signed?.signedUrl) return null;
             return {
               path,
@@ -6898,7 +6898,7 @@ async function hydrateChatAttachments() {
     try {
       const { data, error } = await supabaseClient.storage
         .from('ming-message-files')
-        .createSignedUrl(path, 3600);
+        .createSignedUrl(path, 2592000);
       if (error || !data?.signedUrl) throw error || new Error('No signed URL');
 
       const finish = () => {
@@ -11334,7 +11334,7 @@ function bindChatVoicePlayer(audio, voiceBtn, onEnded, options={}) {
 
 document.addEventListener('click', async e => {
   const attachmentBtn=e.target.closest('[data-chat-attachment]');
-  if(attachmentBtn){e.stopPropagation();if(attachmentBtn.querySelector('[data-chat-attachment-video]'))return;const path=attachmentBtn.dataset.chatAttachment;if(!path)return;let url=attachmentBtn.dataset.chatAttachmentUrl;if(!url){const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,3600);if(error||!data?.signedUrl){toast('Could not open attachment.','alert');return;}url=data.signedUrl;}window.open(url,'_blank','noopener');return;}
+  if(attachmentBtn){e.stopPropagation();if(attachmentBtn.querySelector('[data-chat-attachment-video]'))return;const path=attachmentBtn.dataset.chatAttachment;if(!path)return;let url=attachmentBtn.dataset.chatAttachmentUrl;if(!url){const {data,error}=await supabaseClient.storage.from('ming-message-files').createSignedUrl(path,2592000);if(error||!data?.signedUrl){toast('Could not open attachment.','alert');return;}url=data.signedUrl;}window.open(url,'_blank','noopener');return;}
   const speedBtn=e.target.closest('[data-voice-speed]');
   if(speedBtn){
     e.preventDefault();e.stopPropagation();
@@ -11357,7 +11357,7 @@ document.addEventListener('click', async e => {
     try{
       let audio=voiceBtn._audio;
       if(!audio){
-        const {data,error}=await supabaseClient.storage.from('ming-voice').createSignedUrl(path,3600);
+        const {data,error}=await supabaseClient.storage.from('ming-voice').createSignedUrl(path,2592000);
         if(error||!data?.signedUrl)throw error||new Error('Could not load this voice note.');
         audio=new Audio();audio.preload='metadata';audio.src=data.signedUrl;
         audio.playbackRate=Number(voiceBtn._playbackRate||1);
@@ -11905,7 +11905,7 @@ const Server = (() => {
     const tab = window.open('about:blank', '_blank');
     try { if (tab) tab.opener = null; } catch (_) {}
     const options = forceDownload ? { download: file.displayName || file.filename || true } : undefined;
-    const { data, error } = await supabaseClient.storage.from('ming-space-media').createSignedUrl(file.storagePath, 300, options);
+    const { data, error } = await supabaseClient.storage.from('ming-space-media').createSignedUrl(file.storagePath, 2592000, options);
     if (error || !data?.signedUrl) {
       if (tab) tab.close();
       toast(error?.message || 'File could not be opened.', 'x');
@@ -13696,12 +13696,11 @@ async function hydrateBusinessHomeMedia(spaceId) {
     const cached = businessPostMediaUrlCache.get(post.id);
     if (cached && cached.expiresAt > Date.now() + 60000) continue;
     const urls = await Promise.all(media.map(async item => {
-      if (item.url) return item.url;
-      if (!item.path) return '';
-      const { data, error } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path, 3600);
+      if (!item.path) return item.url || '';
+      const { data, error } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path, 2592000);
       return error ? '' : (data?.signedUrl || '');
     }));
-    businessPostMediaUrlCache.set(post.id, Object.assign(urls, { expiresAt: Date.now() + 3500000 }));
+    businessPostMediaUrlCache.set(post.id, Object.assign(urls, { expiresAt: Date.now() + 2505600000 }));
     changed = true;
   }
   if (changed && sp.activeId === spaceId && sp.tab === 'home') refreshSpace();
@@ -13750,10 +13749,10 @@ async function createBusinessSpaceUpdate(spaceId, kind, title, body, files, dura
   }
   const row = result.data.row;
   const urls = await Promise.all(uploaded.map(async item => {
-    const { data, error } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path,3600);
+    const { data, error } = await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path,2592000);
     return error ? '' : (data?.signedUrl || '');
   }));
-  businessPostMediaUrlCache.set(row.id, Object.assign(urls,{expiresAt:Date.now()+3500000}));
+  businessPostMediaUrlCache.set(row.id, Object.assign(urls,{expiresAt:Date.now()+2505600000}));
   closeSheet(); refreshSpace(); toast('Update shared','check'); return true;
 }
 
@@ -13829,7 +13828,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
     if (row.voice_path && !row.voice_view_once) {
       const { data: signed, error: signedError } = await supabaseClient
         .storage.from('ming-business-comment-voice')
-        .createSignedUrl(row.voice_path, 1800);
+        .createSignedUrl(row.voice_path, 2592000);
       if (!signedError) voiceUrl = signed?.signedUrl || '';
     }
     return { ...row, voiceUrl };
@@ -14208,7 +14207,7 @@ async function openSpacePostComments(postId, postKind = 'business_post') {
       // Preparing the player does not claim or consume the one-time listen.
       const { data: signed, error: signedError } = await supabaseClient.storage
         .from('ming-business-comment-voice')
-        .createSignedUrl(comment.voice_path, 1800);
+        .createSignedUrl(comment.voice_path, 2592000);
 
       if (signedError || !signed?.signedUrl) {
         restoreButton('Try again');
@@ -14835,10 +14834,10 @@ async function hydrateFriendlyMedia(spaceId) {
     const urls = await Promise.all(media.map(async item => {
       if (item.url) return item.url;
       if (!item.path) return '';
-      const {data,error} = await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path,3600);
+      const {data,error} = await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path,2592000);
       return error ? '' : (data?.signedUrl || '');
     }));
-    friendlyMediaUrlCache.set(post.id,Object.assign(urls,{expiresAt:Date.now()+3500000}));
+    friendlyMediaUrlCache.set(post.id,Object.assign(urls,{expiresAt:Date.now()+2505600000}));
     changed = true;
   }
   if (changed && sp.activeId===spaceId && ['home','moments','circles'].includes(sp.tab)) refreshSpace();
@@ -16487,7 +16486,7 @@ VIEWS.friendly.discover=s=>{
  (matches.length?'<div class="fs-matches">'+matches.map(({p,score,hits})=>'<article>'+avatar(p,48)+'<div><b>'+escF(p.short||p.name||'Tweaklr member')+'</b><small>'+escF(p.username||p.tag||'Tweaklr member')+'</small><p>'+escF((p.interests||[]).slice(0,3).join(' · ')||p.bio||'Open to meeting new people')+'</p><small>✧ '+(score?score+'% shared-interest fit':'Worth discovering')+(hits.length?' · '+hits.slice(0,3).map(escF).join(', '):'')+'</small></div><button data-sp="friend-connect:'+escF(p.id)+'">Connect</button></article>').join('')+'</div>':empty('◎','Your matches are waiting.','Create a friendship note and make your discovery profile available to people you want to meet.'))+
  '<p class="fs-note">Compatibility is a simple interest-based suggestion, not a guarantee or judgement about anyone.</p></div>';
 };
-async function hydrateTrends(id){if(!supabaseClient)return;let changed=false;for(const p of rows(id,'trend')){const media=p.media||[],cache=friendlyMediaUrlCache.get(p.id);if(cache&&cache.expiresAt>Date.now()+60000)continue;const urls=await Promise.all(media.map(async m=>{if(m.url)return m.url;if(!m.path)return '';const {data,error}=await supabaseClient.storage.from('ming-post-media').createSignedUrl(m.path,3600);return error?'':data?.signedUrl||'';}));friendlyMediaUrlCache.set(p.id,Object.assign(urls,{expiresAt:Date.now()+3500000}));changed=true;}if(changed&&sp.activeId===id&&sp.tab==='trends')renderSpace();}
+async function hydrateTrends(id){if(!supabaseClient)return;let changed=false;for(const p of rows(id,'trend')){const media=p.media||[],cache=friendlyMediaUrlCache.get(p.id);if(cache&&cache.expiresAt>Date.now()+60000)continue;const urls=await Promise.all(media.map(async m=>{if(m.url)return m.url;if(!m.path)return '';const {data,error}=await supabaseClient.storage.from('ming-post-media').createSignedUrl(m.path,2592000);return error?'':data?.signedUrl||'';}));friendlyMediaUrlCache.set(p.id,Object.assign(urls,{expiresAt:Date.now()+2505600000}));changed=true;}if(changed&&sp.activeId===id&&sp.tab==='trends')renderSpace();}
 VIEWS.friendly.trends=s=>{
  const videos=rows(s.id,'trend').filter(p=>(p.media||[]).some(m=>String(m.mime||'').startsWith('video/')));
  const cards=videos.map(p=>{const author=personOf(p.authorId),media=p.media||[],cache=friendlyMediaUrlCache.get(p.id)||[],idx=media.findIndex(m=>String(m.mime||'').startsWith('video/')),url=media[idx]?.url||cache[idx]||'';return '<article class="fs-trend-card">'+(url?'<video src="'+escF(url)+'" controls playsinline preload="metadata"></video>':'<div class="fs-video-pending">Preparing video…</div>')+'<div><b>'+escF(p.trendTitle||'Community trend')+'</b><small>'+escF(author.short||author.name||'Tweaklr member')+'</small><p>'+escF(p.caption||'')+'</p><small>'+((p.interests||[]).map(t=>'#'+escF(t)).join(' '))+'</small></div><footer><button data-sp="friend-like:'+escF(p.id)+'">♥ '+Number(p.reacts?.like||0)+'</button><button data-sp="friend-comments:'+escF(p.id)+'">Comment</button><button data-fs-remix="'+escF(p.id)+'">Join trend</button></footer></article>';}).join('');
@@ -16516,7 +16515,7 @@ VIEWS.friendly.people=s=>'<div class="fs-view">'+head('THE PEOPLE IN THIS SPACE'
 
 
 async function upload(files,spaceId){const uploaded=[];for(const f of files){const safe=f.name.replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,90)||'moment',path=currentUser.id+'/friendly-'+spaceId+'/'+crypto.randomUUID()+'-'+safe;const {error}=await supabaseClient.storage.from('ming-post-media').upload(path,f,{contentType:f.type,cacheControl:'3600',upsert:false});if(error){if(uploaded.length)await supabaseClient.storage.from('ming-post-media').remove(uploaded.map(x=>x.path)).catch(()=>{});throw error;}uploaded.push({path,name:f.name,mime:f.type});}return uploaded;}
-async function save(payload,media=[]){const s=active();if(!s||s.nature!=='friendly'||!Server.can(s.id,'space.post'))throw Error('You cannot post in this Friendly Space.');const expiryMode=payload.expiryMode||'never';const expiryHours=Number(payload.expiryDurationHours);const finalPayload={...payload,expiryMode,expiryDurationHours:expiryMode==='duration'&&Number.isFinite(expiryHours)&&expiryHours>0?expiryHours:null,expiresAt:expiryMode==='duration'&&Number.isFinite(expiryHours)&&expiryHours>0?Date.now()+expiryHours*HOUR:null,media,reacts:{},mine:{},comments:[]};const r=await Server.submit('space.post',{spaceId:s.id,kind:'friend_post',payload:finalPayload});if(!r.ok){if(media.length)await supabaseClient.storage.from('ming-post-media').remove(media.map(x=>x.path)).catch(()=>{});throw Error(r.error||'Could not save this content.');}if(media.length){const urls=await Promise.all(media.map(async m=>{const {data,error}=await supabaseClient.storage.from('ming-post-media').createSignedUrl(m.path,3600);return error?'':data?.signedUrl||'';}));friendlyMediaUrlCache.set(r.data.row.id,Object.assign(urls,{expiresAt:Date.now()+3500000}));}closeSheet();renderSpace();toast('Saved to Friendly Space.','check');}
+async function save(payload,media=[]){const s=active();if(!s||s.nature!=='friendly'||!Server.can(s.id,'space.post'))throw Error('You cannot post in this Friendly Space.');const expiryMode=payload.expiryMode||'never';const expiryHours=Number(payload.expiryDurationHours);const finalPayload={...payload,expiryMode,expiryDurationHours:expiryMode==='duration'&&Number.isFinite(expiryHours)&&expiryHours>0?expiryHours:null,expiresAt:expiryMode==='duration'&&Number.isFinite(expiryHours)&&expiryHours>0?Date.now()+expiryHours*HOUR:null,media,reacts:{},mine:{},comments:[]};const r=await Server.submit('space.post',{spaceId:s.id,kind:'friend_post',payload:finalPayload});if(!r.ok){if(media.length)await supabaseClient.storage.from('ming-post-media').remove(media.map(x=>x.path)).catch(()=>{});throw Error(r.error||'Could not save this content.');}if(media.length){const urls=await Promise.all(media.map(async m=>{const {data,error}=await supabaseClient.storage.from('ming-post-media').createSignedUrl(m.path,2592000);return error?'':data?.signedUrl||'';}));friendlyMediaUrlCache.set(r.data.row.id,Object.assign(urls,{expiresAt:Date.now()+2505600000}));}closeSheet();renderSpace();toast('Saved to Friendly Space.','check');}
 const typeOptions=FRIENDSHIP_TYPES.map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('');
 function composer(kind,remix=''){const config={
  post:['Share a moment','Show your circle what you enjoy and the friendship you hope to find.','<div class="fs-post-intro"><span class="fs-post-intro-mark">✳</span><div><b>Your moment, your people.</b><small>Share something real and help your kind of people find you.</small></div><span class="fs-post-limit">4 MEDIA MAX</span></div><div class="field fs-media-field"><label>Attach photos or videos <span class="fs-media-count">UP TO 4 FILES</span></label><input id="fs-files" class="fs-media-input" type="file" accept="image/*,video/*" multiple><label class="fs-media-drop" for="fs-files"><span class="fs-media-drop-icon">＋</span><span class="fs-media-drop-copy"><b>Add media to your moment</b><small>Choose photos or videos from your device · 15 MB per photo · 50 MB per video</small></span><span class="fs-media-browse">Browse</span></label><div class="fs-media-preview" id="fs-media-preview" aria-live="polite"></div></div><div class="field"><label>Caption</label><textarea id="fs-caption" maxlength="300"></textarea></div><div class="field"><label>Who are you hoping to meet?</label><textarea id="fs-looking" maxlength="220"></textarea></div><div class="field"><label>Friendship type</label><select id="fs-type">'+typeOptions+'</select></div><div class="field"><label>Interests · comma separated</label><input id="fs-interests" maxlength="140"></div><div class="field"><label>How long should this post stay visible?</label><select id="fs-expiry"><option value="never" selected>Until I delete it</option><option value="1">1 hour</option><option value="6">6 hours</option><option value="12">12 hours</option><option value="24">24 hours</option><option value="72">3 days</option><option value="168">7 days</option><option value="720">30 days</option></select></div>'],
