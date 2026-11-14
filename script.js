@@ -2456,6 +2456,67 @@ function refreshLocationUI() {
 }
 
 /* ------------------------------------------------------------
+   RESUME MEDIA URL RECOVERY
+------------------------------------------------------------ */
+let mingMediaResumeRefreshRunning = false;
+async function refreshMingPostMediaUrls() {
+  if (mingMediaResumeRefreshRunning || !supabaseClient || !currentUser?.id) return;
+  mingMediaResumeRefreshRunning = true;
+  try {
+    const collections = [
+      dailyUpdates, discoverDailyUpdates, discoverNeedHelp, discoverOffers,
+      discoverOpportunities, discoverActivities, discoverVisitors
+    ];
+    const seen = new Set();
+    const posts = collections.flat().filter(post => {
+      if (!post || seen.has(post.id)) return false;
+      seen.add(post.id);
+      return Array.isArray(post.media) && post.media.some(item => item?.path);
+    });
+    let changed = false;
+    await Promise.all(posts.map(async post => {
+      const media = await Promise.all(post.media.map(async item => {
+        if (!item?.path) return item;
+        try {
+          const { data, error } = await supabaseClient.storage
+            .from('ming-post-media')
+            .createSignedUrl(item.path, 3600);
+          if (error || !data?.signedUrl) return item;
+          if (item.url !== data.signedUrl) changed = true;
+          return { ...item, url: data.signedUrl };
+        } catch (_) {
+          return item;
+        }
+      }));
+      post.media = media;
+    }));
+    if (!changed) return;
+    if (state.loaded.home) renderHomeFeed();
+    if (state.loaded.discover) renderDiscover();
+    if (state.loaded.profile) renderProfile();
+  } catch (error) {
+    console.warn('Tweaklr: media links could not be refreshed after returning to the app.', error);
+  } finally {
+    mingMediaResumeRefreshRunning = false;
+  }
+}
+
+let mingMediaResumeRefreshQueued = false;
+function queueMingMediaResumeRefresh() {
+  if (document.hidden || mingMediaResumeRefreshQueued) return;
+  mingMediaResumeRefreshQueued = true;
+  Promise.resolve().then(async () => {
+    mingMediaResumeRefreshQueued = false;
+    await refreshMingPostMediaUrls();
+  });
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) queueMingMediaResumeRefresh();
+});
+window.addEventListener('pageshow', queueMingMediaResumeRefresh);
+window.addEventListener('focus', queueMingMediaResumeRefresh);
+
+/* ------------------------------------------------------------
    REAL DAILY UPDATES — SUPABASE
 ------------------------------------------------------------ */
 async function loadMingDailyUpdates() {
