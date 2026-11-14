@@ -14832,8 +14832,7 @@ async function hydrateFriendlyMedia(spaceId) {
     const cached = friendlyMediaUrlCache.get(post.id);
     if (cached && cached.expiresAt > Date.now()+60000) continue;
     const urls = await Promise.all(media.map(async item => {
-      if (item.url) return item.url;
-      if (!item.path) return '';
+      if (!item.path) return item.url || '';
       const {data,error} = await supabaseClient.storage.from('ming-post-media').createSignedUrl(item.path,2592000);
       return error ? '' : (data?.signedUrl || '');
     }));
