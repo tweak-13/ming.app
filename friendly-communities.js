@@ -49,7 +49,7 @@
 
   async function signedPath(path) {
     if(!path)return '';
-    const {data,error}=await supabaseClient.storage.from('ming-post-media').createSignedUrl(path,3600);
+    const {data,error}=await supabaseClient.storage.from('ming-post-media').createSignedUrl(path,2592000);
     return error?'':data?.signedUrl||'';
   }
   async function loadIndex(spaceId) {
