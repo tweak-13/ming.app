@@ -12833,7 +12833,10 @@ function spaceTheme(s) {
 }
 function coverFor(s) {
   const theme = spaceTheme(s);
-  return `linear-gradient(140deg, ${theme.colors[1]} 0%, ${theme.colors[0]} 28%, ${theme.colors[1]} 58%, ${theme.colors[2]} 100%)`;
+  // Start every Space cover with its primary palette colour. Older saved Spaces
+  // use this same renderer, so their top edge is repainted without a DB migration.
+  const [primary, secondary, accent] = theme.colors;
+  return `linear-gradient(140deg, ${primary} 0%, ${primary} 18%, ${secondary} 58%, ${accent} 100%)`;
 }
 
 /* ============================================================
