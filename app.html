@@ -1060,10 +1060,9 @@
   window.addEventListener('error',function(e){
     // Media cancellations are expected when audio/video sources are replaced.
     var target=e.target;
-    if(target && (target.tagName==='AUDIO'||target.tagName==='VIDEO')){
-      var mediaError=target.error;
-      if(!mediaError || mediaError.code===1) return;
-    }
+    // Audio/video fetch failures are media-player errors, not app startup failures.
+    // Media URLs are refreshed when the app resumes; keep these out of the startup banner.
+    if(target && (target.tagName==='AUDIO'||target.tagName==='VIDEO')) return;
     // Ignore the primary Supabase CDN failure when its onerror fallback is configured.
     if(target && target.tagName==='SCRIPT' && target.hasAttribute('onerror')) return;
     var message=e.message||e.error&&e.error.message||'A resource failed to load';
@@ -1085,7 +1084,7 @@
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;document.write('<script src=&quot;https://unpkg.com/@supabase/supabase-js@2&quot;><' + '/script>')"></script>
-<script src="script.js?v=20261114-profile-edit-notifications-2"></script>
+<script src="script.js?v=20261114-media-resume-refresh-1"></script>
 <script src="friendly-space-integration.js?v=20261109-main-sync-1"></script>
 <script src="spaces-enhancements.js?v=20261109-no-pressure-removed-3"></script>
 <script src="spaces-launch-upgrades.js?v=20261109-main-sync-1"></script>
