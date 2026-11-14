@@ -18,7 +18,7 @@
     try {
       const result = await supabaseClient.storage
         .from('ming-message-files')
-        .createSignedUrl(path, 3600);
+        .createSignedUrl(path, 2592000);
 
       const url = result?.data?.signedUrl;
       if (!url) throw new Error(result?.error?.message || 'No signed URL');
