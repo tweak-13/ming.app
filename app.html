@@ -791,23 +791,6 @@
     <div id="chat-reply-preview" class="chat-reply-preview" hidden></div>
     <div id="chat-attachment-preview" class="chat-attachment-preview" hidden></div>
 
-    <div id="chat-recording-panel" class="chat-recording-panel" hidden aria-live="polite">
-      <div class="chat-recording-status">
-        <span class="chat-recording-indicator" id="chat-recording-indicator"></span>
-        <strong id="chat-recording-label">Recording voice note</strong>
-        <span id="chat-recording-time">0:00</span>
-      </div>
-      <div class="chat-recording-wave" aria-hidden="true"><i style="--voice-bar:31%"></i><i style="--voice-bar:50%"></i><i style="--voice-bar:69%"></i><i style="--voice-bar:88%"></i><i style="--voice-bar:35%"></i><i style="--voice-bar:54%"></i><i style="--voice-bar:73%"></i><i style="--voice-bar:20%"></i><i style="--voice-bar:39%"></i><i style="--voice-bar:58%"></i><i style="--voice-bar:77%"></i><i style="--voice-bar:24%"></i><i style="--voice-bar:43%"></i><i style="--voice-bar:62%"></i><i style="--voice-bar:81%"></i><i style="--voice-bar:28%"></i><i style="--voice-bar:47%"></i><i style="--voice-bar:66%"></i><i style="--voice-bar:85%"></i><i style="--voice-bar:32%"></i><i style="--voice-bar:51%"></i><i style="--voice-bar:70%"></i><i style="--voice-bar:89%"></i><i style="--voice-bar:36%"></i><i style="--voice-bar:55%"></i><i style="--voice-bar:74%"></i><i style="--voice-bar:21%"></i><i style="--voice-bar:40%"></i><i style="--voice-bar:59%"></i><i style="--voice-bar:78%"></i><i style="--voice-bar:25%"></i><i style="--voice-bar:44%"></i><i style="--voice-bar:63%"></i><i style="--voice-bar:82%"></i><i style="--voice-bar:29%"></i><i style="--voice-bar:48%"></i></div>
-      <p class="chat-recording-hint" id="chat-recording-hint">Slide up to lock · slide left to cancel</p>
-      <audio id="chat-voice-preview" controls preload="metadata" hidden></audio>
-      <div class="chat-recording-actions">
-        <button type="button" id="chat-recording-delete" class="chat-recording-delete" aria-label="Delete voice note" title="Delete voice note">Delete</button>
-        <button type="button" id="chat-recording-pause" class="chat-recording-secondary">Pause</button>
-        <button type="button" id="chat-recording-finish" class="chat-recording-secondary">Finish</button>
-        <button type="button" id="chat-recording-send" class="chat-recording-send" disabled>Send</button>
-      </div>
-    </div>
-
     <form class="composer" id="chat-form">
 
       <button class="chat-attach-btn" type="button" id="chat-attach" aria-label="Attach a photo or file" title="Attach a photo or file">
@@ -815,13 +798,7 @@
       </button>
       <input id="chat-attachment-input" type="file"
         accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,video/mp4,video/webm,video/quicktime,video/x-m4v,application/pdf,text/plain,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-        hidden />
-
-      <button class="chat-voice-btn" type="button" id="chat-voice" aria-label="Record voice note" title="Voice note">
-        <svg><use href="#i-mic"/></svg>
-      </button>
-
-      <textarea
+        hidden /><textarea
         id="chat-input"
         rows="1"
         placeholder="Message"
@@ -1090,7 +1067,7 @@
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;document.write('<script src=&quot;https://unpkg.com/@supabase/supabase-js@2&quot;><' + '/script>')"></script>
-<script src="script.js?v=20261114-media-url-30day-1"></script>
+<script src="script.js?v=20261114-no-chat-voice-1"></script>
 <script src="friendly-space-integration.js?v=20261114-media-url-30day-1"></script>
 <script src="spaces-enhancements.js?v=20261109-no-pressure-removed-3"></script>
 <script src="spaces-launch-upgrades.js?v=20261109-main-sync-1"></script>
