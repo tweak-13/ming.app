@@ -5104,7 +5104,7 @@ async function loadMingMessages(options = {}) {
 
       const byConversation = new Map();
       (rows || []).forEach(row => {
-        if (hiddenMessageIds.has(row.id)) return;
+        if (hiddenMessageIds.has(row.id) || row.message_type === 'voice' || row.voice_path) return;
         const otherId = row.sender_id === userId ? row.recipient_id : row.sender_id;
         const c = byConversation.get(otherId) || {
           id: 'c_' + otherId, personId: otherId, unread: 0, messages: []
@@ -5116,8 +5116,7 @@ async function loadMingMessages(options = {}) {
           at: new Date(row.created_at).getTime(),
           read: !!row.read_at,
           type: row.message_type || 'text',
-          voicePath: row.voice_path || '',
-          voiceDuration: row.voice_duration || 0,
+
           replyToId: row.reply_to_id || null,
           attachmentPath: row.attachment_path || '',
           attachmentName: row.attachment_name || '',
@@ -6447,6 +6446,7 @@ async function subscribeMingMessages() {
       },
       payload => {
         const row = payload.new;
+        if (row.message_type === 'voice' || row.voice_path) return;
         const p = byId(row.sender_id);
         if (!p) return;
 
@@ -6465,8 +6465,7 @@ async function subscribeMingMessages() {
           at: new Date(row.created_at).getTime(),
           read: false,
           type: row.message_type || 'text',
-          voicePath: row.voice_path || '',
-          voiceDuration: row.voice_duration || 0,
+
           replyToId: row.reply_to_id || null,
           attachmentPath: row.attachment_path || '',
           attachmentName: row.attachment_name || '',
@@ -6787,7 +6786,7 @@ function setChatReply(messageId) {  const c = convoFor(state.activeChat);
     preview.innerHTML = `
       <button type="button" aria-label="Cancel reply" data-action="chat-cancel-reply">×</button>
       <strong>Replying to ${m.me ? 'your message' : esc(byId(state.activeChat)?.short || 'them')}</strong>
-      ${m.type === 'voice' ? '🎙️ Voice note' : esc((m.text || '').slice(0, 140))}
+      ${esc((m.text || '').slice(0, 140))}
     `;
   }
   $('#chat-input')?.focus();
@@ -6944,9 +6943,9 @@ function renderThread() {
     return `
     <div class="chat-message-row ${m.me ? 'chat-message-row--outgoing' : 'chat-message-row--incoming'}"
          data-message-id="${esc(m.id)}">
-      <div class="chat-bubble ${m.type === 'voice' && m.me ? 'chat-bubble--voice-outgoing' : ''}" data-message-id="${esc(m.id)}">
-        ${reply ? `<button type="button" class="chat-bubble__reply" data-action="chat-jump-reply:${esc(reply.id)}" aria-label="Jump to replied message"><strong>${reply.me ? 'You' : esc(byId(state.activeChat)?.short || 'Them')}</strong>${reply.type === 'voice' ? '🎙️ Voice note' : esc((reply.text || '').slice(0, 110))}</button>` : ''}
-        ${m.type === 'voice' ? renderVoiceMessage(m) : (m.attachmentPath ? renderChatAttachment(m) : `<span class="chat-bubble__text">${esc(m.text)}</span>`)}
+      <div class="chat-bubble" data-message-id="${esc(m.id)}">
+        ${reply ? `<button type="button" class="chat-bubble__reply" data-action="chat-jump-reply:${esc(reply.id)}" aria-label="Jump to replied message"><strong>${reply.me ? 'You' : esc(byId(state.activeChat)?.short || 'Them')}</strong>${esc((reply.text || '').slice(0, 110))}</button>` : ''}
+        ${m.attachmentPath ? renderChatAttachment(m) : `<span class="chat-bubble__text">${esc(m.text)}</span>`}
         <span class="chat-bubble__time">${clockTime(m.at)}${m.me ? ` · ${m.read ? 'Read' : 'Sent'}` : ''}</span>
         ${Object.entries(reactions).length ? `<span class="chat-reactions">${Object.entries(reactions).map(([emoji,count]) => tweaklrReactionMarkup(emoji,count)).join('')}</span>` : ''}
       </div>
@@ -7008,7 +7007,6 @@ function canEditChatMessage(m) {
     m.me === true &&
     m.type === 'text' &&
     !m.attachmentPath &&
-    !m.voicePath &&
     ageMs >= 0 &&
     ageMs <= 60 * 60 * 1000;
 }
@@ -7265,7 +7263,6 @@ async function deleteChatMessage(messageId, mode) {
   // the sender afterward so a failed storage cleanup never blocks deletion.
   const cleanupPaths = [];
   if (m.attachmentPath) cleanupPaths.push({ bucket: 'ming-message-files', path: m.attachmentPath });
-  if (m.voicePath) cleanupPaths.push({ bucket: 'ming-voice', path: m.voicePath });
 
   const cleanupFailures = [];
   for (const item of cleanupPaths) {
@@ -7298,10 +7295,6 @@ async function copyChatMessage(messageId) {
   const c = convoFor(state.activeChat);
   const m = c.messages.find(x => x.id === messageId);
   if (!m) return;
-  if (m.type === 'voice') {
-    toast('Voice notes cannot be copied as text.', 'alert');
-    return;
-  }
   await navigator.clipboard?.writeText(m.text || '');
   closeSheet();
   toast('Message copied', 'check');
@@ -7487,7 +7480,6 @@ async function sendMessage(text, options = {}) {
     c.messages.push({
       id: row.id, me:true, text:row.body, at:new Date(row.created_at).getTime(),
       read:!!row.read_at, type:row.message_type || 'text',
-      voicePath:row.voice_path || '', voiceDuration:row.voice_duration || 0,
       replyToId:row.reply_to_id || null, reactions:[]
     });
     clearChatReply();
